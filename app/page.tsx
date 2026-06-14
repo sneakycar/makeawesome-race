@@ -169,13 +169,6 @@ function RaceMetaPanel({
     timerLine = "RACE FINALIZED";
   }
 
-  const progressDisplay = `${Math.round(
-    clock.phase === "delayed" && raceDelay?.frozenPercent != null
-      ? raceDelay.frozenPercent
-      : liveRaceProgress != null
-        ? liveRaceProgress
-        : clock.percentComplete
-  )}%`;
   const progressBarWidth =
     clock.phase === "delayed" && raceDelay?.frozenPercent != null
       ? raceDelay.frozenPercent
@@ -188,7 +181,6 @@ function RaceMetaPanel({
       <div className="race-meta">
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
         <div className="race-meta-line race-meta-progress-row">
-          <span className="race-meta-progress-label">{`${progressDisplay} DONE`}</span>
           <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
         </div>
         <div className="race-meta-gap" aria-hidden="true" />
@@ -247,35 +239,54 @@ function RaceProgressPipBar({
   isNight: boolean;
 }) {
   const clamped = Math.max(0, Math.min(100, percent));
+  const displayPct = Math.round(clamped);
+  const markerLeft = Math.max(3, Math.min(97, clamped));
   const filled = Math.max(
     0,
     Math.min(SCORE_PIP_SLOTS, Math.round((clamped / 100) * SCORE_PIP_SLOTS))
   );
 
   return (
-    <div className="race-progress-pip-viewport" aria-hidden="true">
-      <div className={`race-progress-pip-pill${isNight ? " is-night" : ""}`}>
-        <div className="race-progress-pip-track">
-          {Array.from({ length: SCORE_PIP_SLOTS }, (_, i) => {
-            const isOn = i < filled;
-            return (
-              <span
-                key={i}
-                className={`race-progress-pip${isOn ? " race-progress-pip-on" : " race-progress-pip-dim"}`}
-                style={
-                  isOn
-                    ? getRaceProgressPipSurfaceStyle(
-                        i,
-                        Math.max(1, filled - 1),
-                        isNight
-                      )
-                    : undefined
-                }
-              />
-            );
-          })}
+    <div
+      className={`race-progress-wrap${isNight ? " is-night" : ""}`}
+      role="progressbar"
+      aria-valuenow={displayPct}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`Race ${displayPct}% complete`}
+    >
+      <div
+        className="race-progress-marker"
+        style={{ left: `${markerLeft}%` }}
+        aria-hidden="true"
+      >
+        <span className="race-progress-marker-label">{displayPct}%</span>
+        <span className="race-progress-marker-point" />
+      </div>
+      <div className="race-progress-pip-viewport">
+        <div className={`race-progress-pip-pill${isNight ? " is-night" : ""}`}>
+          <div className="race-progress-pip-track">
+            {Array.from({ length: SCORE_PIP_SLOTS }, (_, i) => {
+              const isOn = i < filled;
+              return (
+                <span
+                  key={i}
+                  className={`race-progress-pip${isOn ? " race-progress-pip-on" : " race-progress-pip-dim"}`}
+                  style={
+                    isOn
+                      ? getRaceProgressPipSurfaceStyle(
+                          i,
+                          Math.max(1, filled - 1),
+                          isNight
+                        )
+                      : undefined
+                  }
+                />
+              );
+            })}
+          </div>
+          <div className="race-progress-pip-bezel" />
         </div>
-        <div className="race-progress-pip-bezel" />
       </div>
     </div>
   );

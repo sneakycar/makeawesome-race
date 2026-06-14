@@ -292,36 +292,50 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .race-meta-progress-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.race-meta-progress-label {
-  flex-shrink: 0;
-}
-
-.race-progress-track {
-  flex: 1 1 auto;
-  min-width: 0;
   display: block;
-  height: 11px;
-  background: #eee;
-  border: 1px solid #999;
-  border-radius: 999px;
-  overflow: hidden;
+  width: 100%;
 }
 
-.race-progress-fill {
-  height: 100%;
-  background: #111;
-  border-radius: 999px;
-  transition: width 0.12s linear;
+.race-progress-wrap {
+  position: relative;
+  width: 100%;
+  padding-top: 13px;
+}
+
+.race-progress-marker {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  z-index: 2;
+  transition: left 0.12s linear;
+}
+
+.race-progress-marker-label {
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: #333;
+  white-space: nowrap;
+}
+
+.race-progress-marker-point {
+  width: 0;
+  height: 0;
+  margin-top: 1px;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 4px solid #333;
 }
 
 /* race clock progress — bitmap pips in pill */
 .race-progress-pip-viewport {
-  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
   height: 13px;
 }
@@ -410,6 +424,14 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
       #141414 1px,
       #141414 2px
     );
+}
+
+.race-progress-wrap.is-night .race-progress-marker-label {
+  color: #ccc;
+}
+
+.race-progress-wrap.is-night .race-progress-marker-point {
+  border-top-color: #ccc;
 }
 
 .score-pip-viewport {
