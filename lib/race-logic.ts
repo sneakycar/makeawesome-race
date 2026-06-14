@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
-import { TARGET_WINNER_SCORE, clampRaceScore, getPaceCap } from "./score";
+import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap } from "./score";
+import { getCombinedRaceTempo, getRaceWeekTempo } from "./race-tempo";
+import { resolveWinnerRaceScore } from "./god-score";
 import { appendRecentDelta } from "./hybrid-live-score";
 import { ordinal, slugify } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
@@ -74,7 +76,7 @@ import type { Player, Race, RaceEntry, RaceEntryWithPlayer, InjuryRecord } from 
 export const TICKS_PER_RACE = 48;
 /** @deprecated use TICKS_PER_RACE */
 export const TICKS_PER_DAY = TICKS_PER_RACE;
-/** Average points per tick at neutral tempo (~125 midpoint over 48 ticks). */
+/** Average points per tick at neutral tempo (~155 midpoint over 48 ticks). */
 export const EXPECTED_POINTS_PER_TICK = TARGET_WINNER_SCORE / TICKS_PER_RACE;
 /** @deprecated use EXPECTED_POINTS_PER_TICK */
 export const EXPECTED_DELTA = EXPECTED_POINTS_PER_TICK;
@@ -191,7 +193,7 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
   const normalizedSkill = Math.max(0, Math.min(100, baseSkill + rookieBonus + comebackBonus)) / 100;
   const skillMultiplier = 0.42 + normalizedSkill * 1.18;
 
-  const raceTempo = seededRange(`${raceId}:${playerId}:tempo`, 0.62, 1.42);
+  const raceTempo = getCombinedRaceTempo(raceId, playerId);
 
   const wildSwingBase = seededRange(`${seedBase}:wild`, -2.8, 3.6);
   const wildSwing = wildSwingBase * (1 + player.chaos / 160) * getWildSwingMultiplier(player);
@@ -257,10 +259,12 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
 
   delta *= getLanePerformanceMultiplier(input.lane);
 
-  // Soft pace cap — tempo sets the night (cold ~50, hot ~215); hard cap is 240
-  const paceLeash = 42 + player.burst * 0.14 + player.luck * 0.1 + player.chaos * 0.06;
+  // Soft pace cap — week tempo sets the night; natural max is 239
+  const weekTempo = getRaceWeekTempo(raceId);
+  const baseLeash = 14 + player.burst * 0.1 + player.luck * 0.07 + player.chaos * 0.04;
+  const paceLeash = baseLeash * (0.35 + weekTempo * 0.75);
   const paceCap = getPaceCap(percentComplete, raceTempo, paceLeash);
-  let newScore = clampRaceScore(currentScore + delta);
+  let newScore = clampNaturalRaceScore(currentScore + delta);
   if (newScore > paceCap) {
     newScore = paceCap;
   }
@@ -403,6 +407,7 @@ export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<
     current_day: 1,
     current_race_number: 1,
     last_tick_at: new Date().toISOString(),
+    god_score_awarded: false,
   });
   if (gsErr) throw gsErr;
 
@@ -968,6 +973,33 @@ export async function finalizeRace(
     ranked[i].final_rank = i + 1;
   }
 
+  const godScoreAwarded = Boolean(gameState?.god_score_awarded);
+  const winnerForGod = ranked.find(
+    (e) => !e.is_injured && !e.is_disqualified && e.final_rank === 1
+  );
+  let godScoreGranted = false;
+  if (winnerForGod) {
+    const resolved = resolveWinnerRaceScore(
+      Number(winnerForGod.race_score),
+      race.id,
+      godScoreAwarded
+    );
+    if (resolved.score !== Number(winnerForGod.race_score)) {
+      winnerForGod.race_score = resolved.score;
+      winnerForGod.progress = resolved.score;
+      winnerForGod.displayed_progress = resolved.score;
+      const simWinner = sim.find((s) => s.player_id === winnerForGod.player_id);
+      if (simWinner) simWinner.score = resolved.score;
+    }
+    godScoreGranted = resolved.godScoreGranted;
+    if (godScoreGranted) {
+      await supabase
+        .from("game_state")
+        .update({ god_score_awarded: true, updated_at: now.toISOString() })
+        .eq("id", 1);
+    }
+  }
+
   const hadInjuries = ranked.some((e) => e.is_injured);
   const injuredIds = ranked.filter((e) => e.is_injured).map((e) => e.player_id);
   const dqIds = ranked.filter((e) => e.is_disqualified).map((e) => e.player_id);
@@ -1147,6 +1179,20 @@ export async function finalizeRace(
       winnerEntry.player_id,
       lastHealthy.player_id
     );
+    if (godScoreGranted) {
+      finalizeMessages.unshift({
+        message: `${(winnerEntry.player as Player).name} hits 240 — GOD DESCENDS`,
+        eventType: "god_score",
+        playerId: winnerEntry.player_id,
+        facts: {
+          tickNumber: TICKS_PER_RACE - 1,
+          percentComplete: 100,
+          playerName: (winnerEntry.player as Player).name,
+          progressAfter: 240,
+        },
+        priority: 99,
+      });
+    }
     await saveTickerEvents(supabase, race.id, TICKS_PER_RACE, finalizeMessages);
   }
 

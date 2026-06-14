@@ -4,7 +4,7 @@ import {
   getRaceTickIntervalMs,
   type TickDeltaResult,
 } from "./race-logic";
-import { clampRaceScore } from "./score";
+import { clampNaturalRaceScore } from "./score";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
 import type { Player, Race } from "./types";
 
@@ -188,7 +188,7 @@ export function applySimTick(
       chaosUsed.set(entry.player_id, true);
     }
 
-    entry.score = clampRaceScore(entry.score + result.delta);
+    entry.score = clampNaturalRaceScore(entry.score + result.delta);
     results.push({
       player_id: entry.player_id,
       delta: result.delta,

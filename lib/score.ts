@@ -1,34 +1,43 @@
-/** Midpoint winning total — actual outcomes spread ~50–215 via tempo + variance. */
-export const TARGET_WINNER_SCORE = 125;
-export const MIN_WINNER_SCORE = 50;
-/** Soft ceiling — pace math never pushes a racer above this in normal play. */
-export const MAX_WINNER_SCORE = 200;
-/** Extra leash above the tempo curve at the checkered flag. */
-export const PACE_CAP_BUFFER = 15;
-/** Natural race ceiling (pace cap at 100%). Always below HARD_SCORE_CAP. */
-export const NATURAL_SCORE_CEILING = MAX_WINNER_SCORE + PACE_CAP_BUFFER;
-/** Absolute point total — safety rail only; sim pace math stays under this. */
-export const HARD_SCORE_CAP = 240;
+/** Midpoint winning total — typical winners land ~120–190 via week tempo. */
+export const TARGET_WINNER_SCORE = 155;
+export const MIN_WINNER_SCORE = 30;
+/** Hot-tail reference before the once-per-universe god score. */
+export const MAX_WINNER_SCORE = 230;
+/** Natural ceiling every race — nobody reaches 240 without the god event. */
+export const NATURAL_SCORE_MAX = 239;
+export const GOD_SCORE = 240;
+/** Absolute point total — safety rail + pip track length. */
+export const HARD_SCORE_CAP = GOD_SCORE;
 /** Race row bars: fixed track length; one pip per point, always this many slots. */
 export const SCORE_TRACK_SLOTS = HARD_SCORE_CAP;
+
+/** @deprecated use NATURAL_SCORE_MAX */
+export const PACE_CAP_BUFFER = 0;
+/** @deprecated use NATURAL_SCORE_MAX */
+export const NATURAL_SCORE_CEILING = NATURAL_SCORE_MAX;
 
 const scoreFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
+
+/** Clamp to the natural race ceiling (239). */
+export function clampNaturalRaceScore(score: number): number {
+  return Math.max(0, Math.min(NATURAL_SCORE_MAX, score));
+}
 
 /** Clamp stored / displayed race points to [0, HARD_SCORE_CAP]. */
 export function clampRaceScore(score: number): number {
   return Math.max(0, Math.min(HARD_SCORE_CAP, score));
 }
 
-/** Tempo-aware soft cap for a tick (never exceeds NATURAL_SCORE_CEILING). */
+/** Tempo-aware soft cap for a tick (never exceeds NATURAL_SCORE_MAX). */
 export function getPaceCap(
   percentComplete: number,
   raceTempo: number,
   paceLeash: number
 ): number {
   const expectedScore = (percentComplete / 100) * TARGET_WINNER_SCORE * raceTempo;
-  return Math.min(NATURAL_SCORE_CEILING, expectedScore + paceLeash);
+  return Math.min(NATURAL_SCORE_MAX, expectedScore + paceLeash);
 }
 
 /** Format a race point total for display (e.g. 135, 1,024). */

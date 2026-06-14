@@ -28,7 +28,8 @@ export type TickerEventType =
   | "eliminated"
   | "race_delay"
   | "race_resumed"
-  | "fight";
+  | "fight"
+  | "god_score";
 
 export interface TickerEventDraft {
   eventType: TickerEventType;

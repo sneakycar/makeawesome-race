@@ -184,6 +184,7 @@ create table if not exists game_state (
   current_day integer not null,
   current_race_number integer not null,
   last_tick_at timestamptz,
+  god_score_awarded boolean not null default false,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

@@ -134,6 +134,7 @@ export interface GameState {
   current_day: number;
   current_race_number: number;
   last_tick_at: string | null;
+  god_score_awarded: boolean;
   created_at: string;
   updated_at: string;
 }
