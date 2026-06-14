@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRaceClock, type RaceClock } from "@/lib/race-clock";
 import { useCronUpdate } from "@/lib/use-cron-update";
 import { TickBurstOverlay } from "@/app/components/tick-burst-overlay";
-import type { GameStateResponse, Player, TickerEvent } from "@/lib/types";
+import type { GameStateResponse, LastRaceRecap, Player, TickerEvent } from "@/lib/types";
 import Link from "next/link";
 import {
   formatRaceBegan,
@@ -31,6 +31,7 @@ import { canEncourageVote, getEncourageButtonPhase, vibrateNope } from "@/lib/no
 import { getOrCreateDeviceId } from "@/lib/client-device-id";
 import { useEncourageCooldown } from "@/lib/use-encourage-cooldown";
 import { calculateLiveOdds } from "@/lib/live-odds";
+import { buildOvrRankings, ovrRankingsToRecord } from "@/lib/ovr";
 import { buildLiveScoreMap, computeLiveRanks } from "@/lib/live-standings";
 import { computeRaceBarMarks, isEarlyRaceWindow } from "@/lib/race-bar-marks";
 import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
@@ -346,9 +347,16 @@ function StreakSection({ streaks }: { streaks: GameStateResponse["streaks"] }) {
     return <p className="streak-empty">No active streaks yet</p>;
   }
 
+  const sorted = [...streaks].sort((a, b) => {
+    if (a.current_streak_type !== b.current_streak_type) {
+      return a.current_streak_type === "win" ? -1 : 1;
+    }
+    return b.current_streak_count - a.current_streak_count;
+  });
+
   return (
     <div className="streak-list">
-      {streaks.map((entry) => {
+      {sorted.map((entry) => {
         const isWin = entry.current_streak_type === "win";
         return (
           <div key={entry.slug} className="streak-row">
@@ -363,7 +371,13 @@ function StreakSection({ streaks }: { streaks: GameStateResponse["streaks"] }) {
   );
 }
 
-function InjuredSection({ players }: { players: Player[] }) {
+function InjuredSection({
+  players,
+}: {
+  players: Array<
+    Pick<Player, "name" | "current_injury_name" | "injury_races_remaining">
+  >;
+}) {
   if (players.length === 0) {
     return <div className="holding-list">NONE</div>;
   }
@@ -378,7 +392,11 @@ function InjuredSection({ players }: { players: Player[] }) {
   return <div className="holding-list">{list}</div>;
 }
 
-function HoldingSection({ players }: { players: Player[] }) {
+function HoldingSection({
+  players,
+}: {
+  players: Array<Pick<Player, "name" | "age_days">>;
+}) {
   if (players.length === 0) {
     return (
       <p className="holding-empty">
@@ -459,6 +477,7 @@ function AboutSection() {
 
 export default function HomePage() {
   const [state, setState] = useState<GameStateResponse | null>(null);
+  const [lastRaceRecap, setLastRaceRecap] = useState<LastRaceRecap | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [nopeShakeId, setNopeShakeId] = useState<string | null>(null);
@@ -495,7 +514,17 @@ export default function HomePage() {
 
   const loadState = useCallback(async () => {
     const data = await fetchState();
-    if (data) setState(data);
+    if (data) {
+      setState(data);
+      fetch("/api/recap")
+        .then((res) => res.json())
+        .then((recapData) => {
+          if (recapData.lastRaceRecap) {
+            setLastRaceRecap(recapData.lastRaceRecap as LastRaceRecap);
+          }
+        })
+        .catch(() => {});
+    }
   }, [fetchState]);
 
   useEffect(() => {
@@ -510,6 +539,14 @@ export default function HomePage() {
   useEffect(() => {
     loadState();
   }, [loadState]);
+
+  const ovrByPlayerId = useMemo(() => {
+    if (!state?.entries.length) return {};
+    const players = state.entries
+      .map((entry) => entry.player)
+      .filter((player): player is Player => Boolean(player));
+    return ovrRankingsToRecord(buildOvrRankings(players));
+  }, [state?.entries]);
 
   const encouragement = state?.encouragement;
   const cooldownReady = useEncourageCooldown(encouragement);
@@ -756,9 +793,9 @@ export default function HomePage() {
       state.entries,
       liveScoreMap,
       liveRankMap,
-      state.ovrByPlayerId
+      ovrByPlayerId
     );
-  }, [state, raceActive, raceDelayed, liveRace, liveScoreMap, liveRankMap]);
+  }, [state, raceActive, raceDelayed, liveRace, liveScoreMap, liveRankMap, ovrByPlayerId]);
 
   const entryScorePoints =
     state?.entries.map((e) => liveScoreMap.get(e.player_id) ?? 0) ?? [];
@@ -903,6 +940,8 @@ export default function HomePage() {
             const rank = liveRankMap.get(entry.player_id) ?? entry.current_rank;
             const pipDisplayScore =
               live?.score ?? roundRaceScore(Number(entry.race_score));
+            const pipConfirmedScore = roundRaceScore(Number(entry.race_score));
+            const pipSegmentProgress = live?.segmentProgress ?? 1;
             const pipAnimatingDelta = live?.animatingDelta ?? 0;
             const isInjured = entry.is_injured;
             const isFighting = entry.is_fighting;
@@ -953,6 +992,7 @@ export default function HomePage() {
                 >
                   <div className="row-head">
                     <span className="row-archetype">L{entry.lane}</span>
+                    <span className="row-rank-pos">{rank}]</span>
                     <span className="row-name">{formatRacerName(entry.player.name)}</span>
                     {rankDeltaLabel && (
                       <span
@@ -975,6 +1015,8 @@ export default function HomePage() {
                     </span>
                     <ScorePipTrack
                       score={pipDisplayScore}
+                      confirmedScore={pipConfirmedScore}
+                      segmentProgress={pipSegmentProgress}
                       animatingDelta={pipAnimatingDelta}
                       leaderScore={leaderScorePoints}
                       isLeader={isLeader}
@@ -1123,11 +1165,11 @@ export default function HomePage() {
           <div className="divider">{"────────────────────────"}</div>
 
           <div className="home-sections-grid">
-            {state.lastRaceRecap && (
+            {lastRaceRecap && (
               <div className="home-section-block home-section-block-full">
                 <div className="section-label">LAST RACE RECAP</div>
                 <p className="last-race-recap">
-                  {state.lastRaceRecap.segments.map((segment, i) =>
+                  {lastRaceRecap.segments.map((segment, i) =>
                     segment.kind === "name" ? (
                       <strong key={i} className="last-race-recap-name">
                         {segment.value}
@@ -1137,9 +1179,9 @@ export default function HomePage() {
                     )
                   )}
                 </p>
-                {state.lastRaceRecap.abilityGainsSegments && (
+                {lastRaceRecap.abilityGainsSegments && (
                   <p className="last-race-recap last-race-recap-abilities">
-                    {state.lastRaceRecap.abilityGainsSegments.map((segment, i) =>
+                    {lastRaceRecap.abilityGainsSegments.map((segment, i) =>
                       segment.kind === "name" ? (
                         <strong key={i} className="last-race-recap-name">
                           {segment.value}
@@ -1270,7 +1312,7 @@ export default function HomePage() {
               ? null
               : barMarksById.get(selectedEntry.player_id) ?? null
           }
-          ovrInfo={state?.ovrByPlayerId[selectedEntry.player_id]}
+          ovrInfo={ovrByPlayerId[selectedEntry.player_id]}
           isNight={isNight}
           onClose={() => setSelectedSlug(null)}
           playerId={selectedEntry.player_id}
@@ -1278,6 +1320,10 @@ export default function HomePage() {
           recentDeltas={
             selectedEntry.recent_deltas ??
             (selectedEntry.last_delta ? [Number(selectedEntry.last_delta)] : [])
+          }
+          confirmedScore={roundRaceScore(Number(selectedEntry.race_score))}
+          segmentProgress={
+            liveRace?.entries.get(selectedEntry.player_id)?.segmentProgress ?? 1
           }
         />
       )}

@@ -310,18 +310,16 @@ export interface LastRaceRecap {
 export interface GameStateResponse {
   race: Race;
   entries: RaceEntryWithPlayer[];
-  allTime: Player[];
+  allTime: Array<Pick<Player, "id" | "name" | "wins">>;
   streaks: StreakEntry[];
-  holding: Player[];
-  injured: Player[];
-  ovrByPlayerId: Record<string, OvrRanking>;
+  holding: Array<Pick<Player, "name" | "age_days">>;
+  injured: Array<Pick<Player, "name" | "current_injury_name" | "injury_races_remaining">>;
   serverTime: string;
   remainingMs: number;
   startsInMs: number;
   racePhase: "upcoming" | "live" | "ended" | "delayed";
   percentComplete: number;
   raceDelay: RaceDelayInfo | null;
-  laneStats: LaneWinStat[];
   gameState: GameState;
   encouragement: EncouragementState;
   badMoney: BadMoneyState;
@@ -330,7 +328,12 @@ export interface GameStateResponse {
   nextRaceNumber: number | null;
   nextRaceStartsAt: string | null;
   devTools: boolean;
-  lastRaceRecap: LastRaceRecap | null;
+  /** @deprecated computed client-side; may be absent on /api/state */
+  ovrByPlayerId?: Record<string, OvrRanking>;
+  /** @deprecated loaded from /api/recap */
+  lastRaceRecap?: LastRaceRecap | null;
+  /** @deprecated no longer fetched on initial load */
+  laneStats?: LaneWinStat[];
 }
 
 export interface PlayerProfileResponse {

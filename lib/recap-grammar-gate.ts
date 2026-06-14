@@ -20,6 +20,96 @@ const BANNED_SUBSTRINGS = [
 
 const ALLOWED_ALL_CAPS = new Set(["GOD", "II", "III", "IV"]);
 
+const RECAP_ONES = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+] as const;
+
+const RECAP_TENS = [
+  "",
+  "",
+  "twenty",
+  "thirty",
+  "forty",
+  "fifty",
+  "sixty",
+  "seventy",
+  "eighty",
+  "ninety",
+] as const;
+
+/** Spell out a non-negative integer for recap prose (e.g. 3 → "three"). */
+export function spellRecapNumber(n: number): string {
+  const value = Math.round(Math.abs(n));
+  if (value < 20) return RECAP_ONES[value]!;
+  if (value < 100) {
+    const tens = Math.floor(value / 10);
+    const ones = value % 10;
+    return ones ? `${RECAP_TENS[tens]}-${RECAP_ONES[ones]}` : RECAP_TENS[tens]!;
+  }
+  if (value < 1000) {
+    const hundreds = Math.floor(value / 100);
+    const rest = value % 100;
+    if (!rest) return `${RECAP_ONES[hundreds]} hundred`;
+    return `${RECAP_ONES[hundreds]} hundred ${spellRecapNumber(rest)}`;
+  }
+  return String(value);
+}
+
+/** Replace numerals at sentence or semicolon-clause starts with spelled-out words. */
+export function spellOutLeadingNumerals(text: string): string {
+  return text.replace(
+    /(^|[.;!?]\s+|;\s+)(\d[\d,]*)\b/g,
+    (match, prefix: string, numStr: string) => {
+      const num = Number(numStr.replace(/,/g, ""));
+      if (!Number.isFinite(num)) return match;
+      return `${prefix}${spellRecapNumber(num)}`;
+    }
+  );
+}
+
+export function finalizeRecapLine(text: string): string {
+  return spellOutLeadingNumerals(cleanRecapLine(text));
+}
+
+export function finalizeRecapParagraph(text: string): string {
+  return finalizeRecapLine(text);
+}
+
+function startsWithNumeral(text: string): boolean {
+  return /^\d/.test(text.trim());
+}
+
+function validateNoLeadingNumerals(text: string): RecapGrammarResult {
+  if (startsWithNumeral(text)) {
+    return { ok: false, reason: "starts with numeral" };
+  }
+  for (const clause of text.split(/\s*;\s*/)) {
+    if (clause && startsWithNumeral(clause)) {
+      return { ok: false, reason: "clause starts with numeral" };
+    }
+  }
+  return { ok: true };
+}
+
 export function cleanRecapLine(text: string): string {
   let result = text.replace(/\s+/g, " ").trim();
   result = result.replace(/ \./g, ".").replace(/ ,/g, ",");
@@ -30,7 +120,7 @@ export function cleanRecapLine(text: string): string {
 }
 
 export function validateRecapLine(text: string): RecapGrammarResult {
-  const cleaned = cleanRecapLine(text);
+  const cleaned = finalizeRecapLine(text);
   if (!cleaned) return { ok: false, reason: "empty line" };
   if (cleaned.includes("  ")) return { ok: false, reason: "duplicate spaces" };
   if (cleaned.includes("..") || cleaned.includes(",,") || cleaned.includes(";;")) {
@@ -80,6 +170,9 @@ export function validateRecapLine(text: string): RecapGrammarResult {
     }
   }
 
+  const numeralCheck = validateNoLeadingNumerals(cleaned);
+  if (!numeralCheck.ok) return numeralCheck;
+
   return { ok: true };
 }
 
@@ -98,7 +191,7 @@ function hasDuplicateWords(text: string): boolean {
 }
 
 export function validateRecapParagraph(text: string): RecapGrammarResult {
-  const cleaned = cleanRecapLine(text);
+  const cleaned = finalizeRecapParagraph(text);
   if (!cleaned) return { ok: false, reason: "empty paragraph" };
 
   const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(Boolean);
@@ -146,7 +239,7 @@ export function pickGatedRecapPhrase(
 
   for (let i = 0; i < eligible.length; i++) {
     const template = eligible[(start + i) % eligible.length]!;
-    const line = fillRecapTemplate(template, vars);
+    const line = finalizeRecapLine(fillRecapTemplate(template, vars));
     if (validateRecapLine(line).ok) return line;
   }
 

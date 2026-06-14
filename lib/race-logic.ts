@@ -7,6 +7,7 @@ import { resolveWinnerRaceScore } from "./god-score";
 import { appendRecentDelta } from "./hybrid-live-score";
 import { ordinal, slugify, formatRacerName } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
+import { RACE_ENTRY_PLAYER_SELECT } from "./race-player-columns";
 import { processRaceSupports } from "./support-db";
 import { processBadMoneyAtFinalize } from "./bad-money-db";
 import { applyBadMoneyToDelta } from "./bad-money";
@@ -1676,8 +1677,16 @@ async function addHistory(
   }
 }
 
-export async function getAllTimeTop3(supabase: SupabaseClient): Promise<Player[]> {
-  const { data } = await supabase.from("players").select("*").order("wins", { ascending: false });
+export async function getAllTimeTop3(
+  supabase: SupabaseClient
+): Promise<Array<Pick<Player, "id" | "name" | "wins">>> {
+  const { data } = await supabase
+    .from("players")
+    .select("id, name, wins, races, best_finish, created_day")
+    .gt("wins", 0)
+    .order("wins", { ascending: false })
+    .limit(24);
+
   if (!data?.length) return [];
 
   const sorted = [...data].sort((a, b) => {
@@ -1689,8 +1698,7 @@ export async function getAllTimeTop3(supabase: SupabaseClient): Promise<Player[]
     return a.created_day - b.created_day;
   });
 
-  const withWins = sorted.filter((p) => p.wins > 0);
-  return withWins.slice(0, 3);
+  return sorted.slice(0, 3).map(({ id, name, wins }) => ({ id, name, wins }));
 }
 
 export async function getActiveStreaks(
@@ -1799,26 +1807,26 @@ export async function getActiveRaceWithEntries(
     if (!lastRace) return null;
     const { data: entries, error: entriesErr } = await supabase
       .from("race_entries")
-      .select("*, player:players!race_entries_player_id_fkey(*)")
+      .select(RACE_ENTRY_PLAYER_SELECT)
       .eq("race_id", lastRace.id)
       .order("lane", { ascending: true });
     if (entriesErr) throw entriesErr;
     return {
       race: lastRace as Race,
-      entries: (entries || []) as RaceEntryWithPlayer[],
+      entries: (entries || []) as unknown as RaceEntryWithPlayer[],
     };
   }
 
   const { data: entries, error: entriesErr } = await supabase
     .from("race_entries")
-    .select("*, player:players!race_entries_player_id_fkey(*)")
+    .select(RACE_ENTRY_PLAYER_SELECT)
     .eq("race_id", race.id)
     .order("lane", { ascending: true });
   if (entriesErr) throw entriesErr;
 
   return {
     race: race as Race,
-    entries: (entries || []) as RaceEntryWithPlayer[],
+    entries: (entries || []) as unknown as RaceEntryWithPlayer[],
   };
 }
 

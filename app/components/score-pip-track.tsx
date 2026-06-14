@@ -1,6 +1,12 @@
 "use client";
 
+import { useMemo } from "react";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
+import {
+  getPipFillState,
+  getRollingTickAnimationState,
+  normalizeRecentDeltas,
+} from "@/lib/hybrid-live-score";
 import {
   formatRaceScore,
   getScorePipBackground,
@@ -10,6 +16,9 @@ import {
 
 export function ScorePipTrack({
   score,
+  confirmedScore,
+  recentDeltas,
+  segmentProgress = 1,
   animatingDelta,
   leaderScore,
   isLeader,
@@ -17,6 +26,9 @@ export function ScorePipTrack({
   statusOverlay,
 }: {
   score: number;
+  confirmedScore?: number;
+  recentDeltas?: number[];
+  segmentProgress?: number;
   animatingDelta: number;
   leaderScore: number;
   isLeader: boolean;
@@ -24,16 +36,36 @@ export function ScorePipTrack({
   statusOverlay?: { icon: RaceIconId; label: string };
   playerId?: string;
   raceId?: string;
-  recentDeltas?: number[];
 }) {
   const slots = SCORE_TRACK_SLOTS;
-  const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, score));
-  const pipBright = Math.floor(livePoints);
-  const pipPartial = livePoints - pipBright;
+  const confirmed = Math.max(0, Math.min(HARD_SCORE_CAP, confirmedScore ?? score));
+  const deltas = useMemo(
+    () => normalizeRecentDeltas(recentDeltas),
+    [recentDeltas?.join(",")]
+  );
+  const seg = Math.max(0, Math.min(1, segmentProgress));
+
+  const rolling = useMemo(
+    () => getRollingTickAnimationState(confirmed, deltas, seg),
+    [confirmed, deltas, seg]
+  );
+  const fill = useMemo(
+    () => getPipFillState(confirmed, deltas, seg),
+    [confirmed, deltas, seg]
+  );
+
+  const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, rolling.score));
   const displayPoints = Math.round(livePoints);
   const leader = Math.max(0, Math.round(leaderScore));
   const behind = leader - displayPoints;
   const colorSpan = slots;
+  const hardenedBright = Math.floor(rolling.hardenedScore);
+  const animatingBright = Math.ceil(livePoints);
+  const isSegmentAnimating = deltas.length > 0 && seg < 1;
+  const deltaBadge = animatingDelta !== 0 ? animatingDelta : rolling.animatingDelta;
+
+  const isSegmentPip = (index: number, lit: boolean) =>
+    lit && isSegmentAnimating && index >= hardenedBright && index <= animatingBright;
 
   return (
     <div
@@ -66,11 +98,13 @@ export function ScorePipTrack({
         style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: slots }, (_, i) => {
-          if (i < pipBright) {
+          if (i < fill.bright) {
             return (
               <span
                 key={i}
-                className="score-pip score-pip-on"
+                className={`score-pip score-pip-on${
+                  isSegmentPip(i, true) ? " score-pip-segment" : ""
+                }`}
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
                 }}
@@ -78,14 +112,16 @@ export function ScorePipTrack({
               />
             );
           }
-          if (i === pipBright && pipPartial > 0.001) {
+          if (i === fill.partialIndex && fill.partial > 0.001) {
             return (
               <span
                 key={i}
-                className="score-pip score-pip-on score-pip-partial"
+                className={`score-pip score-pip-on score-pip-partial${
+                  isSegmentPip(i, true) ? " score-pip-segment" : ""
+                }`}
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
-                  opacity: Math.max(0.15, pipPartial),
+                  opacity: Math.max(0.15, fill.partial),
                 }}
                 aria-hidden="true"
               />
@@ -101,17 +137,19 @@ export function ScorePipTrack({
         )}
       </div>
       <span className="row-score-pip-num">{formatRaceScore(displayPoints)}</span>
-      {animatingDelta !== 0 && (
-        <span
-          className={`row-score-pip-delta${
-            animatingDelta < 0 ? " row-score-pip-delta-loss" : ""
-          }`}
-          aria-hidden="true"
-        >
-          {animatingDelta > 0 ? "+" : ""}
-          {formatRaceScore(animatingDelta)}
-        </span>
-      )}
+      <span
+        className={`row-score-pip-delta${
+          deltaBadge < 0 ? " row-score-pip-delta-loss" : ""
+        }${deltaBadge === 0 ? " row-score-pip-delta-empty" : ""}`}
+        aria-hidden={deltaBadge === 0}
+      >
+        {deltaBadge !== 0 && (
+          <>
+            {deltaBadge > 0 ? "+" : ""}
+            {formatRaceScore(deltaBadge)}
+          </>
+        )}
+      </span>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import type { LastRaceRecap, LastRaceRecapSegment } from "./types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatRacerName, ordinal } from "./format";
 import { formatRaceScore } from "./score";
-import { pickGatedRecapPhrase, validateRecapParagraph } from "./recap-grammar-gate";
+import { pickGatedRecapPhrase, finalizeRecapLine, validateRecapParagraph } from "./recap-grammar-gate";
 import {
   RECAP_CHAOS_SURGE_PHRASES,
   RECAP_COLLAPSE_PHRASES,
@@ -304,6 +304,14 @@ function composeRecapParagraph(ctx: RecapContext, maxChaos = MAX_CHAOS_CLAUSES):
   return segments;
 }
 
+function finalizeRecapSegments(segments: LastRaceRecapSegment[]): LastRaceRecapSegment[] {
+  return segments.map((segment) =>
+    segment.kind === "text"
+      ? { ...segment, value: finalizeRecapLine(segment.value) }
+      : segment
+  );
+}
+
 function dedupeFightPairs(pairs: RecapFightPair[]): RecapFightPair[] {
   const seen = new Set<string>();
   const out: RecapFightPair[] = [];
@@ -493,15 +501,22 @@ export async function getLastRaceRecap(
   const loser = [...withRank].sort((a, b) => b.finalRank - a.finalRank)[0];
   const runnerUp = withRank.find((e) => e.finalRank === 2) ?? null;
 
-  const [{ data: tickerRows }, { data: weatherRows }, { data: injuryRows }] =
-    await Promise.all([
-      supabase
-        .from("race_ticker_events")
-        .select("event_type, message, player_id")
-        .eq("race_id", race.id),
-      supabase.from("race_weather_events").select("weather_type").eq("race_id", race.id),
-      supabase.from("injury_events").select("id").eq("race_id", race.id),
-    ]);
+  const [
+    { data: tickerRows },
+    { data: weatherRows },
+    { data: injuryRows },
+    fightPairs,
+    abilityGains,
+  ] = await Promise.all([
+    supabase
+      .from("race_ticker_events")
+      .select("event_type, message, player_id")
+      .eq("race_id", race.id),
+    supabase.from("race_weather_events").select("weather_type").eq("race_id", race.id),
+    supabase.from("injury_events").select("id").eq("race_id", race.id),
+    loadFightPairs(supabase, race.id),
+    loadAbilityGains(supabase, race.id),
+  ]);
 
   const eventCounts = new Map<string, number>();
   let delayTitle: string | null = null;
@@ -527,8 +542,6 @@ export async function getLastRaceRecap(
     }
   }
 
-  const fightPairs = await loadFightPairs(supabase, race.id);
-
   const weatherTotal = weatherRows?.length ?? 0;
 
   const recapCtx: RecapContext = {
@@ -548,13 +561,13 @@ export async function getLastRaceRecap(
   };
 
   let segments = composeRecapParagraph(recapCtx);
+  segments = finalizeRecapSegments(segments);
   let paragraph = segmentsToParagraph(segments);
   if (!validateRecapParagraph(paragraph).ok) {
-    segments = composeRecapParagraph(recapCtx, 0);
+    segments = finalizeRecapSegments(composeRecapParagraph(recapCtx, 0));
     paragraph = segmentsToParagraph(segments);
   }
 
-  const abilityGains = await loadAbilityGains(supabase, race.id);
   const abilityGainsSegments = composeAbilityGainsParagraph(abilityGains);
   const abilityGainsParagraph = abilityGainsSegments
     ? segmentsToParagraph(abilityGainsSegments)

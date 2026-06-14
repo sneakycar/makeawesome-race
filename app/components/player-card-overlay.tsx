@@ -15,6 +15,7 @@ import {
   getTraitExplainerLines,
 } from "@/lib/identity";
 import { formatOvrRank } from "@/lib/ovr";
+import { getPlayerHeaderStyle, getPlayerPalette } from "@/lib/player-colors";
 import { formatRankDelta } from "@/lib/use-live-rank-delta";
 import { formatRaceScore, getScorePipBackground } from "@/lib/score";
 import { getBadMoneyFlavorLine } from "@/lib/bad-money";
@@ -104,6 +105,8 @@ export function PlayerCardOverlay({
   playerId,
   raceId,
   recentDeltas,
+  confirmedScore,
+  segmentProgress = 1,
 }: {
   slug: string;
   liveScore?: number;
@@ -122,6 +125,8 @@ export function PlayerCardOverlay({
   playerId?: string;
   raceId?: string;
   recentDeltas?: number[];
+  confirmedScore?: number;
+  segmentProgress?: number;
 }) {
   const [profile, setProfile] = useState<PlayerProfileResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -189,17 +194,35 @@ export function PlayerCardOverlay({
 
         {p && (
           <>
+            <header
+              className="retro-header retro-header--player-palette"
+              style={getPlayerHeaderStyle(getPlayerPalette(p))}
+            >
+              <span className="retro-header-tag">RACER FILE</span>
+              {ovr != null && ovrRank != null && ovrTotal != null && (
+                <div className="retro-ovr">
+                  <span className="retro-ovr-num">{ovr}</span>
+                  <span className="retro-ovr-label">OVR</span>
+                  <span className="retro-ovr-rank">
+                    {formatOvrRank({ ovr, rank: ovrRank, total: ovrTotal })}
+                  </span>
+                </div>
+              )}
+              <h2 id="player-sheet-name" className="retro-name">
+                {formatRacerName(p.name)}
+              </h2>
+              <span className="retro-header-badge">{p.status}</span>
+            </header>
+
             <div className={`row-line${isLeader ? " row-line-leader" : ""}`}>
               <div className="row-head">
                 {lane != null && <span className="row-archetype">L{lane}</span>}
+                {rank != null && <span className="row-rank-pos">{rank}]</span>}
                 {barMark ? (
                   <span className="row-mark-slot row-mark-slot-inline">
                     <FlatIcon id={barMark} className="race-emoji" />
                   </span>
                 ) : null}
-                <h2 id="player-sheet-name" className="row-name">
-                  {formatRacerName(p.name)}
-                </h2>
                 {rankDeltaLabel && (
                   <span
                     className={`row-rank-delta${
@@ -217,6 +240,8 @@ export function PlayerCardOverlay({
                 <div className="row-track">
                   <ScorePipTrack
                     score={pipScore}
+                    confirmedScore={confirmedScore ?? pipScore}
+                    segmentProgress={segmentProgress}
                     animatingDelta={animatingDelta}
                     leaderScore={leaderScore}
                     isLeader={isLeader}
@@ -245,15 +270,6 @@ export function PlayerCardOverlay({
               )}
             </div>
 
-            {ovr != null && ovrRank != null && ovrTotal != null && (
-              <p className="player-sheet-ovr">
-                {ovr} OVR{" "}
-                <span className="row-ovr-rank">
-                  {formatOvrRank({ ovr, rank: ovrRank, total: ovrTotal })}
-                </span>
-              </p>
-            )}
-
             <div className="divider">{"────────────────────────"}</div>
 
             <div className="section-label">IDENTITY</div>
@@ -269,13 +285,17 @@ export function PlayerCardOverlay({
               </span>
               <span className="row-archetype">{p.status}</span>
             </div>
-            <p className="player-sheet-meta">{getArchetypeExplainer(p.archetype)}</p>
+            <p className="player-sheet-meta player-sheet-identity-block">
+              {getArchetypeExplainer(p.archetype)}
+            </p>
             {traitNotes.map((line) => (
-              <p key={line} className="player-sheet-meta">
+              <p key={line} className="player-sheet-meta player-sheet-identity-block">
                 {line}
               </p>
             ))}
-            <p className="player-sheet-meta">{getSignatureStatExplainer(p.signature_stat)}</p>
+            <p className="player-sheet-meta player-sheet-identity-block">
+              {getSignatureStatExplainer(p.signature_stat)}
+            </p>
 
             <div className="divider">{"────────────────────────"}</div>
 
