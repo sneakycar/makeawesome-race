@@ -8,7 +8,6 @@ import {
   formatRemainingTime,
   formatCompactDuration,
   formatNextRaceBegin,
-  formatProgressBar,
   formatPips,
   formatStreak,
   formatTickerAge,
@@ -424,15 +423,11 @@ export default function HomePage() {
             const rank = live?.current_rank ?? entry.current_rank;
             const progress = live?.progress ?? entry.displayed_progress;
             const isComeback = entry.last_rank_change >= 2;
-            const barClass =
-              rank === 1
-                ? "row-bar-p1"
-                : rank === 2
-                  ? "row-bar-p2"
-                  : rank === 3
-                    ? "row-bar-p3"
-                    : "row-bar-default";
-            const bar = formatProgressBar(progress, 18);
+            const isLeader = rank === 1;
+            const isLast = rank === 8;
+            const barMark = isLeader ? "🏆" : isLast ? "💀" : isComeback ? "👀" : null;
+            const clamped = Math.max(0, Math.min(100, Math.round(progress)));
+            const filled = Math.round((clamped / 100) * 18);
             const isSupported = supportedId === entry.player_id;
             const hasSupported = supportedId != null;
 
@@ -454,18 +449,29 @@ export default function HomePage() {
                   <div className="row-lane">LANE {entry.lane}]</div>
                   <div className="row-name-row">
                     <span className="row-name">{entry.player.name}</span>
-                    {isComeback && (
-                      <span
-                        className="comeback-mark"
-                        title={`Up ${entry.last_rank_change} spots since last update`}
-                      >
-                        ↑{entry.last_rank_change}
-                      </span>
-                    )}
                   </div>
                 </div>
                 <div className="row-track">
-                  <span className={`row-bar ${barClass}`}>{bar}</span>
+                  <div className="row-bar-cell">
+                    <span className="row-bar">
+                      <span className="row-bar-fill">{"█".repeat(filled)}</span>
+                      <span className="row-bar-empty">{"░".repeat(18 - filled)}</span>
+                    </span>
+                    {barMark && (
+                      <span
+                        className="row-bar-mark"
+                        title={
+                          isLeader
+                            ? "Race leader"
+                            : isLast
+                              ? "Last place"
+                              : `Up ${entry.last_rank_change} spots since last update`
+                        }
+                      >
+                        {barMark}
+                      </span>
+                    )}
+                  </div>
                   <span className="row-pct">{formatLivePercent(progress)}%</span>
                   {raceActive && (
                     <button
@@ -488,22 +494,16 @@ export default function HomePage() {
 
           <div className="race-legend">
             <span className="legend-key">
-              <span className="legend-swatch legend-swatch-p1" aria-hidden="true" />
-              1ST
+              <span className="row-bar-mark" aria-hidden="true">🏆</span>
+              LEAD
             </span>
             <span className="legend-key">
-              <span className="legend-swatch legend-swatch-p2" aria-hidden="true" />
-              2ND
-            </span>
-            <span className="legend-key">
-              <span className="legend-swatch legend-swatch-p3" aria-hidden="true" />
-              3RD
-            </span>
-            <span className="legend-key">
-              <span className="comeback-mark comeback-mark-legend" aria-hidden="true">
-                ↑2
-              </span>
+              <span className="row-bar-mark" aria-hidden="true">👀</span>
               COMEBACK
+            </span>
+            <span className="legend-key">
+              <span className="row-bar-mark" aria-hidden="true">💀</span>
+              LAST
             </span>
           </div>
 
