@@ -131,6 +131,21 @@ function ScrollingTicker({
   );
 }
 
+function ScorePipTrack({ score }: { score: number }) {
+  const count = Math.max(0, Math.round(score));
+  return (
+    <div
+      className="score-pip-track"
+      aria-label={`${count} points`}
+      title={`${count} points`}
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <span key={i} className="score-pip" aria-hidden="true" />
+      ))}
+    </div>
+  );
+}
+
 function RetroStatBar({
   label,
   value,
@@ -743,7 +758,7 @@ export default function HomePage() {
                         </span>
                       )}
                     </div>
-                    <span className="row-score">{formatRaceScore(score)}</span>
+                    <ScorePipTrack score={score} />
                     {isInjured && (
                       <span className="row-injured">🏥 INJURED</span>
                     )}
