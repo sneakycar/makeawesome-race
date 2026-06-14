@@ -192,6 +192,20 @@ export function generateTickTickerEvents(
       });
     }
 
+    if (entry.event_note?.includes("HOT STRETCH")) {
+      candidates.push({
+        eventType: "big_lap",
+        playerId: entry.player_id,
+        priority: 70,
+        message: pickPhrase(`${seed}:hot`, [
+          `${name} ON A HEATER — SCORING BURST!`,
+          `HOT STRETCH! ${name} IS UNSTOPPABLE RIGHT NOW!`,
+          `${name} CATCHING FIRE OUT THERE!`,
+        ]),
+        facts,
+      });
+    }
+
     if (entry.event_note?.includes("STALL") || entry.last_delta < 0.15) {
       const stalled = entry.event_note?.includes("STALL");
       if (entry.current_rank <= 4 || stalled) {

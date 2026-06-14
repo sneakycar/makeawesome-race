@@ -45,13 +45,15 @@ export function buildRaceSim(
 }
 
 function longStallChance(player: Player, rank: number, percentComplete: number): number {
-  let chance = 0.08 + player.drag / 500;
-  if (rank <= 2 && percentComplete >= 25) chance += 0.05;
+  let chance = 0.1 + player.drag / 450;
+  if (rank <= 2 && percentComplete >= 20) chance += 0.07;
+  if (rank >= 5) chance -= 0.02;
   if (player.archetype === "WORKHORSE") chance -= 0.02;
-  if (player.archetype === "GLASS CANNON") chance += 0.03;
+  if (player.archetype === "GLASS CANNON") chance += 0.04;
+  if (player.archetype === "GAMBLER") chance += 0.03;
   if (player.traits.includes("TIRED")) chance += 0.03;
-  if (player.traits.includes("SLEEPY")) chance += 0.04;
-  return Math.max(0.04, Math.min(0.22, chance));
+  if (player.traits.includes("SLEEPY")) chance += 0.05;
+  return Math.max(0.05, Math.min(0.28, chance));
 }
 
 export function applySimTick(
@@ -87,6 +89,7 @@ export function applySimTick(
     }
 
     const rank = rankById.get(entry.player_id) ?? sim.length;
+    const leaderScore = rankedBefore[0]?.score ?? 0;
     const stallSeed = `${race.id}:${entry.player_id}:${tickNumber}:stall`;
 
     if (entry.stall_ticks_remaining > 0) {
@@ -112,11 +115,12 @@ export function applySimTick(
       player: entry.player,
       currentProgress: entry.score,
       currentRank: rank,
+      leaderScore,
       chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
     });
 
     if (entry.restart_pending) {
-      const restart = seededRange(`${stallSeed}:restart`, 4, 11);
+      const restart = seededRange(`${stallSeed}:restart`, 8, 18);
       result = {
         ...result,
         delta: result.delta + restart,
@@ -131,7 +135,7 @@ export function applySimTick(
       entry.score > 4 &&
       seededBool(stallSeed, longStallChance(entry.player, rank, percentComplete))
     ) {
-      entry.stall_ticks_remaining = seededInt(`${stallSeed}:dur`, 3, 14);
+      entry.stall_ticks_remaining = seededInt(`${stallSeed}:dur`, 2, 16);
       results.push({
         player_id: entry.player_id,
         delta: 0,

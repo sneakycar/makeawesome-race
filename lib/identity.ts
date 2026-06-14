@@ -420,7 +420,7 @@ export function getCollapseChanceMultiplier(
 }
 
 export function getMaxTickDelta(player: Player): number {
-  return player.archetype === "GLASS CANNON" ? 5.2 : 4.5;
+  return player.archetype === "GLASS CANNON" ? 9.5 : 8;
 }
 
 export function getArchetypeFatigueModifier(

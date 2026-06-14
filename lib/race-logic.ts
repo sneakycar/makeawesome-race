@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
-import { TARGET_WINNER_SCORE } from "./score";
+import { TARGET_WINNER_SCORE, MAX_WINNER_SCORE } from "./score";
 import { ordinal, slugify } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
 import { processRaceSupports } from "./support-db";
@@ -55,7 +55,7 @@ import type { Player, Race, RaceEntry, RaceEntryWithPlayer, InjuryRecord } from 
 export const TICKS_PER_RACE = 48;
 /** @deprecated use TICKS_PER_RACE */
 export const TICKS_PER_DAY = TICKS_PER_RACE;
-/** Average points scored per tick (~135 over a full race at neutral skill). */
+/** Average points per tick at neutral tempo (~125 midpoint over 48 ticks). */
 export const EXPECTED_POINTS_PER_TICK = TARGET_WINNER_SCORE / TICKS_PER_RACE;
 /** @deprecated use EXPECTED_POINTS_PER_TICK */
 export const EXPECTED_DELTA = EXPECTED_POINTS_PER_TICK;
@@ -83,6 +83,7 @@ export interface TickDeltaInput {
   player: Player;
   currentProgress: number;
   currentRank: number;
+  leaderScore: number;
   chaosBurstUsed: boolean;
 }
 
@@ -109,9 +110,11 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
     player,
     currentProgress,
     currentRank,
+    leaderScore,
   } = input;
   let chaosBurstUsed = input.chaosBurstUsed;
   const currentScore = currentProgress;
+  const gapToLeader = Math.max(0, leaderScore - currentScore);
 
   const raceCtx = {
     percentComplete,
@@ -166,57 +169,69 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
     identityMod;
 
   const normalizedSkill = Math.max(0, Math.min(100, baseSkill + rookieBonus + comebackBonus)) / 100;
-  const skillMultiplier = 0.65 + normalizedSkill * 0.9;
+  const skillMultiplier = 0.42 + normalizedSkill * 1.18;
 
-  const wildSwingBase = seededRange(`${seedBase}:wild`, -1.6, 2.4);
-  const wildSwing = wildSwingBase * (1 + player.chaos / 200) * getWildSwingMultiplier(player);
+  const raceTempo = seededRange(`${raceId}:${playerId}:tempo`, 0.62, 1.42);
 
-  let delta = EXPECTED_POINTS_PER_TICK * skillMultiplier + wildSwing;
+  const wildSwingBase = seededRange(`${seedBase}:wild`, -2.8, 3.6);
+  const wildSwing = wildSwingBase * (1 + player.chaos / 160) * getWildSwingMultiplier(player);
 
-  // Trailing pack catches up — fuels lead changes
-  if (currentRank >= 5) {
-    delta += (currentRank - 4) * 0.14;
-  }
-  // Leaders feel pressure late
-  if (currentRank === 1 && percentComplete >= 60) {
-    delta *= 0.88;
-  }
+  let delta = EXPECTED_POINTS_PER_TICK * skillMultiplier * raceTempo + wildSwing;
   let eventNote: string | null = null;
 
-  const burstChance = (0.04 + player.chaos / 500) * getBurstChanceMultiplier(player);
+  // Hot stretch — some racers randomly catch fire for a tick
+  if (seededBool(`${seedBase}:hot`, 0.07 + player.burst / 900)) {
+    delta *= seededRange(`${seedBase}:hotmult`, 1.5, 2.4);
+    eventNote = "HOT STRETCH";
+  }
+
+  // Trailing pack surges — big gaps close fast
+  if (currentRank >= 4) {
+    delta += (currentRank - 3) * 0.22;
+  }
+  if (gapToLeader >= 12) {
+    delta += Math.min(3.2, gapToLeader * 0.06);
+  }
+  // Leaders fade late — opens the door for chasers
+  if (currentRank === 1) {
+    if (percentComplete >= 45) delta *= 0.9;
+    if (percentComplete >= 70) delta *= 0.84;
+  }
+
+  const burstChance = (0.05 + player.chaos / 450) * getBurstChanceMultiplier(player);
   // Rare chaos burst
   if (
     !chaosBurstUsed &&
-    player.chaos >= 55 &&
+    player.chaos >= 50 &&
     seededBool(`${seedBase}:burst`, burstChance)
   ) {
-    const burst = seededRange(`${seedBase}:burstamt`, 3, 8);
+    const burst = seededRange(`${seedBase}:burstamt`, 6, 14);
     delta += burst;
     chaosBurstUsed = true;
-    eventNote = "CHAOS SURGE";
+    eventNote = eventNote ? `${eventNote} / CHAOS SURGE` : "CHAOS SURGE";
   }
 
   const collapseChance =
-    (0.03 + player.drag / 400) * getCollapseChanceMultiplier(player, raceCtx);
+    (0.04 + player.drag / 350) * getCollapseChanceMultiplier(player, raceCtx);
   // Rare collapse
-  if (seededBool(`${seedBase}:collapse`, collapseChance) && currentScore > 10) {
-    const drop = seededRange(`${seedBase}:drop`, 1, 5);
+  if (seededBool(`${seedBase}:collapse`, collapseChance) && currentScore > 8) {
+    const drop = seededRange(`${seedBase}:drop`, 2, 9);
     delta -= drop;
     eventNote = eventNote ? `${eventNote} / COLLAPSE` : "COLLAPSE";
   }
 
-  // Occasional stall
-  if (seededBool(`${seedBase}:stall`, 0.06) && delta > 0.2) {
-    delta *= 0.35;
+  // Occasional short stall within a tick
+  if (seededBool(`${seedBase}:stall`, 0.08) && delta > 0.2) {
+    delta *= 0.25;
     eventNote = eventNote ? `${eventNote} / STALL` : "STALL";
   }
 
   delta = Math.max(0, Math.min(getMaxTickDelta(player), delta));
 
-  // Soft pace cap — room to keep scoring all day as the clock advances
-  const expectedScore = (percentComplete / 100) * TARGET_WINNER_SCORE;
-  const paceLeash = 28 + player.burst * 0.1 + player.luck * 0.06;
-  const paceCap = expectedScore + paceLeash;
+  // Soft pace cap — tempo sets the night (cold ~50, hot ~200)
+  const expectedScore = (percentComplete / 100) * TARGET_WINNER_SCORE * raceTempo;
+  const paceLeash = 42 + player.burst * 0.14 + player.luck * 0.1 + player.chaos * 0.06;
+  const paceCap = Math.min(MAX_WINNER_SCORE + 15, expectedScore + paceLeash);
   const newScore = currentScore + delta;
   if (newScore > paceCap) {
     delta = Math.max(0, paceCap - currentScore);

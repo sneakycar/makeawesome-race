@@ -1,5 +1,7 @@
-/** Typical winning total — used for soft pacing caps, not a fixed final score. */
-export const TARGET_WINNER_SCORE = 140;
+/** Midpoint winning total — actual outcomes spread ~50–200 via tempo + variance. */
+export const TARGET_WINNER_SCORE = 125;
+export const MIN_WINNER_SCORE = 50;
+export const MAX_WINNER_SCORE = 200;
 
 const scoreFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
