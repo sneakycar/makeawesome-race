@@ -50,7 +50,7 @@ export function useLiveRace(
     };
 
     recompute();
-    const id = setInterval(recompute, 1000);
+    const id = setInterval(recompute, 100);
     return () => clearInterval(id);
   }, [state, enabled]);
 

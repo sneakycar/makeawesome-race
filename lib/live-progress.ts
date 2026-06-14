@@ -130,5 +130,5 @@ export function liveEntriesById(
 }
 
 export function formatLivePercent(progress: number): string {
-  return Math.max(0, Math.min(100, progress)).toFixed(2);
+  return Math.max(0, Math.min(100, progress)).toFixed(3);
 }

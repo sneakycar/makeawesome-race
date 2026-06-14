@@ -58,7 +58,7 @@ export async function GET(request: Request) {
         ? await getVisitorSupportForRace(supabase, race.id, ipHash)
         : null;
 
-    const ticker = await getRecentTickerEvents(supabase, race.id, 6);
+    const ticker = await getRecentTickerEvents(supabase, race.id, 10);
 
     const activeRace = await getActiveRaceOnly(supabase);
     const betweenRaces = !activeRace && race.status === "finalized";

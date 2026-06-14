@@ -59,7 +59,7 @@ function RaceMetaPanel({
     );
   }
 
-  const beganLabel =
+  const beganWhen =
     clock.phase === "upcoming"
       ? `BEGINS: ${formatRaceBegan(new Date(state.race.started_at))}`
       : `BEGAN: ${formatRaceBegan(new Date(state.race.started_at))}`;
@@ -76,19 +76,17 @@ function RaceMetaPanel({
   const progressDisplay =
     liveRaceProgress != null
       ? formatLivePercent(liveRaceProgress)
-      : `${clock.percentComplete}.00`;
+      : `${clock.percentComplete}.000`;
   const progressBarWidth =
     liveRaceProgress != null ? liveRaceProgress : clock.percentComplete;
 
   return (
     <div className="race-meta-block">
       <div className="race-meta">
-        {`RACE ${state.race.race_number}\n`}
-        {`${beganLabel}\n`}
-        {`PROGRESS: ${progressDisplay}%\n`}
-        {timerLine}
-        {"\n"}
-        {`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}
+        <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
+        <div className="race-meta-line">{`PROGRESS: ${progressDisplay}%`}</div>
+        <div className="race-meta-line">{timerLine}</div>
+        <div className="race-meta-line">{`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}</div>
       </div>
       <div className="race-progress-track" aria-hidden="true">
         <div
@@ -401,7 +399,7 @@ export default function HomePage() {
 
   useEffect(() => {
     loadState();
-    const interval = setInterval(loadState, 60000);
+    const interval = setInterval(loadState, 30000);
     return () => clearInterval(interval);
   }, [loadState]);
 
@@ -515,8 +513,7 @@ export default function HomePage() {
             const isLeader = rank === 1;
             const isLast = rank === 8;
             const barMark = isLeader ? "🏆" : isLast ? "💀" : isComeback ? "👀" : null;
-            const clamped = Math.max(0, Math.min(100, Math.round(progress)));
-            const filled = Math.round((clamped / 100) * 18);
+            const filled = Math.min(18, Math.max(0, Math.round((progress / 100) * 18)));
             const isSupported = supportedId === entry.player_id;
             const hasSupported = supportedId != null;
 
@@ -561,21 +558,21 @@ export default function HomePage() {
                       )}
                     </div>
                     <span className="row-pct">{formatLivePercent(progress)}%</span>
+                    {raceActive && (
+                      <button
+                        type="button"
+                        className={`encourage-btn${isSupported ? " supported" : ""}`}
+                        disabled={buttonDisabled}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEncourage(entry.player_id);
+                        }}
+                      >
+                        +1
+                      </button>
+                    )}
                   </div>
                 </div>
-                {raceActive && (
-                  <button
-                    type="button"
-                    className={`encourage-btn${isSupported ? " supported" : ""}`}
-                    disabled={buttonDisabled}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEncourage(entry.player_id);
-                    }}
-                  >
-                    +1
-                  </button>
-                )}
               </div>
             );
           })}

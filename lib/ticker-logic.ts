@@ -23,6 +23,7 @@ export type TickerEventType =
   | "late_close"
   | "lead_pressure"
   | "race_start"
+  | "status_pulse"
   | "race_won"
   | "eliminated";
 
@@ -298,6 +299,33 @@ export function generateTickTickerEvents(
   if (verified.length === 0) return [];
 
   return [verified[0]];
+}
+
+/** Always-on standings line for each cron tick. */
+export function generateStatusPulseTickerEvent(
+  after: TickerEntrySnapshot[],
+  raceNumber: number,
+  percentComplete: number,
+  tickNumber: number
+): TickerEventDraft {
+  const sorted = [...after].sort((a, b) => a.current_rank - b.current_rank);
+  const leader = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const leaderName = onAirName(leader.player.name);
+  const lastName = onAirName(last.player.name);
+  const leaderPct = Math.round(Number(leader.progress));
+
+  return {
+    eventType: "status_pulse",
+    playerId: leader.player_id,
+    priority: 55,
+    message: `RACE ${raceNumber} AT ${percentComplete}% — ${leaderName} LEADS (${leaderPct}%) · ${lastName} LAST`,
+    facts: {
+      ...baseFacts(leader, tickNumber, percentComplete),
+      raceNumber,
+      playerName: leader.player.name,
+    },
+  };
 }
 
 export function generateRaceStartTickerEvents(raceNumber: number): TickerEventDraft[] {
