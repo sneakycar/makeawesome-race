@@ -619,7 +619,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
 
   const processedTicks = new Set((processedRows ?? []).map((r) => r.tick_number));
   let tickNumber = -1;
-  for (let t = 0; t <= targetTick; t++) {
+  for (let t = targetTick; t >= 0; t--) {
     if (!processedTicks.has(t)) {
       tickNumber = t;
       break;
@@ -640,6 +640,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   const percentComplete = calculatePercentComplete(startedAt, endsAt, effectiveNow);
 
   if (
+    tickNumber === targetTick &&
     shouldTriggerRaceDelay(
       race.id,
       tickNumber,
