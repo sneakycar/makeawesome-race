@@ -15,39 +15,24 @@ import {
   formatCurrentRaceLabel,
   ordinal,
 } from "@/lib/format";
-import { useCosmeticProgress } from "@/lib/cosmetic-progress";
-
-function LivePercent({
-  base,
-  seed,
-  active,
-  className,
-}: {
-  base: number;
-  seed: string;
-  active: boolean;
-  className?: string;
-}) {
-  const text = useCosmeticProgress(base, seed, active);
-  return <span className={className}>{text}%</span>;
-}
+import { formatLivePercent } from "@/lib/live-progress";
+import { useLiveRace } from "@/lib/use-live-race";
 
 function RaceMetaPanel({
   state,
   betweenRaces,
   raceActive,
+  liveRaceProgress,
 }: {
   state: GameStateResponse;
   betweenRaces: boolean;
   raceActive: boolean;
+  liveRaceProgress: number | null;
 }) {
   const [clock, setClock] = useState<RaceClock>(() =>
     getRaceClock(new Date(state.race.started_at), new Date(state.race.ends_at))
   );
   const [nextUpdateMs, setNextUpdateMs] = useState(() => getMsUntilNextUpdate());
-  const liveMeta =
-    raceActive && clock.phase === "live" && state.race.status === "active";
-  const progressLabel = useCosmeticProgress(clock.percentComplete, "race-meta", liveMeta);
 
   useEffect(() => {
     const startedAt = new Date(state.race.started_at);
@@ -87,12 +72,19 @@ function RaceMetaPanel({
     timerLine = "RACE FINALIZED";
   }
 
+  const progressDisplay =
+    liveRaceProgress != null
+      ? formatLivePercent(liveRaceProgress)
+      : `${clock.percentComplete}.00`;
+  const progressBarWidth =
+    liveRaceProgress != null ? liveRaceProgress : clock.percentComplete;
+
   return (
     <div className="race-meta-block">
       <div className="race-meta">
         {`RACE ${state.race.race_number}\n`}
         {`${beganLabel}\n`}
-        {`PROGRESS: ${progressLabel}%\n`}
+        {`PROGRESS: ${progressDisplay}%\n`}
         {timerLine}
         {"\n"}
         {`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}
@@ -100,7 +92,7 @@ function RaceMetaPanel({
       <div className="race-progress-track" aria-hidden="true">
         <div
           className="race-progress-fill"
-          style={{ width: `${clock.percentComplete}%` }}
+          style={{ width: `${progressBarWidth}%` }}
         />
       </div>
     </div>
@@ -358,6 +350,7 @@ export default function HomePage() {
   const supportedId = state?.encouragement.supportedPlayerId ?? null;
   const raceActive = state?.race.status === "active";
   const betweenRaces = state?.betweenRaces ?? false;
+  const liveRace = useLiveRace(state, raceActive);
 
   const winner = state?.entries.find((e) => e.final_rank === 1 || e.current_rank === 1);
   const eliminated = state?.entries.find((e) => e.final_rank === 8 || e.current_rank === 8);
@@ -418,6 +411,7 @@ export default function HomePage() {
             state={state}
             betweenRaces={betweenRaces}
             raceActive={raceActive}
+            liveRaceProgress={liveRace?.raceProgress ?? null}
           />
 
           <p className="tap-hint">tap to see player&apos;s stats</p>
@@ -426,7 +420,9 @@ export default function HomePage() {
           {[...state.entries]
             .sort((a, b) => a.lane - b.lane)
             .map((entry) => {
-            const rank = entry.current_rank;
+            const live = liveRace?.entries.get(entry.player_id);
+            const rank = live?.current_rank ?? entry.current_rank;
+            const progress = live?.progress ?? entry.displayed_progress;
             const isComeback = entry.last_rank_change >= 2;
             const barClass =
               rank === 1
@@ -436,7 +432,7 @@ export default function HomePage() {
                   : rank === 3
                     ? "row-bar-p3"
                     : "row-bar-default";
-            const bar = formatProgressBar(entry.displayed_progress, 18);
+            const bar = formatProgressBar(progress, 18);
             const isSupported = supportedId === entry.player_id;
             const hasSupported = supportedId != null;
 
@@ -470,12 +466,7 @@ export default function HomePage() {
                 </div>
                 <div className="row-track">
                   <span className={`row-bar ${barClass}`}>{bar}</span>
-                  <LivePercent
-                    base={entry.displayed_progress}
-                    seed={entry.player_id}
-                    active={raceActive}
-                    className="row-pct"
-                  />
+                  <span className="row-pct">{formatLivePercent(progress)}%</span>
                   {raceActive && (
                     <button
                       type="button"
