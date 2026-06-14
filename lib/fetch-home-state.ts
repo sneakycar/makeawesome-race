@@ -7,6 +7,7 @@ import {
   getNextRaceDayBounds,
   initializeGameIfNeeded,
   ensureRaceTickedIfStale,
+  repairActiveRaceSchedule,
 } from "./race-logic";
 import { getRaceClock } from "./race-clock";
 import { getRaceDelayInfo, isRaceDelayed } from "./race-delay";
@@ -42,7 +43,8 @@ export async function fetchHomeState(
   const active = await getActiveRaceWithEntries(supabase);
   if (!active) return null;
 
-  const { race, entries } = active;
+  let { race, entries } = active;
+  race = await repairActiveRaceSchedule(supabase, race);
   const now = new Date();
   const startedAt = new Date(race.started_at);
   const endsAt = new Date(race.ends_at);

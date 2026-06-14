@@ -119,6 +119,23 @@ export function cleanRecapLine(text: string): string {
   return result;
 }
 
+/** Clean recap text without stripping edge spaces — keeps gaps around inline name segments. */
+export function cleanRecapTextSegment(text: string): string {
+  if (!text) return text;
+  const leading = text.match(/^\s*/)?.[0] ?? "";
+  const trailing = text.match(/\s*$/)?.[0] ?? "";
+  const core = text.slice(leading.length, text.length - trailing.length);
+  if (!core) return text;
+
+  let cleaned = core.replace(/\s+/g, " ");
+  cleaned = cleaned.replace(/ \./g, ".").replace(/ ,/g, ",");
+  cleaned = cleaned.replace(/;\s*\./g, ";").replace(/\.\s*;/g, ";");
+  cleaned = cleaned.replace(/;{2,}/g, ";");
+  cleaned = cleaned.replace(/\.{2,}/g, ".");
+  cleaned = spellOutLeadingNumerals(cleaned);
+  return leading + cleaned + trailing;
+}
+
 export function validateRecapLine(text: string): RecapGrammarResult {
   const cleaned = finalizeRecapLine(text);
   if (!cleaned) return { ok: false, reason: "empty line" };

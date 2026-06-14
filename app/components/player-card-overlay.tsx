@@ -231,7 +231,7 @@ export function PlayerCardOverlay({
               <div className="row-head">
                 {lane != null && <span className="row-archetype">L{lane}</span>}
                 {profile.currentRaceNumber != null && (
-                  <span className="row-archetype">CURRENT RACE</span>
+                  <span className="row-live-badge">CURRENT RACE</span>
                 )}
                 {barMark ? (
                   <span className="row-mark-slot row-mark-slot-inline">

@@ -15,7 +15,7 @@ export function BadMoneyModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  const displayName = formatRacerName(racerName).toUpperCase();
+  const displayName = formatRacerName(racerName);
 
   return (
     <div className="bad-money-modal-backdrop" onClick={onCancel} role="presentation">

@@ -5,11 +5,17 @@ import {
   pickTickBurstHeadline,
   shouldPlayTickBurst,
 } from "./tick-burst-headline";
+import {
+  TICK_BURST_EXPLODE_MS,
+  TICK_BURST_HOLD_MS,
+  TICK_BURST_RIP_MS,
+  TICK_BURST_STAMP_MS,
+} from "./tick-burst-timing";
 import { getMsUntilNextUpdate } from "./race-clock";
 import { vibrateTickBurst } from "./nope-feedback";
 import type { GameStateResponse } from "./types";
 
-export type TickBurstPhase = "rip" | "stamp" | "explode";
+export type TickBurstPhase = "rip" | "stamp" | "hold" | "explode";
 
 export interface TickBurst {
   phase: TickBurstPhase;
@@ -17,9 +23,6 @@ export interface TickBurst {
 }
 
 const CRON_RETRY_MS = 2500;
-const RIP_MS = 340;
-const STAMP_MS = 1180;
-const EXPLODE_MS = 520;
 
 export interface CronUpdateOptions {
   getPrevState: () => GameStateResponse | null;
@@ -76,7 +79,15 @@ export function useCronUpdate(
           setTickBurst((current) =>
             current ? { ...current, phase: "stamp" } : null
           );
-        }, RIP_MS)
+        }, TICK_BURST_RIP_MS)
+      );
+
+      burstTimersRef.current.push(
+        window.setTimeout(() => {
+          setTickBurst((current) =>
+            current ? { ...current, phase: "hold" } : null
+          );
+        }, TICK_BURST_RIP_MS + TICK_BURST_STAMP_MS)
       );
 
       burstTimersRef.current.push(
@@ -84,13 +95,17 @@ export function useCronUpdate(
           setTickBurst((current) =>
             current ? { ...current, phase: "explode" } : null
           );
-        }, RIP_MS + STAMP_MS)
+        }, TICK_BURST_RIP_MS + TICK_BURST_STAMP_MS + TICK_BURST_HOLD_MS)
       );
 
       burstTimersRef.current.push(
         window.setTimeout(() => {
           finishBurst();
-        }, RIP_MS + STAMP_MS + EXPLODE_MS)
+        },
+        TICK_BURST_RIP_MS +
+          TICK_BURST_STAMP_MS +
+          TICK_BURST_HOLD_MS +
+          TICK_BURST_EXPLODE_MS)
       );
     },
     [clearBurstTimers, finishBurst]

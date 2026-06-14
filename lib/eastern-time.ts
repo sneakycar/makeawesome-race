@@ -1,6 +1,6 @@
 export const EASTERN_TZ = "America/New_York";
+/** Every race starts at 9:00 AM Eastern. */
 export const RACE_START_HOUR = 9;
-export const RACE_END_HOUR = 21;
 
 type CalendarParts = { year: number; month: number; day: number };
 
@@ -63,50 +63,73 @@ export function easternWallClockToDate(
   return utc;
 }
 
+function getNextEasternCalendarDay(
+  year: number,
+  month: number,
+  day: number
+): CalendarParts {
+  const anchor = easternWallClockToDate(year, month, day, 12, 0, 0);
+  const nextDay = new Date(anchor.getTime() + 24 * 60 * 60 * 1000);
+  return getEasternCalendarDate(nextDay);
+}
+
+/** 9:00 AM Eastern on `day` → 9:00 AM Eastern the next calendar day (always 24h). */
+export function getRaceWindowForEasternDay(
+  year: number,
+  month: number,
+  day: number
+): { startedAt: Date; endsAt: Date } {
+  const startedAt = easternWallClockToDate(year, month, day, RACE_START_HOUR, 0, 0);
+  const next = getNextEasternCalendarDay(year, month, day);
+  const endsAt = easternWallClockToDate(
+    next.year,
+    next.month,
+    next.day,
+    RACE_START_HOUR,
+    0,
+    0
+  );
+  return { startedAt, endsAt };
+}
+
 export function getRaceDayBoundsForDate(
   year: number,
   month: number,
   day: number
 ): { startedAt: Date; endsAt: Date } {
-  return {
-    startedAt: easternWallClockToDate(year, month, day, RACE_START_HOUR, 0, 0),
-    endsAt: easternWallClockToDate(year, month, day, RACE_END_HOUR, 0, 0),
-  };
+  return getRaceWindowForEasternDay(year, month, day);
 }
 
 export function getRaceDayBounds(date: Date = new Date()): { startedAt: Date; endsAt: Date } {
   const { year, month, day } = getEasternCalendarDate(date);
-  return getRaceDayBoundsForDate(year, month, day);
+  return getRaceWindowForEasternDay(year, month, day);
+}
+
+/** Expected end time for a race that started on this Eastern day (24h window). */
+export function getExpectedRaceEndsAt(startedAt: Date): Date {
+  const { year, month, day } = getEasternCalendarDate(startedAt);
+  return getRaceWindowForEasternDay(year, month, day).endsAt;
 }
 
 export function getNextRaceDayBounds(afterDate: Date): { startedAt: Date; endsAt: Date } {
   const { year, month, day } = getEasternCalendarDate(afterDate);
-  const sameDay = getRaceDayBoundsForDate(year, month, day);
+  let window = getRaceWindowForEasternDay(year, month, day);
 
-  // Race 2+ runs 9 AM–9 PM Eastern. If the prior race ended earlier that same day,
-  // schedule this day's window — do not skip to tomorrow.
-  if (afterDate.getTime() < sameDay.endsAt.getTime()) {
-    return sameDay;
+  if (afterDate.getTime() >= window.endsAt.getTime()) {
+    const next = getNextEasternCalendarDay(year, month, day);
+    window = getRaceWindowForEasternDay(next.year, next.month, next.day);
   }
 
-  const anchor = easternWallClockToDate(year, month, day, 12, 0, 0);
-  const nextDay = new Date(anchor.getTime() + 24 * 60 * 60 * 1000);
-  const next = getEasternCalendarDate(nextDay);
-  return getRaceDayBoundsForDate(next.year, next.month, next.day);
+  return window;
 }
 
-/** First race window: today 9:00 AM → tomorrow 9:00 AM Eastern (24h). */
+/** First / current race window: today 9:00 AM → tomorrow 9:00 AM Eastern. */
 export function getFirstRaceLiveBounds(now: Date = new Date()): { startedAt: Date; endsAt: Date } {
   const { year, month, day } = getEasternCalendarDate(now);
-  const startedAt = easternWallClockToDate(year, month, day, RACE_START_HOUR, 0, 0);
-  const anchor = easternWallClockToDate(year, month, day, 12, 0, 0);
-  const nextDay = new Date(anchor.getTime() + 24 * 60 * 60 * 1000);
-  const next = getEasternCalendarDate(nextDay);
-  const endsAt = easternWallClockToDate(next.year, next.month, next.day, RACE_START_HOUR, 0, 0);
-  return { startedAt, endsAt };
+  return getRaceWindowForEasternDay(year, month, day);
 }
 
-/** Race 1 anchor — June 13, 2026, 9:00 AM Eastern (legacy 12h window) */
+/** Race 1 anchor — June 13, 2026, 9:00 AM Eastern → June 14, 9:00 AM Eastern. */
 export function getRaceOneBounds(): { startedAt: Date; endsAt: Date } {
-  return getRaceDayBoundsForDate(2026, 6, 13);
+  return getRaceWindowForEasternDay(2026, 6, 13);
 }

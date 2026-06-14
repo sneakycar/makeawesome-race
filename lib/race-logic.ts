@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
+import {
+  getNextRaceDayBounds,
+  getRaceDayBounds,
+  getFirstRaceLiveBounds,
+  getExpectedRaceEndsAt,
+} from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
 import { resolvePlayerGender, type PlayerGender } from "./player-gender";
 import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap, normalizePeakRaceScore, roundRaceScore } from "./score";
@@ -85,7 +90,13 @@ export const EXPECTED_POINTS_PER_TICK = TARGET_WINNER_SCORE / TICKS_PER_RACE;
 /** @deprecated use EXPECTED_POINTS_PER_TICK */
 export const EXPECTED_DELTA = EXPECTED_POINTS_PER_TICK;
 
-export { getRaceDayBounds, getNextRaceDayBounds, getFirstRaceLiveBounds, getRaceOneBounds } from "./eastern-time";
+export {
+  getRaceDayBounds,
+  getNextRaceDayBounds,
+  getFirstRaceLiveBounds,
+  getRaceOneBounds,
+  getExpectedRaceEndsAt,
+} from "./eastern-time";
 
 export function getRaceTickIntervalMs(startedAt: Date, endsAt: Date): number {
   const durationMs = Math.max(1, endsAt.getTime() - startedAt.getTime());
@@ -125,6 +136,43 @@ export function calculatePercentComplete(startedAt: Date, endsAt: Date, now: Dat
   if (total <= 0) return 100;
   const elapsed = now.getTime() - startedAt.getTime();
   return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+}
+
+/** Fix races stored with a 12h (9am–9pm) window — all races are 24h. */
+export async function repairActiveRaceSchedule(
+  supabase: SupabaseClient,
+  race: Race
+): Promise<Race> {
+  if (race.status !== "active") return race;
+
+  const startedAt = new Date(race.started_at);
+  const expectedEndsAt = getExpectedRaceEndsAt(startedAt);
+  const currentEndsAt = new Date(race.ends_at);
+
+  if (Math.abs(currentEndsAt.getTime() - expectedEndsAt.getTime()) < 60_000) {
+    return race;
+  }
+
+  const now = new Date();
+  const effectiveNow = getRaceEffectiveNow(race, now);
+  const percentComplete = calculatePercentComplete(startedAt, expectedEndsAt, effectiveNow);
+
+  const { error } = await supabase
+    .from("races")
+    .update({
+      ends_at: expectedEndsAt.toISOString(),
+      percent_complete: percentComplete,
+      updated_at: now.toISOString(),
+    })
+    .eq("id", race.id);
+
+  if (error) throw error;
+
+  return {
+    ...race,
+    ends_at: expectedEndsAt.toISOString(),
+    percent_complete: percentComplete,
+  };
 }
 
 export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
@@ -302,7 +350,7 @@ export function buildPlayerInsert(
   const identity = identityOverride ?? generateIdentity(seed);
   const stats = buildPlayerStatsFromSeed(seed, identity);
   return {
-    name: name.toUpperCase(),
+    name: name.trim().replace(/\s+/g, " "),
     slug,
     status,
     created_day: createdDay,
@@ -506,6 +554,8 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   if (cleared) {
     race = cleared;
   }
+
+  race = await repairActiveRaceSchedule(supabase, race as Race);
 
   const startedAt = new Date(race.started_at);
   let endsAt = new Date(race.ends_at);

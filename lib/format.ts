@@ -1,5 +1,5 @@
 export function formatRacerName(name: string): string {
-  return name.toLowerCase().trim();
+  return name.trim().replace(/\s+/g, " ");
 }
 
 export function stripRaceFromTickerMessage(message: string): string {

@@ -2,7 +2,7 @@ import type { LastRaceRecap, LastRaceRecapSegment } from "./types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatRacerName, ordinal } from "./format";
 import { formatRaceScore } from "./score";
-import { pickGatedRecapPhrase, finalizeRecapLine, validateRecapParagraph } from "./recap-grammar-gate";
+import { pickGatedRecapPhrase, finalizeRecapLine, validateRecapParagraph, cleanRecapTextSegment } from "./recap-grammar-gate";
 import {
   RECAP_CHAOS_SURGE_PHRASES,
   RECAP_COLLAPSE_PHRASES,
@@ -200,12 +200,41 @@ function pushNameSplit(
   line: string,
   name: string
 ): void {
-  const parts = line.split(name);
-  if (parts.length === 2) {
-    segments.push(text(parts[0]!), racer(name), text(parts[1]!));
-  } else {
-    segments.push(text(line));
+  const keys = [formatRacerName(name), name.trim(), name.trim().toLowerCase()];
+  for (const key of keys) {
+    if (!key || !line.includes(key)) continue;
+    const parts = line.split(key);
+    if (parts.length === 2) {
+      segments.push(text(parts[0]!), racer(name), text(parts[1]!));
+      return;
+    }
   }
+  segments.push(text(line));
+}
+
+function capitalizeNamesAtSentenceStarts(
+  segments: LastRaceRecapSegment[]
+): LastRaceRecapSegment[] {
+  let priorText = "";
+
+  return segments.map((segment) => {
+    if (segment.kind === "text") {
+      priorText = segment.value;
+      return segment;
+    }
+
+    const atSentenceStart =
+      priorText.length === 0 || /[.!?]["']?\s*$/.test(priorText);
+    priorText = segment.value;
+
+    if (!atSentenceStart) return segment;
+
+    const value = segment.value;
+    return {
+      ...segment,
+      value: value.charAt(0).toUpperCase() + value.slice(1),
+    };
+  });
 }
 
 function fightBeatSegments(ctx: RecapContext): LastRaceRecapSegment[] | null {
@@ -254,19 +283,20 @@ function composeRecapParagraph(ctx: RecapContext, maxChaos = MAX_CHAOS_CLAUSES):
 
   const winLead =
     pickGatedRecapPhrase(`${ctx.raceId}:win`, RECAP_WIN_PHRASES, {
-      winner: ctx.winner.name,
+      winner: formatRacerName(ctx.winner.name),
       score: formatRaceScore(ctx.winner.score),
-    }) ?? `${ctx.winner.name} seized the win at ${formatRaceScore(ctx.winner.score)} points`;
+    }) ??
+    `${formatRacerName(ctx.winner.name)} seized the win at ${formatRaceScore(ctx.winner.score)} points`;
   pushNameSplit(segments, winLead, ctx.winner.name);
 
   if (ctx.runnerUp && ctx.margin > 0) {
     const marginLine =
       pickGatedRecapPhrase(`${ctx.raceId}:margin`, RECAP_MARGIN_PHRASES, {
         margin: formatRaceScore(ctx.margin),
-        runnerUp: ctx.runnerUp.name,
+        runnerUp: formatRacerName(ctx.runnerUp.name),
         rank: ordinal(ctx.runnerUp.finalRank),
       }) ??
-      `, ${formatRaceScore(ctx.margin)} clear of ${ctx.runnerUp.name} in ${ordinal(ctx.runnerUp.finalRank)}`;
+      `, ${formatRaceScore(ctx.margin)} clear of ${formatRacerName(ctx.runnerUp.name)} in ${ordinal(ctx.runnerUp.finalRank)}`;
     pushNameSplit(segments, marginLine, ctx.runnerUp.name);
   }
 
@@ -274,10 +304,10 @@ function composeRecapParagraph(ctx: RecapContext, maxChaos = MAX_CHAOS_CLAUSES):
 
   const lastLine =
     pickGatedRecapPhrase(`${ctx.raceId}:last`, RECAP_LAST_PHRASES, {
-      loser: ctx.loser.name,
+      loser: formatRacerName(ctx.loser.name),
       score: formatRaceScore(ctx.loser.score),
     }) ??
-    `${ctx.loser.name} finished last at ${formatRaceScore(ctx.loser.score)} and was eliminated to holding.`;
+    `${formatRacerName(ctx.loser.name)} finished last at ${formatRaceScore(ctx.loser.score)} and was eliminated to holding.`;
   pushNameSplit(segments, lastLine, ctx.loser.name);
 
   const fightSegments = fightBeatSegments(ctx);
@@ -305,11 +335,12 @@ function composeRecapParagraph(ctx: RecapContext, maxChaos = MAX_CHAOS_CLAUSES):
 }
 
 function finalizeRecapSegments(segments: LastRaceRecapSegment[]): LastRaceRecapSegment[] {
-  return segments.map((segment) =>
+  const cleaned = segments.map((segment) =>
     segment.kind === "text"
-      ? { ...segment, value: finalizeRecapLine(segment.value) }
+      ? { ...segment, value: cleanRecapTextSegment(segment.value) }
       : segment
   );
+  return capitalizeNamesAtSentenceStarts(cleaned);
 }
 
 function dedupeFightPairs(pairs: RecapFightPair[]): RecapFightPair[] {

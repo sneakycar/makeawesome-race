@@ -189,11 +189,9 @@ function RaceMetaPanel({
       <div className="race-meta">
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
         <div className="race-meta-line race-meta-progress-row">
-          <div className="race-meta-progress-zone">
+          <div className="race-meta-progress-section">
             <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
-            {weatherBadge ? (
-              <div className="race-meta-weather-row">{weatherBadge}</div>
-            ) : null}
+            {weatherBadge}
           </div>
         </div>
         <div className="race-meta-gap" aria-hidden="true" />
@@ -475,6 +473,23 @@ function AboutSection() {
   );
 }
 
+function RaceTickLogRow({
+  entry,
+  now,
+}: {
+  entry: RaceTickLogEntry;
+  now: Date;
+}) {
+  return (
+    <div className="race-log-row">
+      <span className="race-log-tag">
+        [tick {entry.tickNumber + 1}] ({formatTickerAge(entry.createdAt, now)})
+      </span>
+      <span className="race-log-msg">{formatTickerForDisplay(entry.message)}</span>
+    </div>
+  );
+}
+
 function RaceTickLogPanel({
   entries,
   serverTime,
@@ -483,25 +498,29 @@ function RaceTickLogPanel({
   serverTime: string;
 }) {
   const now = new Date(serverTime);
+  const latest = entries.at(-1) ?? null;
+  const older = entries.length > 1 ? entries.slice(0, -1) : [];
+
+  if (!latest) {
+    return <p className="race-log-empty">no ticks yet</p>;
+  }
 
   return (
-    <details className="race-log-details">
-      <summary className="race-log-summary">&gt; LOG</summary>
-      {entries.length === 0 ? (
-        <p className="race-log-empty">no ticks yet</p>
-      ) : (
-        <ul className="race-log-list">
-          {entries.map((entry) => (
-            <li key={entry.tickNumber} className="race-log-row">
-              <span className="race-log-tag">
-                [tick {entry.tickNumber + 1}] ({formatTickerAge(entry.createdAt, now)})
-              </span>
-              <span className="race-log-msg">{formatTickerForDisplay(entry.message)}</span>
-            </li>
-          ))}
-        </ul>
+    <div className="race-log-panel">
+      <RaceTickLogRow entry={latest} now={now} />
+      {older.length > 0 && (
+        <details className="race-log-details">
+          <summary className="race-log-summary">&gt;SHOW ALL</summary>
+          <ul className="race-log-list">
+            {older.map((entry) => (
+              <li key={entry.tickNumber}>
+                <RaceTickLogRow entry={entry} now={now} />
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
-    </details>
+    </div>
   );
 }
 
@@ -1025,7 +1044,6 @@ export default function HomePage() {
                 >
                   <div className="row-head">
                     <span className="row-archetype">L{entry.lane}</span>
-                    <span className="row-rank-pos">{rank}]</span>
                     <span className="row-name">{formatRacerName(entry.player.name)}</span>
                     {rankDeltaLabel && (
                       <span
@@ -1203,10 +1221,6 @@ export default function HomePage() {
           <div className="divider">{"────────────────────────"}</div>
 
           <div className="home-sections-grid">
-            <div className="home-section-block home-section-block-full">
-              <RaceTickLogPanel entries={state.raceLog ?? []} serverTime={state.serverTime} />
-            </div>
-
             {lastRaceRecap && (
               <div className="home-section-block home-section-block-full">
                 <div className="section-label">LAST RACE RECAP</div>
@@ -1263,6 +1277,11 @@ export default function HomePage() {
             <div className="home-section-block">
               <div className="section-label">INJURED</div>
               <InjuredSection players={state.injured ?? []} />
+            </div>
+
+            <div className="home-section-block home-section-block-full">
+              <div className="section-label">&gt; LOG</div>
+              <RaceTickLogPanel entries={state.raceLog ?? []} serverTime={state.serverTime} />
             </div>
           </div>
 
