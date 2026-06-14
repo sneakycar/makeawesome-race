@@ -290,10 +290,20 @@ main,
 .row-track {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   min-width: 0;
   min-height: 28px;
+}
+
+.row-mark-slot {
+  flex-shrink: 0;
+  width: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .row-bar-cell {
@@ -333,19 +343,20 @@ main,
   font-size: 11px;
   line-height: 1;
   color: #333;
-  min-width: 5.5rem;
+  min-width: 2rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .score-pip-track {
   display: flex;
   flex-wrap: nowrap;
   align-items: flex-end;
-  gap: 1px;
-  flex: 1;
+  gap: 2px;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: min(52vw, 220px);
+  max-width: min(48vw, 200px);
   height: 10px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -659,6 +670,15 @@ main,
   letter-spacing: 0.02em;
 }
 
+.retro-stat-row-signature .retro-stat-label {
+  color: #ffd700;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.retro-stat-row-signature .retro-stat-num {
+  color: #fff;
+}
+
 .retro-pip-track {
   display: flex;
   gap: 2px;
@@ -870,4 +890,142 @@ main,
   font-size: 12px;
   line-height: 1.45;
   margin-bottom: 3px;
+}
+
+/* home screen — night (white on black after local sunset) */
+
+body[data-home-theme="night"] {
+  background: #0a0a0a;
+  color: #f0f0f0;
+}
+
+body[data-home-theme="night"] .ticker-wrap {
+  border-color: #444;
+  background: #141414;
+}
+
+body[data-home-theme="night"] .ticker-label {
+  color: #999;
+}
+
+body[data-home-theme="night"] .ticker-track {
+  color: #e8e8e8;
+}
+
+body[data-home-theme="night"] .divider {
+  color: #555;
+}
+
+body[data-home-theme="night"] .race-progress-track {
+  background: #222;
+  border-color: #666;
+}
+
+body[data-home-theme="night"] .race-progress-fill {
+  background: #f0f0f0;
+}
+
+body[data-home-theme="night"] .tap-hint {
+  color: #aaa;
+}
+
+body[data-home-theme="night"] .encourage-btn {
+  background: #1a1a1a;
+  border-color: #ccc;
+  color: #f0f0f0;
+}
+
+body[data-home-theme="night"] .encourage-btn:active:not(:disabled) {
+  background: #2a2a2a;
+}
+
+body[data-home-theme="night"] .encourage-btn:disabled {
+  color: #777;
+}
+
+body[data-home-theme="night"] .encourage-btn.supported {
+  background: #1a1a1a;
+  border-color: #ccc;
+  color: #ccc;
+}
+
+body[data-home-theme="night"] .row-ovr,
+body[data-home-theme="night"] .row-name,
+body[data-home-theme="night"] .row-score,
+body[data-home-theme="night"] .row-injured {
+  color: #f0f0f0;
+}
+
+body[data-home-theme="night"] .row-ovr-rank,
+body[data-home-theme="night"] .row-lane,
+body[data-home-theme="night"] .row-archetype {
+  color: #888;
+}
+
+body[data-home-theme="night"] .row-bar-fill {
+  color: #f0f0f0;
+}
+
+body[data-home-theme="night"] .row-bar-empty {
+  color: #444;
+}
+
+body[data-home-theme="night"] .score-pip {
+  background: linear-gradient(180deg, #ccc 0%, #eee 55%, #fff 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+body[data-home-theme="night"] .race-legend {
+  color: #aaa;
+}
+
+body[data-home-theme="night"] .about-summary::before {
+  color: #999;
+}
+
+body[data-home-theme="night"] .about {
+  color: #ccc;
+}
+
+body[data-home-theme="night"] .streak-name {
+  color: #f0f0f0;
+}
+
+body[data-home-theme="night"] .streak-win {
+  color: #4ade80;
+}
+
+body[data-home-theme="night"] .streak-lose {
+  color: #f87171;
+}
+
+body[data-home-theme="night"] .streak-empty,
+body[data-home-theme="night"] .holding-empty,
+body[data-home-theme="night"] .all-time-empty {
+  color: #888;
+}
+
+body[data-home-theme="night"] .error {
+  color: #ff6b6b;
+}
+
+body[data-home-theme="night"] .dev-tools {
+  border-color: #444;
+  color: #888;
+}
+
+body[data-home-theme="night"] .dev-btn {
+  background: #1a1a1a;
+  border-color: #ccc;
+  color: #f0f0f0;
+}
+
+body[data-home-theme="night"] .dev-btn:active:not(:disabled) {
+  background: #2a2a2a;
+}
+
+body[data-home-theme="night"] .between-races {
+  border-color: #444;
 }

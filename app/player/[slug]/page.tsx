@@ -15,7 +15,7 @@ import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 
 function abilityLine(label: string, value: number, signature: boolean): string {
   const pips = formatPips(value);
-  return `${label.padEnd(8)} ${pips}${signature ? " ★" : ""}`;
+  return `${label.padEnd(8)} ${pips}${signature ? "  SIG" : ""}`;
 }
 
 export default function PlayerPage({
@@ -101,7 +101,7 @@ export default function PlayerPage({
           {"\n"}{formatTraitsDisplay(p.traits ?? [])}
 
           {"\n\n"}SIGNATURE
-          {"\n"}{sig.toUpperCase()} ★
+          {"\n"}{sig.toUpperCase()}
 
           {"\n\n"}{getIdentityText(p)}
 

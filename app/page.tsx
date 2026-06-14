@@ -20,6 +20,7 @@ import { formatRaceScore } from "@/lib/score";
 import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
+import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
 
 function RaceMetaPanel({
   state,
@@ -157,9 +158,9 @@ function RetroStatBar({
 }) {
   const filled = pipCount20(value);
   return (
-    <div className="retro-stat-row">
+    <div className={`retro-stat-row${signature ? " retro-stat-row-signature" : ""}`}>
       <span className="retro-stat-label">{label}</span>
-      <div className="retro-pip-track" aria-label={`${label} ${value} out of 100`}>
+      <div className="retro-pip-track" aria-label={`${label} ${value} out of 100${signature ? ", signature ability" : ""}`}>
         {Array.from({ length: 20 }, (_, i) => (
           <span
             key={i}
@@ -167,10 +168,7 @@ function RetroStatBar({
           />
         ))}
       </div>
-      <span className="retro-stat-num">
-        {value}
-        {signature ? " ★" : ""}
-      </span>
+      <span className="retro-stat-num">{value}</span>
     </div>
   );
 }
@@ -323,7 +321,7 @@ function PlayerOverlay({
                 </div>
                 <div className="retro-kv">
                   <span className="retro-k">SIGNATURE</span>
-                  <span className="retro-v">{(p.signature_stat ?? "grit").toUpperCase()} ★</span>
+                  <span className="retro-v">{(p.signature_stat ?? "grit").toUpperCase()}</span>
                 </div>
               </div>
             </div>
@@ -596,6 +594,8 @@ export default function HomePage() {
   const raceActive = state?.race.status === "active";
   const betweenRaces = state?.betweenRaces ?? false;
   const liveRace = useLiveRace(state, raceActive);
+  const isNight = useDayNight();
+  useHomeDayNightTheme(isNight);
 
   const selectedEntry = selectedSlug
     ? state?.entries.find((e) => e.player.slug === selectedSlug)
@@ -633,7 +633,7 @@ export default function HomePage() {
   };
 
   return (
-    <main>
+    <main data-theme={isNight ? "night" : "day"}>
       {state && (
         <ScrollingTicker
           events={state.ticker}
@@ -689,14 +689,6 @@ export default function HomePage() {
             const score = entry.is_injured
               ? Number(entry.race_score)
               : (live?.score ?? Number(entry.race_score));
-            const leaderScore = Math.max(
-              ...state.entries.map((e) => {
-                const liveEntry = liveRace?.entries.get(e.player_id);
-                if (e.is_injured) return Number(e.race_score);
-                return liveEntry?.score ?? Number(e.race_score);
-              }),
-              1
-            );
             const isInjured = entry.is_injured;
             const isComeback = !isInjured && entry.last_rank_change >= 2;
             const isLeader = !isInjured && rank === 1;
@@ -710,7 +702,6 @@ export default function HomePage() {
                   : isComeback
                     ? "👀"
                     : null;
-            const filled = Math.min(18, Math.max(0, Math.round((score / leaderScore) * 18)));
             const isSupported = supportedId === entry.player_id;
             const hasSupported = supportedId != null;
 
@@ -738,30 +729,24 @@ export default function HomePage() {
                     )}
                   </div>
                   <div className="row-track">
-                    <div className="row-bar-cell">
-                      <span className="row-bar">
-                        <span className="row-bar-fill">{"█".repeat(filled)}</span>
-                        <span className="row-bar-empty">{"░".repeat(18 - filled)}</span>
-                      </span>
-                      {barMark && (
-                        <span
-                          className="row-bar-mark"
-                          title={
-                            isLeader
-                              ? "Race leader"
-                              : isLast
-                                ? "Last place"
-                                : `Up ${entry.last_rank_change} spots since last update`
-                          }
-                        >
-                          {barMark}
-                        </span>
-                      )}
-                    </div>
+                    <span
+                      className="row-mark-slot"
+                      title={
+                        isInjured
+                          ? "Injured"
+                          : isLeader
+                            ? "Race leader"
+                            : isLast
+                              ? "Last place"
+                              : isComeback
+                                ? `Up ${entry.last_rank_change} spots since last update`
+                                : undefined
+                      }
+                    >
+                      {isInjured ? "🏥" : barMark}
+                    </span>
                     <ScorePipTrack score={score} />
-                    {isInjured && (
-                      <span className="row-injured">🏥 INJURED</span>
-                    )}
+                    <span className="row-score">{formatRaceScore(score)}</span>
                     {raceActive && !isInjured && (
                       <button
                         type="button"
@@ -784,15 +769,15 @@ export default function HomePage() {
 
           <div className="race-legend">
             <span className="legend-key">
-              <span className="row-bar-mark" aria-hidden="true">🏆</span>
+              <span className="row-mark-slot" aria-hidden="true">🏆</span>
               LEAD
             </span>
             <span className="legend-key">
-              <span className="row-bar-mark" aria-hidden="true">👀</span>
+              <span className="row-mark-slot" aria-hidden="true">👀</span>
               COMEBACK
             </span>
             <span className="legend-key">
-              <span className="row-bar-mark" aria-hidden="true">💀</span>
+              <span className="row-mark-slot" aria-hidden="true">💀</span>
               LAST
             </span>
           </div>
