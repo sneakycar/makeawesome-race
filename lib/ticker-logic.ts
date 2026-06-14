@@ -351,7 +351,7 @@ export function generateStatusPulseTickerEvent(
     eventType: "status_pulse",
     playerId: leader.player_id,
     priority: 55,
-    message: `RACE ${raceNumber} — ${leaderName} LEADS ${formatRaceScore(leaderPts)} · ${lastName} ${formatRaceScore(lastPts)}`,
+    message: `${leaderName} LEADS ${formatRaceScore(leaderPts)} · ${lastName} ${formatRaceScore(lastPts)}`,
     facts: {
       ...baseFacts(leader, tickNumber, percentComplete),
       raceNumber,
@@ -366,7 +366,7 @@ export function generateRaceStartTickerEvents(raceNumber: number): TickerEventDr
       eventType: "race_start",
       playerId: "",
       priority: 85,
-      message: `RACE ${raceNumber} IS LIVE — 8 RACERS ON THE GRID`,
+      message: `8 RACERS ON THE GRID — WE ARE LIVE!`,
       facts: {
         tickNumber: 0,
         percentComplete: 0,
@@ -391,7 +391,7 @@ export function generateFinalizeTickerEvents(
       eventType: "race_won",
       playerId: winnerId,
       priority: 100,
-      message: `${winner} WINS RACE ${raceNumber}! CHECKERED FLAG!`,
+      message: `${winner} WINS! CHECKERED FLAG!`,
       facts: {
         tickNumber: 48,
         percentComplete: 100,

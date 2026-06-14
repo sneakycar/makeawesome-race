@@ -13,7 +13,6 @@ import {
 import {
   generateFinalizeTickerEvents,
   generateRaceStartTickerEvents,
-  generateStatusPulseTickerEvent,
   generateTickTickerEvents,
   type TickerEntrySnapshot,
   type TickerEventDraft,
@@ -181,15 +180,6 @@ export async function backfillRaceTicker(
       raceId,
       tick
     );
-    dramatic.push(
-      generateStatusPulseTickerEvent(
-        afterSnapshots,
-        typedRace.race_number,
-        percentComplete,
-        tick
-      )
-    );
-
     rows.push(...draftsToRows(raceId, tick, tickTime(tick), dramatic));
     beforeSnapshots = afterSnapshots;
   }

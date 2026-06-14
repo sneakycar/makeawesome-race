@@ -2,8 +2,17 @@ export function formatRacerName(name: string): string {
   return name.toLowerCase().trim();
 }
 
+export function stripRaceFromTickerMessage(message: string): string {
+  return message
+    .replace(/^RACE \d+\s*[—–-]\s*/i, "")
+    .replace(/^RACE \d+\s+IS LIVE\s*[—–-]\s*/i, "")
+    .replace(/\bWINS RACE \d+!/gi, "WINS!")
+    .trim();
+}
+
 export function formatTickerForDisplay(message: string): string {
-  const lower = message.toLowerCase();
+  const stripped = stripRaceFromTickerMessage(message);
+  const lower = stripped.toLowerCase();
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 

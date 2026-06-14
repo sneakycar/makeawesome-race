@@ -9,7 +9,6 @@ import { saveTickerEvents } from "./ticker-db";
 import {
   generateFinalizeTickerEvents,
   generateRaceStartTickerEvents,
-  generateStatusPulseTickerEvent,
   generateTickTickerEvents,
   type TickerEntrySnapshot,
 } from "./ticker-logic";
@@ -566,9 +565,6 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     percentComplete,
     race.id,
     tickNumber
-  );
-  tickerEvents.push(
-    generateStatusPulseTickerEvent(afterSnapshots, race.race_number, percentComplete, tickNumber)
   );
   await saveTickerEvents(supabase, race.id, tickNumber, tickerEvents);
 

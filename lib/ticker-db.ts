@@ -2,6 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TickerEvent, TickerEventFacts } from "./types";
 import type { TickerEventDraft } from "./ticker-logic";
 
+/** Event types that are standings updates, not announcer calls. */
+const NON_ANNOUNCER_EVENT_TYPES = new Set(["status_pulse"]);
+
 export async function saveTickerEvents(
   supabase: SupabaseClient,
   raceId: string,
@@ -28,15 +31,33 @@ export async function getRecentTickerEvents(
   raceId: string,
   limit = 6
 ): Promise<TickerEvent[]> {
+  return getAnnouncerTickerEvents(supabase, raceId, limit);
+}
+
+export async function getAnnouncerTickerEvents(
+  supabase: SupabaseClient,
+  raceId: string,
+  limit = 12
+): Promise<TickerEvent[]> {
+  const fetchLimit = Math.max(limit * 4, 24);
   const { data, error } = await supabase
     .from("race_ticker_events")
     .select("*")
     .eq("race_id", raceId)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(fetchLimit);
 
   if (error) throw error;
-  return (data || []).map((row) => ({
+
+  const announcer = (data || []).filter((row) => {
+    if (NON_ANNOUNCER_EVENT_TYPES.has(row.event_type)) return false;
+    if (row.event_type === "legacy") {
+      return !/^RACE \d+\s*[—–-]/i.test(row.message);
+    }
+    return true;
+  });
+
+  return announcer.slice(0, limit).map((row) => ({
     ...row,
     facts: (row.facts ?? {}) as TickerEventFacts,
   })) as TickerEvent[];
