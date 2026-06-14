@@ -257,8 +257,15 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .race-progress-track {
+  --race-progress-width: min(
+    390px,
+    calc(100vw - max(20px, env(safe-area-inset-left) + env(safe-area-inset-right)))
+  );
+  display: block;
+  flex: none;
+  width: var(--race-progress-width);
+  max-width: var(--race-progress-width);
   height: 10px;
-  width: 100%;
   margin-top: 6px;
   background: #eee;
   border: 1px solid #999;
