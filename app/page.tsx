@@ -240,11 +240,13 @@ function RaceProgressPipBar({
 }) {
   const clamped = Math.max(0, Math.min(100, percent));
   const displayPct = Math.round(clamped);
-  const markerLeft = Math.max(3, Math.min(97, clamped));
   const filled = Math.max(
     0,
-    Math.min(SCORE_PIP_SLOTS, Math.round((clamped / 100) * SCORE_PIP_SLOTS))
+    Math.min(SCORE_PIP_SLOTS, Math.floor((clamped / 100) * SCORE_PIP_SLOTS))
   );
+  const fillEdgePct = (filled / SCORE_PIP_SLOTS) * 100;
+  const markerLeft =
+    filled <= 0 ? 3 : Math.max(3, Math.min(97, fillEdgePct));
 
   return (
     <div
