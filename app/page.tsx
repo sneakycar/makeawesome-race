@@ -22,6 +22,8 @@ import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
 import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
+import { useRaceWeather } from "@/lib/use-race-weather";
+import { WEATHER_ART, type RaceWeatherState } from "@/lib/race-weather";
 
 function RaceMetaPanel({
   state,
@@ -192,6 +194,20 @@ function ScorePipTrack({
           return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
         })}
       </div>
+    </div>
+  );
+}
+
+function RaceWeatherOverlay({ weather }: { weather: RaceWeatherState }) {
+  const art = WEATHER_ART[weather.type];
+  return (
+    <div
+      className={`race-weather race-weather-${weather.type}`}
+      aria-hidden="true"
+    >
+      <span className="race-weather-label">{weather.label}</span>
+      <pre className="race-weather-layer race-weather-layer-a">{art.layerA}</pre>
+      <pre className="race-weather-layer race-weather-layer-b">{art.layerB}</pre>
     </div>
   );
 }
@@ -645,6 +661,7 @@ export default function HomePage() {
   const liveRace = useLiveRace(state, raceActive);
   const isNight = useDayNight();
   useHomeDayNightTheme(isNight);
+  const raceWeather = useRaceWeather(state?.race.id, raceActive);
 
   const entryScorePoints =
     state?.entries.map((e) => {
@@ -749,7 +766,9 @@ export default function HomePage() {
 
           <p className="tap-hint">tap to see player&apos;s stats</p>
 
-          <div className="race-standings" key={state.serverTime}>
+          <div className="race-standings-wrap">
+            {raceWeather && raceActive && <RaceWeatherOverlay weather={raceWeather} />}
+            <div className="race-standings" key={state.serverTime}>
           {[...state.entries]
             .sort((a, b) => a.lane - b.lane)
             .map((entry) => {
@@ -778,7 +797,7 @@ export default function HomePage() {
               !raceActive || encouraging || hasSupported || isInjured;
 
             return (
-              <div key={entry.id} className="row-line">
+              <div key={entry.id} className={`row-line${isLeader ? " row-line-leader" : ""}`}>
                 <div
                   className="row-main"
                   onClick={() => setSelectedSlug(entry.player.slug)}
@@ -841,6 +860,7 @@ export default function HomePage() {
               </div>
             );
           })}
+          </div>
           </div>
 
           <div className="race-legend">
