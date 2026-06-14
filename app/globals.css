@@ -461,10 +461,19 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   flex-shrink: 0;
   width: 2px;
   height: 9px;
+}
+
+.score-pip-on {
   background: linear-gradient(180deg, #444 0%, #111 55%, #000 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     0 0 0 0.5px rgba(0, 0, 0, 0.5);
+}
+
+.score-pip-dim {
+  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 55%, #c4c4c4 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  opacity: 0.55;
 }
 
 .row-injured {
@@ -1058,11 +1067,17 @@ body[data-home-theme="night"] .row-bar-empty {
   color: #444;
 }
 
-body[data-home-theme="night"] .score-pip {
+body[data-home-theme="night"] .score-pip-on {
   background: linear-gradient(180deg, #ccc 0%, #eee 55%, #fff 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.5),
     0 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+body[data-home-theme="night"] .score-pip-dim {
+  background: linear-gradient(180deg, #333 0%, #2a2a2a 55%, #222 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  opacity: 0.45;
 }
 
 body[data-home-theme="night"] .race-legend {

@@ -133,16 +133,39 @@ function ScrollingTicker({
   );
 }
 
-function ScorePipTrack({ score }: { score: number }) {
+function ScorePipTrack({
+  score,
+  leaderScore,
+  isLeader,
+}: {
+  score: number;
+  leaderScore: number;
+  isLeader: boolean;
+}) {
   const count = Math.max(0, Math.round(score));
+  const leader = Math.max(count, Math.round(leaderScore));
+  const dimCount = isLeader ? 0 : Math.max(0, leader - count);
+  const behind = dimCount;
+
   return (
     <div
       className="score-pip-track"
-      aria-label={`${count} points`}
-      title={`${count} points`}
+      aria-label={
+        isLeader
+          ? `${count} points, race leader`
+          : `${count} points, ${behind} behind leader`
+      }
+      title={
+        isLeader
+          ? `${count} points`
+          : `${count} pts · ${behind} behind lead`
+      }
     >
       {Array.from({ length: count }, (_, i) => (
-        <span key={i} className="score-pip" aria-hidden="true" />
+        <span key={`on-${i}`} className="score-pip score-pip-on" aria-hidden="true" />
+      ))}
+      {Array.from({ length: dimCount }, (_, i) => (
+        <span key={`dim-${i}`} className="score-pip score-pip-dim" aria-hidden="true" />
       ))}
     </div>
   );
@@ -695,6 +718,14 @@ export default function HomePage() {
             const score = entry.is_injured
               ? Number(entry.race_score)
               : (live?.score ?? Number(entry.race_score));
+            const leaderScore = Math.max(
+              ...state.entries.map((e) => {
+                const liveEntry = liveRace?.entries.get(e.player_id);
+                if (e.is_injured) return Number(e.race_score);
+                return liveEntry?.score ?? Number(e.race_score);
+              }),
+              1
+            );
             const isInjured = entry.is_injured;
             const isComeback = !isInjured && entry.last_rank_change >= 2;
             const isLeader = !isInjured && rank === 1;
@@ -751,7 +782,7 @@ export default function HomePage() {
                     >
                       {isInjured ? "🏥" : barMark}
                     </span>
-                    <ScorePipTrack score={score} />
+                    <ScorePipTrack score={score} leaderScore={leaderScore} isLeader={isLeader} />
                     <span className="row-score">{formatRaceScore(score)}</span>
                     {raceActive && !isInjured && (
                       <button
