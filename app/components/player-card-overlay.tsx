@@ -97,7 +97,7 @@ export function PlayerCardOverlay({
   lane,
   isFighting = false,
   isInjured = false,
-  isLeader = false,
+  barMark = null,
   ovrInfo,
   isNight,
   onClose,
@@ -115,7 +115,7 @@ export function PlayerCardOverlay({
   lane?: number;
   isFighting?: boolean;
   isInjured?: boolean;
-  isLeader?: boolean;
+  barMark?: RaceIconId | null;
   ovrInfo?: { ovr: number; rank: number; total: number };
   isNight: boolean;
   onClose: () => void;
@@ -161,23 +161,12 @@ export function PlayerCardOverlay({
     liveScore ??
     (profile?.currentScore != null ? Math.round(Number(profile.currentScore)) : 0);
   const rankDeltaLabel = formatRankDelta(rankDelta);
-  const isComeback = !isInjured && !isFighting && rankDelta >= 2;
-  const isLast =
-    !isInjured && !isFighting && rank != null && healthyEntryCount > 0 && rank === healthyEntryCount;
+  const isLeader = barMark === "lead";
   const pipOverlay = isInjured
     ? { icon: "injured" as const, label: "INJURED" }
     : isFighting
       ? { icon: "fight" as const, label: "FIGHT" }
       : undefined;
-  const barMark: RaceIconId | null = isInjured
-    ? null
-    : isLeader
-      ? "lead"
-      : isLast
-        ? "last"
-        : isComeback
-          ? "comeback"
-          : null;
   const traitNotes = getTraitExplainerLines(p?.traits ?? []);
 
   return (

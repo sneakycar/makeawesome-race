@@ -81,6 +81,14 @@ export function getRaceDayBounds(date: Date = new Date()): { startedAt: Date; en
 
 export function getNextRaceDayBounds(afterDate: Date): { startedAt: Date; endsAt: Date } {
   const { year, month, day } = getEasternCalendarDate(afterDate);
+  const sameDay = getRaceDayBoundsForDate(year, month, day);
+
+  // Race 2+ runs 9 AM–9 PM Eastern. If the prior race ended earlier that same day,
+  // schedule this day's window — do not skip to tomorrow.
+  if (afterDate.getTime() < sameDay.endsAt.getTime()) {
+    return sameDay;
+  }
+
   const anchor = easternWallClockToDate(year, month, day, 12, 0, 0);
   const nextDay = new Date(anchor.getTime() + 24 * 60 * 60 * 1000);
   const next = getEasternCalendarDate(nextDay);

@@ -29,6 +29,7 @@ import { getOrCreateDeviceId } from "@/lib/client-device-id";
 import { useEncourageCooldown } from "@/lib/use-encourage-cooldown";
 import { calculateLiveOdds } from "@/lib/live-odds";
 import { buildLiveScoreMap, computeLiveRanks } from "@/lib/live-standings";
+import { computeRaceBarMarks, isEarlyRaceWindow } from "@/lib/race-bar-marks";
 import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
 import { BadMoneyModal } from "@/app/components/bad-money-modal";
 import { RacerFactReveal } from "@/app/components/racer-fact-reveal";
@@ -576,7 +577,7 @@ export default function HomePage() {
                     ...e,
                     race_score: nextScore,
                     progress: nextScore,
-                    displayed_progress: nextScore,
+                    displayed_progress: Math.round(nextScore),
                     fan_live_bonus: Number(e.fan_live_bonus ?? 0) + granted,
                     recent_deltas: recentDeltas,
                     last_delta: granted,
@@ -664,7 +665,9 @@ export default function HomePage() {
     }
   };
 
-  const raceActive = state?.race.status === "active";
+  const raceActive =
+    state?.race.status === "active" &&
+    (state.racePhase === "live" || state.racePhase === "delayed");
   const raceDelayed = Boolean(state?.raceDelay?.active);
   const betweenRaces = state?.betweenRaces ?? false;
   const liveRace = useLiveRace(state, raceActive && !raceDelayed);
@@ -678,6 +681,12 @@ export default function HomePage() {
   );
   const rankDeltaById = useLiveRankDelta(state, raceActive && !raceDelayed, liveRace);
 
+  const [barMarkNow, setBarMarkNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setBarMarkNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const liveScoreMap = useMemo(
     () => (state ? buildLiveScoreMap(state.entries, liveRace?.entries) : new Map()),
     [state, liveRace]
@@ -687,6 +696,24 @@ export default function HomePage() {
     () => (state ? computeLiveRanks(state.entries, liveScoreMap) : new Map()),
     [state, liveScoreMap]
   );
+
+  const barMarksById = useMemo(() => {
+    if (!state || !raceActive) return new Map<string, RaceIconId>();
+
+    const startedAt = new Date(state.race.started_at);
+    const earlyRace =
+      state.racePhase === "live" && isEarlyRaceWindow(startedAt, barMarkNow);
+
+    const inputs = state.entries.map((entry) => ({
+      playerId: entry.player_id,
+      rank: liveRankMap.get(entry.player_id) ?? entry.current_rank,
+      rankDelta: rankDeltaById.get(entry.player_id) ?? 0,
+      isInjured: entry.is_injured,
+      isFighting: entry.is_fighting,
+    }));
+
+    return computeRaceBarMarks(inputs, { earlyRace });
+  }, [state, raceActive, liveRankMap, rankDeltaById, barMarkNow]);
 
   const oddsAsOf = state?.gameState.last_tick_at ?? state?.serverTime;
   const [oddsNow, setOddsNow] = useState(() => new Date());
@@ -792,9 +819,11 @@ export default function HomePage() {
           serverTime={state.serverTime}
           raceNumber={state.race.race_number}
           fallback={
-            state.race.status === "active"
+            state.racePhase === "live" || state.racePhase === "delayed"
               ? "Race in progress — awaiting first broadcast"
-              : "Awaiting race updates"
+              : state.racePhase === "upcoming"
+                ? "Race scheduled — awaiting start"
+                : "Awaiting race updates"
           }
         />
       )}
@@ -859,24 +888,15 @@ export default function HomePage() {
             const isInjured = entry.is_injured;
             const isFighting = entry.is_fighting;
             const rankDelta = rankDeltaById.get(entry.player_id) ?? 0;
-            const isComeback = !isInjured && !isFighting && rankDelta >= 2;
-            const isLeader = !isInjured && !isFighting && rank === 1;
-            const isLast =
-              !isInjured && !isFighting && rank === healthyEntryCount;
             const pipOverlay = isInjured
               ? { icon: "injured" as const, label: "INJURED" }
               : isFighting
                 ? { icon: "fight" as const, label: "FIGHT" }
                 : undefined;
-            const barMark: RaceIconId | null = isInjured
+            const barMark = isInjured || isFighting
               ? null
-              : isLeader
-                ? "lead"
-                : isLast
-                  ? "last"
-                  : isComeback
-                    ? "comeback"
-                    : null;
+              : barMarksById.get(entry.player_id) ?? null;
+            const isLeader = barMark === "lead";
             const rankDeltaLabel = formatRankDelta(rankDelta);
             const encouragePhase =
               encouragement &&
@@ -1084,6 +1104,13 @@ export default function HomePage() {
           <div className="divider">{"────────────────────────"}</div>
 
           <div className="home-sections-grid">
+            {state.lastRaceRecap && (
+              <div className="home-section-block home-section-block-full">
+                <div className="section-label">LAST RACE RECAP</div>
+                <p className="last-race-recap">{state.lastRaceRecap.paragraph}</p>
+              </div>
+            )}
+
             <div className="home-section-block">
               <div className="section-label">ALL-TIME</div>
               {state.allTime.length === 0 ? (
@@ -1196,10 +1223,10 @@ export default function HomePage() {
           lane={selectedEntry.lane}
           isFighting={selectedEntry.is_fighting}
           isInjured={selectedEntry.is_injured}
-          isLeader={
-            !selectedEntry.is_injured &&
-            !selectedEntry.is_fighting &&
-            (liveRankMap.get(selectedEntry.player_id) ?? selectedEntry.current_rank) === 1
+          barMark={
+            selectedEntry.is_injured || selectedEntry.is_fighting
+              ? null
+              : barMarksById.get(selectedEntry.player_id) ?? null
           }
           ovrInfo={state?.ovrByPlayerId[selectedEntry.player_id]}
           isNight={isNight}

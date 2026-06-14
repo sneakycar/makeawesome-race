@@ -51,6 +51,7 @@ export async function backfillActiveRaceScores(
       fight_end_tick: entry.fight_end_tick as number | null,
       fight_frozen_score: entry.fight_frozen_score as number | null,
       race_score: entry.race_score,
+      bad_money_count: entry.bad_money_count,
     }))
   );
 
@@ -153,7 +154,7 @@ export async function backfillActiveRaceScores(
       .update({
         race_score: score,
         progress: score,
-        displayed_progress: score,
+        displayed_progress: Math.round(score),
         current_rank: simRanked.current_rank,
         last_delta: fighting || entry.is_injured ? 0 : lastDelta,
         recent_deltas: fighting || entry.is_injured ? [] : deltas.slice(-3),

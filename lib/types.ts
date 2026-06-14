@@ -294,6 +294,11 @@ export interface BadMoneyState {
   canBet: boolean;
 }
 
+export interface LastRaceRecap {
+  raceNumber: number;
+  paragraph: string;
+}
+
 export interface GameStateResponse {
   race: Race;
   entries: RaceEntryWithPlayer[];
@@ -317,6 +322,7 @@ export interface GameStateResponse {
   nextRaceNumber: number | null;
   nextRaceStartsAt: string | null;
   devTools: boolean;
+  lastRaceRecap: LastRaceRecap | null;
 }
 
 export interface PlayerProfileResponse {

@@ -16,6 +16,7 @@ import { getVisitorBadMoneyState } from "@/lib/bad-money-db";
 import { hashRequestIp, getRequestIp } from "@/lib/request-identity";
 import { hashVisitorDeviceId, normalizeDeviceId } from "@/lib/visitor-id";
 import { getRecentTickerEvents } from "@/lib/ticker-db";
+import { getLastRaceRecap } from "@/lib/last-race-recap";
 import { getLaneWinStats } from "@/lib/lane-stats";
 import { getOvrRankings, ovrRankingsToRecord } from "@/lib/ovr";
 import type { GameStateResponse } from "@/lib/types";
@@ -101,6 +102,7 @@ export async function GET(request: Request) {
         : { betPlayerId: null, hasBet: false, canBet: false };
 
     const ticker = await getRecentTickerEvents(supabase, race.id, 12);
+    const lastRaceRecap = await getLastRaceRecap(supabase);
 
     const activeRace = await getActiveRaceOnly(supabase);
     const betweenRaces = !activeRace && race.status === "finalized";
@@ -128,6 +130,7 @@ export async function GET(request: Request) {
       encouragement,
       badMoney,
       ticker,
+      lastRaceRecap,
       betweenRaces,
       nextRaceNumber,
       nextRaceStartsAt,

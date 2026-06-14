@@ -475,11 +475,16 @@ function rankEntries<T extends { race_score: number; is_injured?: boolean; is_di
   return sorted.map((e, i) => ({
     ...e,
     current_rank: i + 1,
-    displayed_progress: roundRaceScore(e.race_score),
+    displayed_progress: Math.round(roundRaceScore(e.race_score)),
   }));
 }
 
 export async function tickRace(supabase: SupabaseClient): Promise<void> {
+  const tickDebug = process.env.TICK_DEBUG === "1";
+  const logTick = (...args: unknown[]) => {
+    if (tickDebug) console.log("[tickRace]", ...args);
+  };
+
   const now = new Date();
   let { data: race, error: raceErr } = await supabase
     .from("races")
@@ -490,7 +495,10 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     .maybeSingle();
 
   if (raceErr) throw raceErr;
-  if (!race) return;
+  if (!race) {
+    logTick("exit: no active race");
+    return;
+  }
 
   const cleared = await clearExpiredRaceDelay(supabase, race as Race, now);
   if (cleared) {
@@ -500,7 +508,13 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   const startedAt = new Date(race.started_at);
   let endsAt = new Date(race.ends_at);
 
+  if (now < startedAt) {
+    logTick("exit: race not started yet", startedAt.toISOString());
+    return;
+  }
+
   if (isRaceDelayed(race as Race, now)) {
+    logTick("exit: race delayed until", race.delay_until);
     await syncRaceWeatherEvents(supabase, race as Race, startedAt, now);
     await supabase
       .from("game_state")
@@ -510,6 +524,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   }
 
   if (now > endsAt) {
+    logTick("exit: finalize race");
     await finalizeRace(supabase, race as Race);
     return;
   }
@@ -526,6 +541,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
       Boolean(race.delay_until)
     )
   ) {
+    logTick("exit: starting race delay at tick", tickNumber);
     await startRaceDelay(supabase, race as Race, tickNumber, percentComplete, now);
     await supabase
       .from("game_state")
@@ -540,7 +556,12 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     .eq("race_id", race.id);
 
   if (entriesErr) throw entriesErr;
-  if (!entries?.length) return;
+  if (!entries?.length) {
+    logTick("exit: no entries");
+    return;
+  }
+
+  logTick("processing", { tickNumber, percentComplete, entryCount: entries.length });
 
   for (let i = 0; i < entries.length; i++) {
     entries[i] = clearEndedFights([entries[i]], tickNumber)[0];
@@ -680,7 +701,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         ...entry,
         race_score: newScore,
         progress: newScore,
-        displayed_progress: roundRaceScore(newScore),
+        displayed_progress: Math.round(roundRaceScore(newScore)),
         last_delta: 0,
         recent_deltas: appendRecentDelta(entry.recent_deltas, 0),
         event_note: "INJURED",
@@ -694,7 +715,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         ...entry,
         race_score: frozen,
         progress: frozen,
-        displayed_progress: roundRaceScore(frozen),
+        displayed_progress: Math.round(roundRaceScore(frozen)),
         last_delta: 0,
         recent_deltas: appendRecentDelta(entry.recent_deltas, 0),
         event_note: "FIGHT",
@@ -754,7 +775,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     updated.push({
       ...entry,
       progress: roundRaceScore(newScore),
-      displayed_progress: roundRaceScore(newScore),
+      displayed_progress: Math.round(roundRaceScore(newScore)),
       last_delta: isInjured ? 0 : tickResult.delta,
       recent_deltas: appendRecentDelta(
         entry.recent_deltas,
@@ -803,13 +824,13 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     entry.peak_race_score = peakRaceScore;
     entry.race_score = score;
     entry.progress = score;
-    entry.displayed_progress = score;
+    entry.displayed_progress = Math.round(score);
 
-    await supabase
+    const { error: entryErr } = await supabase
       .from("race_entries")
       .update({
         progress: score,
-        displayed_progress: score,
+        displayed_progress: Math.round(score),
         current_rank: entry.current_rank,
         last_delta: entry.last_delta,
         recent_deltas: entry.recent_deltas ?? [],
@@ -832,8 +853,12 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
       })
       .eq("id", entry.id);
 
+    if (entryErr) {
+      throw new Error(`race_entries update failed (${entry.id}): ${entryErr.message}`);
+    }
+
     const player = entry.player as Player;
-    await supabase
+    const { error: playerErr } = await supabase
       .from("players")
       .update({
         highest_career_score: Math.max(Number(player.highest_career_score ?? 0), score),
@@ -844,17 +869,23 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         updated_at: now.toISOString(),
       })
       .eq("id", player.id);
+
+    if (playerErr) {
+      throw new Error(`players update failed (${player.id}): ${playerErr.message}`);
+    }
   }
 
-  await supabase
+  const { error: raceUpdateErr } = await supabase
     .from("races")
     .update({ percent_complete: percentComplete })
     .eq("id", race.id);
+  if (raceUpdateErr) throw raceUpdateErr;
 
-  await supabase
+  const { error: gsErr } = await supabase
     .from("game_state")
     .update({ last_tick_at: now.toISOString(), updated_at: now.toISOString() })
     .eq("id", 1);
+  if (gsErr) throw gsErr;
 }
 
 async function processInjuredRecovery(supabase: SupabaseClient, currentDay: number): Promise<void> {
@@ -976,6 +1007,11 @@ export async function finalizeRace(
   const endsAt = new Date(race.ends_at);
   await syncRaceWeatherEvents(supabase, race, startedAt, endsAt);
   const chaosUsed = new Map<string, boolean>();
+  for (const entry of entries) {
+    if (entry.event_note?.includes("CHAOS SURGE")) {
+      chaosUsed.set(entry.player_id, true);
+    }
+  }
   const sim = buildRaceSim(
     entries.map((entry) => ({
       player_id: entry.player_id,
@@ -1017,7 +1053,7 @@ export async function finalizeRace(
       player: entry.player as Player,
       progress: simEntry.score,
       race_score: simEntry.score,
-      displayed_progress: roundRaceScore(simEntry.score),
+      displayed_progress: Math.round(roundRaceScore(simEntry.score)),
       is_disqualified: isDisqualified,
     };
   });
@@ -1082,7 +1118,7 @@ export async function finalizeRace(
       roundRaceScore(Number(entry.race_score))
     );
 
-    await supabase
+    const { error: entryErr } = await supabase
       .from("race_entries")
       .update({
         progress: entry.race_score,
@@ -1105,6 +1141,10 @@ export async function finalizeRace(
         updated_at: now.toISOString(),
       })
       .eq("id", entry.id);
+
+    if (entryErr) {
+      throw new Error(`finalize race_entries update failed (${entry.id}): ${entryErr.message}`);
+    }
 
     const updates = mutatePlayerAfterRace(player, finish, isWinner, currentDay, top3Ids.has(player.id));
     updates.highest_race_score = Math.max(Number(player.highest_race_score ?? 0), peakScore);
@@ -1446,6 +1486,16 @@ export async function chooseReplacement(
 ): Promise<Player> {
   const excluded = new Set(options.excludePlayerIds ?? []);
 
+  const { data: queuedRookie } = await supabase
+    .from("players")
+    .select("id")
+    .eq("slug", QUEUED_ROOKIE.slug)
+    .maybeSingle();
+
+  if (!queuedRookie) {
+    return createPlayer(supabase, "active", nextDay);
+  }
+
   const { data: holding } = await supabase
     .from("players")
     .select("*")
@@ -1593,7 +1643,7 @@ async function addHistory(
   finishRank: number | null,
   progress: number | null
 ) {
-  await supabase.from("player_history").insert({
+  const { error } = await supabase.from("player_history").insert({
     player_id: playerId,
     race_id: raceId,
     day_number: dayNumber,
@@ -1602,6 +1652,10 @@ async function addHistory(
     finish_rank: finishRank,
     progress,
   });
+
+  if (error) {
+    throw new Error(`player_history insert failed (${eventType}): ${error.message}`);
+  }
 }
 
 export async function getAllTimeTop3(supabase: SupabaseClient): Promise<Player[]> {

@@ -235,7 +235,7 @@ export function RacerFactReveal({
     pausedRemainingRef.current = null;
     setPhase("hidden");
 
-    if (!raceActive || activeEntries.length === 0) return;
+    if (!raceActive || entriesRef.current.length === 0) return;
     if (shownCountRef.current >= MAX_FACTS) return;
 
     scheduleNextReveal();
@@ -247,7 +247,6 @@ export function RacerFactReveal({
   }, [
     raceId,
     raceActive,
-    activeEntries.length,
     scheduleNextReveal,
     clearScheduleTimer,
     clearCardTimers,

@@ -118,7 +118,7 @@ main,
 .ticker-track {
   display: inline-flex;
   white-space: nowrap;
-  animation: ticker-scroll 90s linear infinite;
+  animation: ticker-scroll 28s linear infinite;
   font-size: 12px;
   font-weight: 500;
   color: #222;
@@ -1574,6 +1574,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .row-mark-slot {
   flex-shrink: 0;
   width: 1.25rem;
+  min-width: 1.25rem;
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
@@ -1585,10 +1586,6 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .row-mark-slot-inline {
   width: auto;
   min-width: 0;
-}
-
-.row-mark-slot:empty {
-  display: none;
 }
 
 .race-emoji {
@@ -3507,6 +3504,19 @@ body[data-home-theme="night"] .delay-overlay {
   font-style: italic;
 }
 
+.last-race-recap {
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #222;
+  text-transform: none;
+  font-weight: 500;
+}
+
+.home-section-block-full {
+  grid-column: 1 / -1;
+}
+
 .all-time-row,
 .meta-block {
   font-size: 12px;
@@ -3810,6 +3820,10 @@ body[data-home-theme="night"] .streak-empty,
 body[data-home-theme="night"] .holding-empty,
 body[data-home-theme="night"] .all-time-empty {
   color: #888;
+}
+
+body[data-home-theme="night"] .last-race-recap {
+  color: #e0e0e0;
 }
 
 body[data-home-theme="night"] .error {

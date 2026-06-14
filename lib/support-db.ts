@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { clampNaturalRaceScore, roundRaceScore } from "./score";
+import { clampNaturalRaceScore, normalizePeakRaceScore, roundRaceScore } from "./score";
 import { appendRecentDelta } from "./hybrid-live-score";
 import {
   computeLiveScoreGrant,
@@ -249,7 +249,7 @@ export async function recordEncouragement(
 
   const { data: entry } = await supabase
     .from("race_entries")
-    .select("id, is_injured, is_fighting, race_score, fan_live_bonus, recent_deltas, last_delta")
+    .select("id, is_injured, is_fighting, race_score, fan_live_bonus, peak_race_score, recent_deltas, last_delta")
     .eq("race_id", raceId)
     .eq("player_id", playerId)
     .maybeSingle();
@@ -286,6 +286,10 @@ export async function recordEncouragement(
     const newBonus = currentBonus + liveGrant.granted;
     const newScore = clampNaturalRaceScore(currentScore + liveGrant.granted);
     const recentDeltas = appendRecentDelta(entry.recent_deltas, liveGrant.granted);
+    const peakRaceScore = Math.max(
+      normalizePeakRaceScore(Number(entry.peak_race_score ?? 0), 0),
+      roundRaceScore(newScore)
+    );
 
     await supabase
       .from("race_entries")
@@ -293,7 +297,8 @@ export async function recordEncouragement(
         fan_live_bonus: newBonus,
         race_score: newScore,
         progress: newScore,
-        displayed_progress: roundRaceScore(newScore),
+        displayed_progress: Math.round(roundRaceScore(newScore)),
+        peak_race_score: peakRaceScore,
         recent_deltas: recentDeltas,
         last_delta: liveGrant.granted,
         updated_at: now.toISOString(),

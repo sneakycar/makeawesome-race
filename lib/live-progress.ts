@@ -3,6 +3,7 @@ import { getRaceEffectiveNow, isRaceDelayed } from "./race-delay";
 import { TICKS_PER_RACE, getRaceTickIntervalMs, getTickNumber } from "./race-logic";
 import { clampRaceScore, roundRaceScore } from "./score";
 import {
+  applyFanLiveBonusToSim,
   applySimTick,
   buildRaceSim,
   rankSimEntries,
@@ -89,6 +90,7 @@ export function simulateLiveEntries(
       fight_end_tick: entry.fight_end_tick,
       fight_frozen_score: entry.fight_frozen_score,
       race_score: entry.race_score,
+      bad_money_count: entry.bad_money_count,
     }))
   );
 
@@ -109,6 +111,19 @@ export function simulateLiveEntries(
   for (let t = replayFrom; t < completedTicks; t++) {
     applySimTick(race, sim, t, startedAt, endsAt, chaosUsed);
   }
+
+  applyFanLiveBonusToSim(
+    sim,
+    entries.map((entry) => ({
+      player_id: entry.player_id,
+      fan_live_bonus: entry.fan_live_bonus,
+      is_injured: entry.is_injured,
+      is_fighting: entry.is_fighting,
+      fighting_at_tick: entry.fighting_at_tick,
+      fight_end_tick: entry.fight_end_tick,
+    })),
+    completedTicks
+  );
 
   if (subTick > 0 && completedTicks < TICKS_PER_RACE) {
     const snapshot = sim.map((entry) => ({
