@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveRaceWithEntries } from "@/lib/race-logic";
-import { progressToScore } from "@/lib/score";
 import { calculatePlayerOvr, getOvrRankings } from "@/lib/ovr";
 import type { PlayerProfileResponse } from "@/lib/types";
 
@@ -45,8 +44,8 @@ export async function GET(
       const entry = active.entries.find((e) => e.player_id === player.id);
       if (entry) {
         currentRank = entry.current_rank;
-        currentProgress = Number(entry.progress);
-        currentScore = progressToScore(currentProgress);
+        currentProgress = Number(entry.race_score);
+        currentScore = Number(entry.race_score);
         if (entry.is_injured) {
           raceInjury = {
             is_injured: true,

@@ -5,13 +5,13 @@ import {
   calculateTickDelta,
   getRaceTickIntervalMs,
 } from "./race-logic";
-import { formatLiveScore } from "./score";
 import { seededRange } from "./seeded-rng";
 import type { Race, RaceEntryWithPlayer } from "./types";
 
 export interface LiveEntryState {
   player_id: string;
-  progress: number;
+  /** Current race point total. */
+  score: number;
   current_rank: number;
 }
 
@@ -41,7 +41,7 @@ export function simulateLiveEntries(
   if (nowMs <= startMs) {
     return entries.map((entry) => ({
       player_id: entry.player_id,
-      progress: seededRange(`${race.id}:${entry.player_id}:init`, 0, 6),
+      score: 0,
       current_rank: entry.current_rank,
     }));
   }
@@ -49,7 +49,7 @@ export function simulateLiveEntries(
   if (nowMs >= endMs) {
     return entries.map((entry) => ({
       player_id: entry.player_id,
-      progress: Number(entry.progress),
+      score: Number(entry.race_score),
       current_rank: entry.current_rank,
     }));
   }
@@ -62,9 +62,7 @@ export function simulateLiveEntries(
   const sim = entries.map((entry) => ({
     player_id: entry.player_id,
     player: entry.player,
-    progress: entry.is_injured
-      ? Number(entry.progress)
-      : seededRange(`${race.id}:${entry.player_id}:init`, 0, 6),
+    score: entry.is_injured ? Number(entry.race_score) : 0,
     is_injured: Boolean(entry.is_injured),
   }));
 
@@ -76,7 +74,7 @@ export function simulateLiveEntries(
     const tickTime = new Date(startMs + tickNumber * tickMs + fraction * tickMs);
     const percentComplete = calculatePercentComplete(startedAt, endsAt, tickTime);
 
-    const rankedBefore = [...sim].sort((a, b) => b.progress - a.progress);
+    const rankedBefore = [...sim].sort((a, b) => b.score - a.score);
     const rankById = new Map(
       rankedBefore.map((entry, index) => [entry.player_id, index + 1])
     );
@@ -96,7 +94,7 @@ export function simulateLiveEntries(
         dayNumber: race.day_number,
         percentComplete,
         player: entry.player,
-        currentProgress: entry.progress,
+        currentProgress: entry.score,
         currentRank: rankById.get(entry.player_id) ?? sim.length,
         chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
       });
@@ -113,7 +111,7 @@ export function simulateLiveEntries(
 
     for (const entry of sim) {
       const row = deltas.find((d) => d.player_id === entry.player_id)!;
-      entry.progress = Math.max(0, entry.progress + row.delta);
+      entry.score = Math.max(0, entry.score + row.delta);
     }
   };
 
@@ -126,11 +124,11 @@ export function simulateLiveEntries(
 
   const ranked = [...sim].sort((a, b) => {
     if (a.is_injured !== b.is_injured) return a.is_injured ? 1 : -1;
-    return b.progress - a.progress;
+    return b.score - a.score;
   });
   return ranked.map((entry, index) => ({
     player_id: entry.player_id,
-    progress: Math.min(100, entry.progress),
+    score: entry.score,
     current_rank: index + 1,
   }));
 }
@@ -147,8 +145,4 @@ export function liveEntriesById(
 
   const live = simulateLiveEntries(race, entries, now);
   return new Map(live.map((entry) => [entry.player_id, entry]));
-}
-
-export function formatLivePercent(progress: number): string {
-  return formatLiveScore(progress);
 }

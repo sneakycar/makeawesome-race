@@ -9,7 +9,7 @@ import {
   formatCurrentRaceLabel,
   ordinal,
 } from "@/lib/format";
-import { formatStoredScore } from "@/lib/score";
+import { formatRaceScore } from "@/lib/score";
 import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 
@@ -90,7 +90,7 @@ export default function PlayerPage({
           )}
           {profile!.currentScore != null && (
             <>
-              {"\n"}CURRENT SCORE: {formatStoredScore(profile!.currentScore)}
+              {"\n"}CURRENT SCORE: {formatRaceScore(profile!.currentScore)}
             </>
           )}
 
@@ -107,8 +107,8 @@ export default function PlayerPage({
 
           {"\n\n"}STATS
 
-          {"\n\n"}HIGH RACE SCORE: {formatStoredScore(p.highest_race_score ?? 0)}
-          {"\n"}HIGH CAREER SCORE: {formatStoredScore(p.highest_career_score ?? 0)}
+          {"\n\n"}HIGH RACE SCORE: {formatRaceScore(p.highest_race_score ?? 0)}
+          {"\n"}HIGH CAREER SCORE: {formatRaceScore(p.highest_career_score ?? 0)}
           {"\n"}BIGGEST COMEBACK: {p.biggest_comeback > 0 ? `+${p.biggest_comeback} SPOTS` : "—"}
 
           {"\n\n"}ABILITIES

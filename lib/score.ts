@@ -1,21 +1,26 @@
-/** Progress 0–100 → score in hundredths (0–10000.00). */
-export function progressToScore(progress: number): number {
-  return Math.max(0, Math.min(100, progress)) * 100;
-}
+/** Typical winning total — used for soft pacing caps, not a fixed final score. */
+export const TARGET_WINNER_SCORE = 140;
 
 const scoreFormatter = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+  maximumFractionDigits: 0,
 });
 
-export function formatScore(score: number): string {
-  return scoreFormatter.format(Number(score));
+/** Format a race point total for display (e.g. 135, 1,024). */
+export function formatRaceScore(score: number): string {
+  return scoreFormatter.format(Math.round(Math.max(0, score)));
 }
 
-export function formatLiveScore(progress: number): string {
-  return formatScore(progressToScore(progress));
+/** @deprecated use formatRaceScore */
+export function formatLiveScore(score: number): string {
+  return formatRaceScore(score);
 }
 
+/** @deprecated use formatRaceScore */
 export function formatStoredScore(score: number): string {
-  return formatScore(score);
+  return formatRaceScore(score);
+}
+
+/** @deprecated scores are stored as points, not derived from progress */
+export function progressToScore(_progress: number): number {
+  return 0;
 }

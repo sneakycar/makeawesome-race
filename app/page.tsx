@@ -16,7 +16,7 @@ import {
   formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
-import { formatLiveScore, formatStoredScore } from "@/lib/score";
+import { formatRaceScore } from "@/lib/score";
 import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
@@ -75,10 +75,9 @@ function RaceMetaPanel({
     timerLine = "RACE FINALIZED";
   }
 
-  const progressDisplay =
-    liveRaceProgress != null
-      ? formatLiveScore(liveRaceProgress)
-      : formatLiveScore(clock.percentComplete);
+  const progressDisplay = `${Math.round(
+    liveRaceProgress != null ? liveRaceProgress : clock.percentComplete
+  )}%`;
   const progressBarWidth =
     liveRaceProgress != null ? liveRaceProgress : clock.percentComplete;
 
@@ -86,7 +85,7 @@ function RaceMetaPanel({
     <div className="race-meta-block">
       <div className="race-meta">
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
-        <div className="race-meta-line">{`PROGRESS: ${progressDisplay}`}</div>
+        <div className="race-meta-line">{`TIME: ${progressDisplay}`}</div>
         <div className="race-meta-line">{timerLine}</div>
         <div className="race-meta-line">{`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}</div>
       </div>
@@ -163,12 +162,12 @@ function RetroStatBar({
 
 function PlayerOverlay({
   slug,
-  liveProgress,
+  liveScore,
   ovrInfo,
   onClose,
 }: {
   slug: string;
-  liveProgress?: number;
+  liveScore?: number;
   ovrInfo?: { ovr: number; rank: number; total: number };
   onClose: () => void;
 }) {
@@ -206,10 +205,10 @@ function PlayerOverlay({
   const ovrRank = ovrInfo?.rank ?? profile?.ovrRank;
   const ovrTotal = ovrInfo?.total ?? profile?.ovrTotal;
   const scoreDisplay =
-    liveProgress != null
-      ? formatLiveScore(liveProgress)
+    liveScore != null
+      ? formatRaceScore(liveScore)
       : profile?.currentScore != null
-        ? formatStoredScore(profile.currentScore)
+        ? formatRaceScore(profile.currentScore)
         : null;
 
   return (
@@ -319,11 +318,11 @@ function PlayerOverlay({
               <div className="retro-status-grid">
                 <div className="retro-kv">
                   <span className="retro-k">HIGH RACE</span>
-                  <span className="retro-v">{formatStoredScore(p.highest_race_score ?? 0)}</span>
+                  <span className="retro-v">{formatRaceScore(p.highest_race_score ?? 0)}</span>
                 </div>
                 <div className="retro-kv">
                   <span className="retro-k">HIGH CAREER</span>
-                  <span className="retro-v">{formatStoredScore(p.highest_career_score ?? 0)}</span>
+                  <span className="retro-v">{formatRaceScore(p.highest_career_score ?? 0)}</span>
                 </div>
                 <div className="retro-kv">
                   <span className="retro-k">COMEBACK</span>
@@ -586,9 +585,9 @@ export default function HomePage() {
   const selectedEntry = selectedSlug
     ? state?.entries.find((e) => e.player.slug === selectedSlug)
     : undefined;
-  const selectedLiveProgress =
+  const selectedLiveScore =
     selectedEntry && liveRace
-      ? liveRace.entries.get(selectedEntry.player_id)?.progress
+      ? liveRace.entries.get(selectedEntry.player_id)?.score
       : undefined;
 
   const winner = state?.entries.find(
@@ -672,9 +671,17 @@ export default function HomePage() {
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
             const rank = live?.current_rank ?? entry.current_rank;
-            const progress = entry.is_injured
-              ? Number(entry.progress)
-              : (live?.progress ?? entry.displayed_progress);
+            const score = entry.is_injured
+              ? Number(entry.race_score)
+              : (live?.score ?? Number(entry.race_score));
+            const leaderScore = Math.max(
+              ...state.entries.map((e) => {
+                const liveEntry = liveRace?.entries.get(e.player_id);
+                if (e.is_injured) return Number(e.race_score);
+                return liveEntry?.score ?? Number(e.race_score);
+              }),
+              1
+            );
             const isInjured = entry.is_injured;
             const isComeback = !isInjured && entry.last_rank_change >= 2;
             const isLeader = !isInjured && rank === 1;
@@ -688,7 +695,7 @@ export default function HomePage() {
                   : isComeback
                     ? "👀"
                     : null;
-            const filled = Math.min(18, Math.max(0, Math.round((progress / 100) * 18)));
+            const filled = Math.min(18, Math.max(0, Math.round((score / leaderScore) * 18)));
             const isSupported = supportedId === entry.player_id;
             const hasSupported = supportedId != null;
             const ovrInfo = state.ovrByPlayerId[entry.player_id];
@@ -745,7 +752,7 @@ export default function HomePage() {
                         </span>
                       )}
                     </div>
-                    <span className="row-score">{formatLiveScore(progress)}</span>
+                    <span className="row-score">{formatRaceScore(score)}</span>
                     {isInjured && (
                       <span className="row-injured">🏥 INJURED</span>
                     )}
@@ -842,7 +849,7 @@ export default function HomePage() {
       {selectedSlug && (
         <PlayerOverlay
           slug={selectedSlug}
-          liveProgress={selectedLiveProgress}
+          liveScore={selectedLiveScore}
           ovrInfo={
             selectedEntry
               ? state?.ovrByPlayerId[selectedEntry.player_id]

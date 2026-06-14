@@ -1,4 +1,4 @@
-import { formatLiveScore } from "./score";
+import { formatRaceScore } from "./score";
 import { seededBool, seededInt } from "./seeded-rng";
 import type { Player, TickerEventFacts } from "./types";
 
@@ -185,7 +185,7 @@ export function generateTickTickerEvents(
         playerId: entry.player_id,
         priority: 60,
         message: pickPhrase(`${seed}:lap`, [
-          `${name} WITH A MONSTER LAP — +${formatLiveScore(entry.last_delta)}!`,
+          `${name} WITH A MONSTER LAP — +${Math.round(entry.last_delta)} PTS!`,
           `BIG LAP FROM ${name}! GROUND GAINED!`,
         ]),
         facts,
@@ -278,7 +278,7 @@ export function generateTickTickerEvents(
           playerId: chaser.player_id,
           priority: 88,
           message: pickPhrase(`${raceId}:${tickNumber}:close`, [
-            `${chaserName} CLOSING ON ${leaderName} — ONLY ${formatLiveScore(gap)} BACK!`,
+            `${chaserName} CLOSING ON ${leaderName} — ONLY ${Math.round(gap)} PTS BACK!`,
             `IT'S TIGHT! ${chaserName} HUNTING THE LEAD!`,
             `FINAL STRETCH DRAMA — ${chaserName} IS RIGHT THERE!`,
           ]),
@@ -314,14 +314,14 @@ export function generateStatusPulseTickerEvent(
   const last = sorted[sorted.length - 1];
   const leaderName = onAirName(leader.player.name);
   const lastName = onAirName(last.player.name);
-  const raceScore = formatLiveScore(percentComplete);
-  const leaderScore = formatLiveScore(Number(leader.progress));
+  const leaderPts = Math.round(Number(leader.progress));
+  const lastPts = Math.round(Number(last.progress));
 
   return {
     eventType: "status_pulse",
     playerId: leader.player_id,
     priority: 55,
-    message: `RACE ${raceNumber} AT ${raceScore} — ${leaderName} LEADS (${leaderScore}) · ${lastName} LAST`,
+    message: `RACE ${raceNumber} — ${leaderName} LEADS ${formatRaceScore(leaderPts)} · ${lastName} ${formatRaceScore(lastPts)}`,
     facts: {
       ...baseFacts(leader, tickNumber, percentComplete),
       raceNumber,

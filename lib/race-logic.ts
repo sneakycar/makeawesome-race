@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
-import { progressToScore } from "./score";
+import { TARGET_WINNER_SCORE } from "./score";
 import { ordinal, slugify } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
 import { processRaceSupports } from "./support-db";
@@ -49,7 +49,10 @@ import type { Player, Race, RaceEntry, RaceEntryWithPlayer, InjuryRecord } from 
 export const TICKS_PER_RACE = 48;
 /** @deprecated use TICKS_PER_RACE */
 export const TICKS_PER_DAY = TICKS_PER_RACE;
-export const EXPECTED_DELTA = 100 / TICKS_PER_RACE;
+/** Average points scored per tick (~135 over a full race at neutral skill). */
+export const EXPECTED_POINTS_PER_TICK = TARGET_WINNER_SCORE / TICKS_PER_RACE;
+/** @deprecated use EXPECTED_POINTS_PER_TICK */
+export const EXPECTED_DELTA = EXPECTED_POINTS_PER_TICK;
 
 export { getRaceDayBounds, getNextRaceDayBounds, getFirstRaceLiveBounds, getRaceOneBounds } from "./eastern-time";
 
@@ -102,11 +105,12 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
     currentRank,
   } = input;
   let chaosBurstUsed = input.chaosBurstUsed;
+  const currentScore = currentProgress;
 
   const raceCtx = {
     percentComplete,
     currentRank,
-    currentProgress,
+    currentProgress: currentScore,
     dayNumber,
   };
 
@@ -161,7 +165,7 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
   const wildSwingBase = seededRange(`${seedBase}:wild`, -0.8, 1.2);
   const wildSwing = wildSwingBase * (1 + player.chaos / 200) * getWildSwingMultiplier(player);
 
-  let delta = EXPECTED_DELTA * skillMultiplier + wildSwing;
+  let delta = EXPECTED_POINTS_PER_TICK * skillMultiplier + wildSwing;
   let eventNote: string | null = null;
 
   const burstChance = (0.04 + player.chaos / 500) * getBurstChanceMultiplier(player);
@@ -180,7 +184,7 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
   const collapseChance =
     (0.03 + player.drag / 400) * getCollapseChanceMultiplier(player, raceCtx);
   // Rare collapse
-  if (seededBool(`${seedBase}:collapse`, collapseChance) && currentProgress > 5) {
+  if (seededBool(`${seedBase}:collapse`, collapseChance) && currentScore > 10) {
     const drop = seededRange(`${seedBase}:drop`, 1, 5);
     delta -= drop;
     eventNote = eventNote ? `${eventNote} / COLLAPSE` : "COLLAPSE";
@@ -194,12 +198,11 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
 
   delta = Math.max(0, Math.min(getMaxTickDelta(player), delta));
 
-  // Cap progress before final 10%
-  const maxAllowed =
-    percentComplete >= 90 ? 100 : Math.min(99, percentComplete + 8);
-  const newProgress = currentProgress + delta;
-  if (newProgress > maxAllowed) {
-    delta = Math.max(0, maxAllowed - currentProgress);
+  // Soft pace cap — scores can't run too far ahead of the race clock
+  const paceCap = (percentComplete / 100) * TARGET_WINNER_SCORE * 1.12 + 4;
+  const newScore = currentScore + delta;
+  if (newScore > paceCap) {
+    delta = Math.max(0, paceCap - currentScore);
   }
 
   return { delta, eventNote, chaosBurstUsed };
@@ -300,20 +303,18 @@ export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<
   if (raceErr) throw raceErr;
 
   const shuffledIds = shuffleLanes(activeIds, 1);
-  const entries = shuffledIds.map((playerId, idx) => {
-    const progress = seededRange(`${race.id}:${playerId}:init`, 0, 6);
-    return {
-      race_id: race.id,
-      player_id: playerId,
-      lane: idx + 1,
-      progress,
-      displayed_progress: Math.round(progress),
-      current_rank: 1,
-      last_delta: 0,
-      race_score: progress,
-      condition: 0,
-    };
-  });
+  const entries = shuffledIds.map((playerId, idx) => ({
+    race_id: race.id,
+    player_id: playerId,
+    lane: idx + 1,
+    progress: 0,
+    displayed_progress: 0,
+    current_rank: 1,
+    last_delta: 0,
+    race_score: 0,
+    peak_race_score: 0,
+    condition: 0,
+  }));
 
   const ranked = rankEntries(entries);
   const { error: entryErr } = await supabase.from("race_entries").insert(ranked);
@@ -339,18 +340,60 @@ export function shuffleLanes(playerIds: string[], dayNumber: number): string[] {
   return arr;
 }
 
-function rankEntries<T extends { progress: number; is_injured?: boolean }>(
+function rankEntries<T extends { race_score: number; is_injured?: boolean }>(
   entries: T[]
-): (T & { current_rank: number; race_score: number; displayed_progress: number })[] {
-  const healthy = entries.filter((e) => !e.is_injured).sort((a, b) => b.progress - a.progress);
-  const injured = entries.filter((e) => e.is_injured).sort((a, b) => b.progress - a.progress);
+): (T & { current_rank: number; displayed_progress: number })[] {
+  const healthy = entries.filter((e) => !e.is_injured).sort((a, b) => b.race_score - a.race_score);
+  const injured = entries.filter((e) => e.is_injured).sort((a, b) => b.race_score - a.race_score);
   const sorted = [...healthy, ...injured];
   return sorted.map((e, i) => ({
     ...e,
     current_rank: i + 1,
-    race_score: e.progress,
-    displayed_progress: Math.round(e.progress),
+    displayed_progress: Math.round(e.race_score),
   }));
+}
+
+function applySimTick(
+  race: Race,
+  sim: Array<{
+    player_id: string;
+    player: Player;
+    score: number;
+    is_injured: boolean;
+    injured_at_tick: number | null;
+  }>,
+  tickNumber: number,
+  startedAt: Date,
+  endsAt: Date,
+  chaosUsed: Map<string, boolean>
+): void {
+  const tickMs = getRaceTickIntervalMs(startedAt, endsAt);
+  const tickTime = new Date(startedAt.getTime() + tickNumber * tickMs);
+  const percentComplete = calculatePercentComplete(startedAt, endsAt, tickTime);
+
+  const rankedBefore = [...sim].sort((a, b) => b.score - a.score);
+  const rankById = new Map(
+    rankedBefore.map((entry, index) => [entry.player_id, index + 1])
+  );
+
+  for (const entry of sim) {
+    if (entry.is_injured && entry.injured_at_tick != null && tickNumber >= entry.injured_at_tick) {
+      continue;
+    }
+    const result = calculateTickDelta({
+      raceId: race.id,
+      playerId: entry.player_id,
+      tickNumber,
+      dayNumber: race.day_number,
+      percentComplete,
+      player: entry.player,
+      currentProgress: entry.score,
+      currentRank: rankById.get(entry.player_id) ?? sim.length,
+      chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
+    });
+    if (result.chaosBurstUsed) chaosUsed.set(entry.player_id, true);
+    entry.score = Math.max(0, entry.score + result.delta);
+  }
 }
 
 export async function tickRace(supabase: SupabaseClient): Promise<void> {
@@ -392,11 +435,25 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     }
   }
 
+  const sim = entries.map((entry) => ({
+    player_id: entry.player_id,
+    player: entry.player as Player,
+    score: entry.is_injured ? Number(entry.race_score) : 0,
+    is_injured: Boolean(entry.is_injured),
+    injured_at_tick: entry.injured_at_tick as number | null,
+  }));
+
+  for (let t = 0; t < tickNumber; t++) {
+    applySimTick(race as Race, sim, t, startedAt, endsAt, chaosUsed);
+  }
+
+  const scoreById = new Map(sim.map((s) => [s.player_id, s.score]));
+
   const beforeSnapshots: TickerEntrySnapshot[] = entries.map((entry) => ({
     player_id: entry.player_id,
     player: entry.player as Player,
     current_rank: entry.current_rank,
-    progress: Number(entry.progress),
+    progress: scoreById.get(entry.player_id) ?? 0,
     last_delta: Number(entry.last_delta),
     event_note: entry.event_note,
   }));
@@ -408,11 +465,19 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     if (entry.is_injured) {
       updated.push({
         ...entry,
+        race_score: scoreById.get(entry.player_id) ?? entry.race_score,
+        progress: scoreById.get(entry.player_id) ?? entry.race_score,
+        displayed_progress: Math.round(Number(scoreById.get(entry.player_id) ?? entry.race_score)),
         last_delta: 0,
         event_note: "INJURED",
       });
       continue;
     }
+
+    const simEntry = sim.find((s) => s.player_id === entry.player_id)!;
+    const rankedBefore = [...sim].sort((a, b) => b.score - a.score);
+    const currentRank =
+      rankedBefore.findIndex((s) => s.player_id === entry.player_id) + 1;
 
     const result = calculateTickDelta({
       raceId: race.id,
@@ -421,12 +486,12 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
       dayNumber: race.day_number,
       percentComplete,
       player,
-      currentProgress: Number(entry.progress),
-      currentRank: entry.current_rank,
+      currentProgress: simEntry.score,
+      currentRank,
       chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
     });
 
-    const newProgress = Math.max(0, Number(entry.progress) + result.delta);
+    const newScore = Math.max(0, simEntry.score + result.delta);
     let isInjured = Boolean(entry.is_injured);
     let injuredAtTick = entry.injured_at_tick as number | null;
     let injuryName = entry.injury_name as string | null;
@@ -461,7 +526,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         "injured",
         `INJURED: ${injury.injuryName}`,
         null,
-        Math.round(newProgress)
+        Math.round(newScore)
       );
 
       await supabase.from("injury_events").insert({
@@ -478,11 +543,11 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
 
     updated.push({
       ...entry,
-      progress: newProgress,
-      displayed_progress: Math.round(newProgress),
+      progress: newScore,
+      displayed_progress: Math.round(newScore),
       last_delta: isInjured ? 0 : result.delta,
       event_note: isInjured ? "INJURED" : result.eventNote,
-      race_score: newProgress,
+      race_score: newScore,
       is_injured: isInjured,
       injured_at_tick: injuredAtTick,
       injury_name: injuryName,
@@ -502,7 +567,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     player_id: entry.player_id,
     player: entry.player as Player,
     current_rank: entry.current_rank,
-    progress: Number(entry.progress),
+    progress: Number(entry.race_score),
     last_delta: Number(entry.last_delta),
     event_note: entry.event_note,
   }));
@@ -520,14 +585,14 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   await saveTickerEvents(supabase, race.id, tickNumber, tickerEvents);
 
   for (const entry of ranked) {
-    const score = progressToScore(Number(entry.progress));
+    const score = Math.round(Number(entry.race_score));
     const peakRaceScore = Math.max(Number(entry.peak_race_score ?? 0), score);
     entry.peak_race_score = peakRaceScore;
 
     await supabase
       .from("race_entries")
       .update({
-        progress: entry.progress,
+        progress: entry.race_score,
         displayed_progress: entry.displayed_progress,
         current_rank: entry.current_rank,
         last_delta: entry.last_delta,
@@ -685,12 +750,13 @@ export async function finalizeRace(
 
   await processInjuredRecovery(supabase, currentDay);
 
-  // Final tick pass — skip progress for already-injured entries
+  // Final tick pass — skip scoring for already-injured entries
   let processed = entries.map((entry) => {
     if (entry.is_injured) {
       return { ...entry, player: entry.player as Player };
     }
     const player = entry.player as Player;
+    const currentScore = Number(entry.race_score);
     const result = calculateTickDelta({
       raceId: race.id,
       playerId: entry.player_id,
@@ -698,32 +764,21 @@ export async function finalizeRace(
       dayNumber: race.day_number,
       percentComplete: 100,
       player,
-      currentProgress: Number(entry.progress),
+      currentProgress: currentScore,
       currentRank: entry.current_rank,
       chaosBurstUsed: false,
     });
-    const newProgress = Math.max(0, Number(entry.progress) + result.delta);
-    return { ...entry, progress: newProgress, player };
+    const newScore = Math.max(0, currentScore + result.delta);
+    return {
+      ...entry,
+      progress: newScore,
+      race_score: newScore,
+      displayed_progress: Math.round(newScore),
+      player,
+    };
   });
 
   let ranked = rankEntries(processed);
-  const leaderEntry = ranked.find((e) => !e.is_injured) ?? ranked[0];
-  const leaderProgress = Number(leaderEntry?.progress ?? 0);
-
-  if (leaderEntry) {
-    leaderEntry.progress = 100;
-    leaderEntry.displayed_progress = 100;
-    leaderEntry.race_score = 100;
-    for (const entry of ranked) {
-      if (entry.is_injured || entry.player_id === leaderEntry.player_id) continue;
-      const ratio = leaderProgress > 0 ? Number(entry.progress) / leaderProgress : 0.5;
-      const scaled = Math.min(99, Math.max(1, Math.round(100 * ratio * 0.95)));
-      entry.progress = scaled;
-      entry.displayed_progress = scaled;
-      entry.race_score = scaled;
-    }
-    ranked = rankEntries(ranked);
-  }
 
   for (let i = 0; i < ranked.length; i++) {
     ranked[i].final_rank = i + 1;
@@ -745,13 +800,13 @@ export async function finalizeRace(
 
     const peakScore = Math.max(
       Number(entry.peak_race_score ?? 0),
-      progressToScore(Number(entry.progress))
+      Math.round(Number(entry.race_score))
     );
 
     await supabase
       .from("race_entries")
       .update({
-        progress: entry.progress,
+        progress: entry.race_score,
         displayed_progress: entry.displayed_progress,
         current_rank: entry.current_rank,
         final_rank: entry.final_rank,
@@ -799,7 +854,7 @@ export async function finalizeRace(
         "injured",
         `OUT ${racesMissed} RACES`,
         finish,
-        Math.round(Number(entry.progress))
+        Math.round(Number(entry.race_score))
       );
     } else if (isLast) {
       updates.status = "holding";
@@ -816,7 +871,7 @@ export async function finalizeRace(
         "eliminated",
         "ELIMINATED TO HOLDING",
         finish,
-        Math.round(Number(entry.progress))
+        Math.round(Number(entry.race_score))
       );
     }
 
@@ -835,7 +890,7 @@ export async function finalizeRace(
         "won",
         `WON RACE ${race.race_number}`,
         finish,
-        100
+        Math.round(Number(entry.race_score))
       );
     } else if (!entry.is_injured) {
       await addHistory(
@@ -846,7 +901,7 @@ export async function finalizeRace(
         "finished",
         `FINISHED ${ordinal(finish)}`,
         finish,
-        Math.round(Number(entry.progress))
+        Math.round(Number(entry.race_score))
       );
     }
 
@@ -1135,22 +1190,18 @@ export async function createRace(
   if (raceErr) throw raceErr;
 
   const shuffled = shuffleLanes(rosterIds, dayNumber);
-  const entries = shuffled.map((playerId, idx) => {
-    const progress = seededRange(`${race.id}:${playerId}:init`, 0, 6);
-    const score = progressToScore(progress);
-    return {
-      race_id: race.id,
-      player_id: playerId,
-      lane: idx + 1,
-      progress,
-      displayed_progress: Math.round(progress),
-      current_rank: 1,
-      last_delta: 0,
-      race_score: progress,
-      peak_race_score: score,
-      condition: 0,
-    };
-  });
+  const entries = shuffled.map((playerId, idx) => ({
+    race_id: race.id,
+    player_id: playerId,
+    lane: idx + 1,
+    progress: 0,
+    displayed_progress: 0,
+    current_rank: 1,
+    last_delta: 0,
+    race_score: 0,
+    peak_race_score: 0,
+    condition: 0,
+  }));
 
   const ranked = rankEntries(entries);
   const { error: entryErr } = await supabase.from("race_entries").insert(ranked);
