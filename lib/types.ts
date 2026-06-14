@@ -130,6 +130,8 @@ export interface GameStateResponse {
   holding: Player[];
   serverTime: string;
   remainingMs: number;
+  startsInMs: number;
+  racePhase: "upcoming" | "live" | "ended";
   percentComplete: number;
   gameState: GameState;
   encouragement: {

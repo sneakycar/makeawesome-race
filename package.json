@@ -8,7 +8,8 @@
     "start": "next start",
     "tick-race": "tsx scripts/tick-race.ts",
     "backfill-race-schedule": "tsx scripts/backfill-race-schedule.ts",
-    "cleanup-seed-holding": "tsx scripts/cleanup-seed-holding.ts"
+    "cleanup-seed-holding": "tsx scripts/cleanup-seed-holding.ts",
+    "reset-race-one": "tsx scripts/reset-race-one.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

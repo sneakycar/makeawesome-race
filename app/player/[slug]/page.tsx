@@ -6,6 +6,7 @@ import type { PlayerProfileResponse } from "@/lib/types";
 import {
   formatPips,
   formatStreak,
+  formatCurrentRaceLabel,
   ordinal,
 } from "@/lib/format";
 
@@ -52,7 +53,7 @@ export default function PlayerPage({
           {"\n"}AGE: {p.age_days} DAYS
           {profile!.currentRank != null && (
             <>
-              {"\n"}CURRENT RACE: {ordinal(profile!.currentRank!)}
+              {"\n"}CURRENT RACE: {formatCurrentRaceLabel(p.races, profile!.currentRank!)}
             </>
           )}
           {profile!.currentProgress != null && (

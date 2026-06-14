@@ -1,7 +1,7 @@
 import { seededInt, seededPick, seededRandom, seededRange } from "./seeded-rng";
 import { slugify } from "./format";
 
-/** Starter roster — duplicate lacie becomes LACIE HAND for unique slug. */
+/** Starter roster — eight seed active racers for race 1. */
 export const SEED_ACTIVE_NAMES = [
   "UNCLE",
   "PAL",
@@ -9,7 +9,7 @@ export const SEED_ACTIVE_NAMES = [
   "LACIE",
   "NOAH",
   "CHRIS VOGEL",
-  "LACIE HAND",
+  "KIMBER",
   "JON PENN",
 ] as const;
 

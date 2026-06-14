@@ -84,6 +84,16 @@ export function formatNextRaceBegin(date: Date): string {
   return formatRaceBegan(date);
 }
 
+export function formatCurrentRaceLabel(races: number, rank: number | null): string {
+  if (rank == null) {
+    return races === 0 ? "FIRST RACE" : "—";
+  }
+  if (races === 0) {
+    return `FIRST RACE (${ordinal(rank)})`;
+  }
+  return ordinal(rank);
+}
+
 export function slugify(name: string): string {
   return name
     .toLowerCase()

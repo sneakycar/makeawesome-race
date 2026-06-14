@@ -853,7 +853,8 @@ export async function getAllTimeTop3(supabase: SupabaseClient): Promise<Player[]
     return a.created_day - b.created_day;
   });
 
-  return sorted.slice(0, 3);
+  const withWins = sorted.filter((p) => p.wins > 0);
+  return withWins.slice(0, 3);
 }
 
 export async function getActiveRaceOnly(supabase: SupabaseClient): Promise<Race | null> {
@@ -950,7 +951,7 @@ export async function getActiveRaceWithEntries(
       .from("race_entries")
       .select("*, player:players(*)")
       .eq("race_id", lastRace.id)
-      .order("current_rank", { ascending: true });
+      .order("lane", { ascending: true });
     return {
       race: lastRace as Race,
       entries: (entries || []) as RaceEntryWithPlayer[],
@@ -961,12 +962,99 @@ export async function getActiveRaceWithEntries(
     .from("race_entries")
     .select("*, player:players(*)")
     .eq("race_id", race.id)
-    .order("current_rank", { ascending: true });
+    .order("lane", { ascending: true });
 
   return {
     race: race as Race,
     entries: (entries || []) as RaceEntryWithPlayer[],
   };
+}
+
+/** Wipe race 1+ and restart with a fresh first race for all active racers. */
+export async function resetToFirstRace(supabase: SupabaseClient): Promise<Race> {
+  const { error: raceDelErr } = await supabase.from("races").delete().gte("race_number", 1);
+  if (raceDelErr) throw raceDelErr;
+
+  const { error: histErr } = await supabase
+    .from("player_history")
+    .delete()
+    .gte("day_number", 0);
+  if (histErr) throw histErr;
+
+  const { error: holdingDelErr } = await supabase
+    .from("players")
+    .delete()
+    .eq("status", "holding");
+  if (holdingDelErr) throw holdingDelErr;
+
+  const { data: actives, error: activeErr } = await supabase
+    .from("players")
+    .select("id")
+    .eq("status", "active")
+    .order("name", { ascending: true });
+
+  if (activeErr) throw activeErr;
+  if (!actives?.length) throw new Error("No active racers found");
+
+  const rosterIds = actives.map((p) => p.id);
+  if (rosterIds.length !== 8) {
+    throw new Error(`Expected 8 active racers, found ${rosterIds.length}`);
+  }
+
+  const now = new Date();
+
+  for (const { id } of actives) {
+    const { error: resetErr } = await supabase
+      .from("players")
+      .update({
+        races: 0,
+        wins: 0,
+        eliminations: 0,
+        returns: 0,
+        best_finish: null,
+        worst_finish: null,
+        current_streak_type: "none",
+        current_streak_count: 0,
+        longest_win_streak: 0,
+        total_holding_days: 0,
+        age_days: 0,
+        active_days: 0,
+        holding_days: 0,
+        fatigue: 0,
+        pressure: 0,
+        comeback_until_day: null,
+        rookie_until_day: 8,
+        total_support_received: 0,
+        updated_at: now.toISOString(),
+      })
+      .eq("id", id);
+    if (resetErr) throw resetErr;
+  }
+
+  let { startedAt, endsAt } = getRaceDayBounds(now);
+  if (now >= endsAt) {
+    ({ startedAt, endsAt } = getNextRaceDayBounds(now));
+  }
+
+  const race = await createRace(supabase, 1, 1, rosterIds, startedAt, endsAt);
+  const percentComplete = calculatePercentComplete(startedAt, endsAt, now);
+
+  await supabase
+    .from("races")
+    .update({ percent_complete: percentComplete })
+    .eq("id", race.id);
+
+  await supabase
+    .from("game_state")
+    .update({
+      current_day: 1,
+      current_race_number: 1,
+      last_tick_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    })
+    .eq("id", 1);
+
+  return { ...race, percent_complete: percentComplete };
 }
 
 export async function runTickPipeline(supabase: SupabaseClient): Promise<void> {

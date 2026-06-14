@@ -1,18 +1,87 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { getRaceClock, type RaceClock } from "@/lib/race-clock";
 import type { GameStateResponse, Player, PlayerProfileResponse, TickerEvent } from "@/lib/types";
 import {
-  formatPips,
-  formatProgressBar,
   formatRaceBegan,
   formatRemainingTime,
   formatNextRaceBegin,
+  formatPips,
   formatStreak,
   formatTickerAge,
+  formatCurrentRaceLabel,
   ordinal,
-  padName,
+  truncateName,
 } from "@/lib/format";
+
+function RaceMetaPanel({
+  state,
+  betweenRaces,
+  raceActive,
+}: {
+  state: GameStateResponse;
+  betweenRaces: boolean;
+  raceActive: boolean;
+}) {
+  const [clock, setClock] = useState<RaceClock>(() =>
+    getRaceClock(new Date(state.race.started_at), new Date(state.race.ends_at))
+  );
+
+  useEffect(() => {
+    const startedAt = new Date(state.race.started_at);
+    const endsAt = new Date(state.race.ends_at);
+
+    const tick = () => {
+      setClock(getRaceClock(startedAt, endsAt, new Date()));
+    };
+
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [state.race.started_at, state.race.ends_at, state.race.status]);
+
+  if (betweenRaces) {
+    return (
+      <div className="race-meta">
+        BETWEEN RACES
+        {"\n"}
+        FINAL RESULTS — RACE {state.race.race_number}
+      </div>
+    );
+  }
+
+  const beganLabel =
+    clock.phase === "upcoming"
+      ? `BEGINS: ${formatRaceBegan(new Date(state.race.started_at))}`
+      : `BEGAN: ${formatRaceBegan(new Date(state.race.started_at))}`;
+
+  let timerLine = "";
+  if (clock.phase === "upcoming") {
+    timerLine = `STARTS IN: ${formatRemainingTime(clock.startsInMs)}`;
+  } else if (raceActive && clock.phase === "live") {
+    timerLine = `TIME REMAINING: ${formatRemainingTime(clock.remainingMs)}`;
+  } else {
+    timerLine = "RACE FINALIZED";
+  }
+
+  return (
+    <div className="race-meta-block">
+      <div className="race-meta">
+        {`RACE ${state.race.race_number}\n`}
+        {`${beganLabel}\n`}
+        {`PROGRESS: ${clock.percentComplete}%\n`}
+        {timerLine}
+      </div>
+      <div className="race-progress-track" aria-hidden="true">
+        <div
+          className="race-progress-fill"
+          style={{ width: `${clock.percentComplete}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function ScrollingTicker({
   events,
@@ -95,7 +164,7 @@ function PlayerOverlay({
               <span className="overlay-stat">AGE: {p.age_days} DAYS</span>
               {profile.currentRank != null && (
                 <span className="overlay-stat">
-                  CURRENT RACE: {ordinal(profile.currentRank)}
+                  CURRENT RACE: {formatCurrentRaceLabel(p.races, profile.currentRank)}
                 </span>
               )}
               {profile.currentProgress != null && (
@@ -311,37 +380,29 @@ export default function HomePage() {
 
       {state && (
         <>
-          <div className="race-meta">
-            {betweenRaces ? (
-              <>
-                BETWEEN RACES
-                {"\n"}
-                FINAL RESULTS — RACE {state.race.race_number}
-              </>
-            ) : (
-              <>
-                {`RACE ${state.race.race_number}\n`}
-                {`BEGAN: ${formatRaceBegan(new Date(state.race.started_at))}\n`}
-                {`PROGRESS: ${state.percentComplete}%\n`}
-                {raceActive
-                  ? `TIME REMAINING: ${formatRemainingTime(state.remainingMs)}`
-                  : "RACE FINALIZED"}
-              </>
-            )}
-          </div>
+          <RaceMetaPanel
+            state={state}
+            betweenRaces={betweenRaces}
+            raceActive={raceActive}
+          />
 
           <p className="tap-hint">tap to see player&apos;s stats</p>
 
-          {state.entries.map((entry) => {
-            const bar = formatProgressBar(entry.displayed_progress);
-            const line = `LANE ${entry.lane}] ${padName(entry.player.name)} ${bar} ${entry.displayed_progress}%`;
-            const isLeader = entry.current_rank === 1;
+          <div className="race-standings">
+          {[...state.entries]
+            .sort((a, b) => a.lane - b.lane)
+            .map((entry) => {
+            const rank = entry.current_rank;
             const isComeback = entry.last_rank_change >= 2;
-            const rowClasses = [
-              "row-line",
-              isLeader ? "row-leader" : "",
-              isComeback ? "row-comeback" : "",
-            ]
+            const podiumClass =
+              rank === 1
+                ? "progress-p1"
+                : rank === 2
+                  ? "progress-p2"
+                  : rank === 3
+                    ? "progress-p3"
+                    : "";
+            const progressClasses = ["progress-track", podiumClass]
               .filter(Boolean)
               .join(" ");
             const isSupported = supportedId === entry.player_id;
@@ -359,7 +420,7 @@ export default function HomePage() {
             }
 
             return (
-              <div key={entry.id} className={rowClasses}>
+              <div key={entry.id} className="row-line">
                 <div
                   className="row-main"
                   onClick={() => setSelectedSlug(entry.player.slug)}
@@ -371,7 +432,26 @@ export default function HomePage() {
                   role="button"
                   tabIndex={0}
                 >
-                  {line}
+                  <span className="row-label">
+                    <span className="row-meta">
+                      LANE {entry.lane}] {truncateName(entry.player.name)}
+                    </span>
+                    {isComeback && (
+                      <span
+                        className="comeback-tag"
+                        title={`Up ${entry.last_rank_change} spots since last update`}
+                      >
+                        ↑{entry.last_rank_change}
+                      </span>
+                    )}
+                  </span>
+                  <div className={progressClasses} aria-hidden="true">
+                    <div
+                      className="progress-fill"
+                      style={{ width: `${entry.displayed_progress}%` }}
+                    />
+                  </div>
+                  <span className="row-pct">{entry.displayed_progress}%</span>
                 </div>
                 {raceActive && (
                   <button
@@ -389,15 +469,26 @@ export default function HomePage() {
               </div>
             );
           })}
+          </div>
 
           <div className="race-legend">
-            <span className="legend-key legend-leader">
-              <span className="legend-swatch legend-swatch-leader" aria-hidden="true" />
-              LEADER
+            <span className="legend-key">
+              <span className="legend-swatch legend-swatch-p1" aria-hidden="true" />
+              1ST
             </span>
-            <span className="legend-key legend-comeback">
-              <span className="legend-swatch legend-swatch-comeback" aria-hidden="true" />
-              COMEBACK (+2 SPOTS)
+            <span className="legend-key">
+              <span className="legend-swatch legend-swatch-p2" aria-hidden="true" />
+              2ND
+            </span>
+            <span className="legend-key">
+              <span className="legend-swatch legend-swatch-p3" aria-hidden="true" />
+              3RD
+            </span>
+            <span className="legend-key">
+              <span className="comeback-tag comeback-tag-legend" aria-hidden="true">
+                ↑2
+              </span>
+              COMEBACK
             </span>
           </div>
 
@@ -405,7 +496,7 @@ export default function HomePage() {
 
           <div className="section-label">ALL-TIME</div>
           {state.allTime.length === 0 ? (
-            <div>NO WINS YET</div>
+            <p className="all-time-empty">Awaiting first race results</p>
           ) : (
             state.allTime.map((p, i) => (
               <div key={p.id} className="all-time-row">

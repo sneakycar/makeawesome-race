@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getClientIp, hashIp } from "@/lib/ip-hash";
 import {
-  calculatePercentComplete,
   getActiveRaceOnly,
   getActiveRaceWithEntries,
   getAllTimeTop3,
   getNextRaceDayBounds,
   initializeGameIfNeeded,
 } from "@/lib/race-logic";
+import { getRaceClock } from "@/lib/race-clock";
 import { getVisitorSupportForRace } from "@/lib/support-db";
 import { getRecentTickerEvents } from "@/lib/ticker-db";
 import type { GameStateResponse } from "@/lib/types";
@@ -29,11 +29,15 @@ export async function GET(request: Request) {
     const now = new Date();
     const startedAt = new Date(race.started_at);
     const endsAt = new Date(race.ends_at);
-    const percentComplete =
+    const clock =
       race.status === "finalized"
-        ? 100
-        : calculatePercentComplete(startedAt, endsAt, now);
-    const remainingMs = Math.max(0, endsAt.getTime() - now.getTime());
+        ? {
+            phase: "ended" as const,
+            percentComplete: 100,
+            remainingMs: 0,
+            startsInMs: 0,
+          }
+        : getRaceClock(startedAt, endsAt, now);
 
     const allTime = await getAllTimeTop3(supabase);
 
@@ -62,13 +66,15 @@ export async function GET(request: Request) {
       : null;
 
     const body: GameStateResponse = {
-      race: { ...race, percent_complete: percentComplete },
+      race: { ...race, percent_complete: clock.percentComplete },
       entries,
       allTime: allTime || [],
       holding: holding || [],
       serverTime: now.toISOString(),
-      remainingMs,
-      percentComplete,
+      remainingMs: clock.remainingMs,
+      startsInMs: clock.startsInMs,
+      racePhase: clock.phase,
+      percentComplete: clock.percentComplete,
       gameState: gameState!,
       encouragement: { supportedPlayerId },
       ticker,
