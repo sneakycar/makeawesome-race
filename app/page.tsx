@@ -188,9 +188,11 @@ function RaceMetaPanel({
       <div className="race-meta">
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
         <div className="race-meta-line race-meta-progress-row">
-          <div className="race-meta-progress-section">
+          <div className="race-meta-progress-zone">
             <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
-            {weatherBadge}
+            {weatherBadge ? (
+              <div className="race-meta-weather-row">{weatherBadge}</div>
+            ) : null}
           </div>
         </div>
         <div className="race-meta-gap" aria-hidden="true" />
