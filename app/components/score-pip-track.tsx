@@ -1,5 +1,10 @@
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
-import { formatRaceScore, getScorePipBackground, HARD_SCORE_CAP } from "@/lib/score";
+import {
+  formatRaceScore,
+  getScorePipBackground,
+  HARD_SCORE_CAP,
+  SCORE_TRACK_SLOTS,
+} from "@/lib/score";
 
 export function ScorePipTrack({
   score,
@@ -16,14 +21,14 @@ export function ScorePipTrack({
   isNight: boolean;
   statusOverlay?: { icon: RaceIconId; label: string };
 }) {
-  const leader = Math.max(1, Math.min(HARD_SCORE_CAP, Math.round(leaderScore)));
-  const slots = leader;
+  const slots = SCORE_TRACK_SLOTS;
   const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, score));
   const pipBright = Math.floor(livePoints);
   const pipPartial = livePoints - pipBright;
   const displayPoints = Math.round(livePoints);
+  const leader = Math.max(0, Math.round(leaderScore));
   const behind = leader - displayPoints;
-  const colorSpan = Math.max(1, leader);
+  const colorSpan = slots;
 
   return (
     <div
@@ -45,7 +50,11 @@ export function ScorePipTrack({
             : `${displayPoints} pts · ${behind} behind lead`
       }
     >
-      <div className={`score-pip-track${isLeader ? " score-pip-track-leader" : ""}`}>
+      <div
+        className={`score-pip-track score-pip-track--race${
+          isLeader ? " score-pip-track-leader" : ""
+        }`}
+      >
         {Array.from({ length: slots }, (_, i) => {
           if (i < pipBright) {
             return (

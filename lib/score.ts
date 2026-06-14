@@ -9,7 +9,7 @@ export const PACE_CAP_BUFFER = 15;
 export const NATURAL_SCORE_CEILING = MAX_WINNER_SCORE + PACE_CAP_BUFFER;
 /** Absolute point total — safety rail only; sim pace math stays under this. */
 export const HARD_SCORE_CAP = 240;
-/** Row score bars: one pip per point, track width = leader score. */
+/** Race row bars: fixed track length; one pip per point, always this many slots. */
 export const SCORE_TRACK_SLOTS = HARD_SCORE_CAP;
 
 const scoreFormatter = new Intl.NumberFormat("en-US", {

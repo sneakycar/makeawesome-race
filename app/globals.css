@@ -795,12 +795,12 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 .row-score-pip-num {
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #333;
-  min-width: 1.5rem;
+  min-width: 1.75rem;
   text-align: right;
 }
 
@@ -826,6 +826,18 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   min-width: 0;
   height: 10px;
   padding: 1px 0;
+}
+
+.score-pip-track--race {
+  overflow: hidden;
+}
+
+.score-pip-track--race .score-pip {
+  flex: 0 0 2px;
+  width: 2px;
+  min-width: 2px;
+  max-width: 2px;
+  height: 9px;
 }
 
 .score-pip {
