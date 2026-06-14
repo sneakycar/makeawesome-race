@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/tick-race",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

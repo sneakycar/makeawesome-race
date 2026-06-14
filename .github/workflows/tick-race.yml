@@ -5,6 +5,9 @@ on:
     - cron: "*/15 * * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   tick:
     runs-on: ubuntu-latest
@@ -16,7 +19,7 @@ jobs:
           node-version: "20"
           cache: npm
 
-      - run: npm install
+      - run: npm ci
 
       - run: npm run tick-race
         env:
