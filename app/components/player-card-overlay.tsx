@@ -17,6 +17,7 @@ import {
 import { formatOvrRank } from "@/lib/ovr";
 import { formatRankDelta } from "@/lib/use-live-rank-delta";
 import { formatRaceScore, getScorePipBackground } from "@/lib/score";
+import { getBadMoneyFlavorLine } from "@/lib/bad-money";
 import type { PlayerProfileResponse } from "@/lib/types";
 
 function AbilityRow({
@@ -100,6 +101,9 @@ export function PlayerCardOverlay({
   ovrInfo,
   isNight,
   onClose,
+  playerId,
+  raceId,
+  recentDeltas,
 }: {
   slug: string;
   liveScore?: number;
@@ -115,6 +119,9 @@ export function PlayerCardOverlay({
   ovrInfo?: { ovr: number; rank: number; total: number };
   isNight: boolean;
   onClose: () => void;
+  playerId?: string;
+  raceId?: string;
+  recentDeltas?: number[];
 }) {
   const [profile, setProfile] = useState<PlayerProfileResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -226,6 +233,9 @@ export function PlayerCardOverlay({
                     isLeader={isLeader}
                     isNight={isNight}
                     statusOverlay={pipOverlay}
+                    playerId={playerId}
+                    raceId={raceId}
+                    recentDeltas={recentDeltas}
                   />
                   {rank != null && (
                     <span
@@ -360,6 +370,17 @@ export function PlayerCardOverlay({
                 { label: "support", value: p.total_support_received ?? 0 },
               ]}
             />
+
+            <StatPanel
+              title="BAD MONEY"
+              rows={[
+                { label: "total", value: p.bad_money_total ?? 0 },
+                { label: "winning", value: p.bad_money_wins ?? 0 },
+                { label: "losing", value: p.bad_money_losses ?? 0 },
+                { label: "pressure", value: p.bad_money_pressure ?? 0 },
+              ]}
+            />
+            <p className="tap-hint">{getBadMoneyFlavorLine(p.bad_money_total ?? 0)}</p>
 
             {(profile.raceInjury?.is_injured || p.status === "injured") && (
               <StatPanel

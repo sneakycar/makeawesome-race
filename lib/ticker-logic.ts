@@ -1,4 +1,4 @@
-import { formatRaceScore } from "./score";
+import { formatLiveRaceScore } from "./score";
 import { seededBool } from "./seeded-rng";
 import {
   pickTickerPhrase,
@@ -87,7 +87,7 @@ export function generateStatusPulseTickerEvent(
     eventType: "status_pulse",
     playerId: leader.player_id,
     priority: 55,
-    message: `${leaderName} LEADS ${formatRaceScore(leaderPts)} · ${lastName} ${formatRaceScore(lastPts)}`,
+    message: `${leaderName} LEADS ${formatLiveRaceScore(leaderPts)} · ${lastName} ${formatLiveRaceScore(lastPts)}`,
     facts: {
       ...baseFacts(leader, tickNumber, percentComplete),
       raceNumber,

@@ -35,6 +35,12 @@ export interface Player {
   comeback_until_day: number | null;
   seed: string;
   total_support_received: number;
+  bad_money_total: number;
+  bad_money_races: number;
+  bad_money_wins: number;
+  bad_money_losses: number;
+  bad_money_pressure: number;
+  bad_money_last_day: number | null;
   highest_race_score: number;
   highest_career_score: number;
   biggest_comeback: number;
@@ -105,6 +111,8 @@ export interface RaceEntry {
   fight_partner_id: string | null;
   fight_frozen_score: number | null;
   fan_live_bonus?: number;
+  bad_money_count?: number;
+  bad_money_effect?: number;
   created_at: string;
   updated_at: string;
   player?: Player;
@@ -280,6 +288,12 @@ export interface EncouragementState {
   canVote: boolean;
 }
 
+export interface BadMoneyState {
+  betPlayerId: string | null;
+  hasBet: boolean;
+  canBet: boolean;
+}
+
 export interface GameStateResponse {
   race: Race;
   entries: RaceEntryWithPlayer[];
@@ -297,6 +311,7 @@ export interface GameStateResponse {
   laneStats: LaneWinStat[];
   gameState: GameState;
   encouragement: EncouragementState;
+  badMoney: BadMoneyState;
   ticker: TickerEvent[];
   betweenRaces: boolean;
   nextRaceNumber: number | null;

@@ -1,7 +1,7 @@
 import { getRaceClock } from "./race-clock";
 import { getRaceEffectiveNow, isRaceDelayed } from "./race-delay";
 import { TICKS_PER_RACE, getRaceTickIntervalMs, getTickNumber } from "./race-logic";
-import { clampRaceScore } from "./score";
+import { clampRaceScore, roundRaceScore } from "./score";
 import {
   applySimTick,
   buildRaceSim,
@@ -61,7 +61,7 @@ export function simulateLiveEntries(
   if (nowMs >= endMs) {
     return entries.map((entry) => ({
       player_id: entry.player_id,
-      score: Math.round(Number(entry.race_score)),
+      score: roundRaceScore(Number(entry.race_score)),
       current_rank: entry.current_rank,
     }));
   }

@@ -10,6 +10,8 @@ export const GOD_SCORE = 240;
 export const HARD_SCORE_CAP = GOD_SCORE;
 /** Race row bars: fixed track length; one pip per point, always this many slots. */
 export const SCORE_TRACK_SLOTS = HARD_SCORE_CAP;
+/** Sim ticks per race — pip performance bands group this many slots. */
+export const RACE_PIP_TICKS = 48;
 
 /** @deprecated use NATURAL_SCORE_MAX */
 export const PACE_CAP_BUFFER = 0;
@@ -38,6 +40,21 @@ export function getPaceCap(
 ): number {
   const expectedScore = (percentComplete / 100) * TARGET_WINNER_SCORE * raceTempo;
   return Math.min(NATURAL_SCORE_MAX, expectedScore + paceLeash);
+}
+
+/** Round to nearest tenth for stored / live race points. */
+export function roundRaceScore(score: number): number {
+  return Math.round(clampRaceScore(score) * 10) / 10;
+}
+
+const liveRaceScoreFormatter = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+/** Live race row label — always one decimal so every row shares the same width. */
+export function formatLiveRaceScore(score: number): string {
+  return liveRaceScoreFormatter.format(roundRaceScore(score));
 }
 
 /** Format a race point total for display (e.g. 135, 1,024). */

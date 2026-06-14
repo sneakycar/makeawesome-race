@@ -1,13 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
-import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap, normalizePeakRaceScore } from "./score";
+import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap, normalizePeakRaceScore, roundRaceScore } from "./score";
 import { getCombinedRaceTempo, getRaceWeekTempo } from "./race-tempo";
 import { resolveWinnerRaceScore } from "./god-score";
 import { appendRecentDelta } from "./hybrid-live-score";
 import { ordinal, slugify } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
 import { processRaceSupports } from "./support-db";
+import { processBadMoneyAtFinalize } from "./bad-money-db";
+import { applyBadMoneyToDelta } from "./bad-money";
 import { saveTickerEvents } from "./ticker-db";
 import {
   generateFinalizeTickerEvents,
@@ -109,6 +111,7 @@ export interface TickDeltaInput {
   leaderScore: number;
   chaosBurstUsed: boolean;
   lane: number;
+  badMoneyCount?: number;
 }
 
 export interface TickDeltaResult {
@@ -136,6 +139,7 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
     currentRank,
     leaderScore,
   } = input;
+  const badMoneyCount = Math.max(0, Number(input.badMoneyCount ?? 0));
   let chaosBurstUsed = input.chaosBurstUsed;
   const currentScore = currentProgress;
   const gapToLeader = Math.max(0, leaderScore - currentScore);
@@ -261,6 +265,17 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
 
   delta *= getLanePerformanceMultiplier(input.lane);
 
+  if (badMoneyCount > 0) {
+    delta = applyBadMoneyToDelta(
+      delta,
+      raceId,
+      playerId,
+      tickNumber,
+      percentComplete,
+      badMoneyCount
+    );
+  }
+
   // Soft pace cap — week tempo sets the night; natural max is 239
   const weekTempo = getRaceWeekTempo(raceId);
   const baseLeash = 14 + player.burst * 0.1 + player.luck * 0.07 + player.chaos * 0.04;
@@ -316,6 +331,12 @@ export function buildPlayerInsert(
     rookie_until_day: status === "active" ? createdDay + 7 : null,
     comeback_until_day: null,
     total_support_received: 0,
+    bad_money_total: 0,
+    bad_money_races: 0,
+    bad_money_wins: 0,
+    bad_money_losses: 0,
+    bad_money_pressure: 0,
+    bad_money_last_day: null,
     highest_race_score: 0,
     highest_career_score: 0,
     biggest_comeback: 0,
@@ -454,7 +475,7 @@ function rankEntries<T extends { race_score: number; is_injured?: boolean; is_di
   return sorted.map((e, i) => ({
     ...e,
     current_rank: i + 1,
-    displayed_progress: Math.round(e.race_score),
+    displayed_progress: roundRaceScore(e.race_score),
   }));
 }
 
@@ -544,6 +565,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
       fight_end_tick: entry.fight_end_tick as number | null,
       fight_frozen_score: entry.fight_frozen_score as number | null,
       race_score: entry.race_score,
+      bad_money_count: entry.bad_money_count,
     }))
   );
 
@@ -658,7 +680,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         ...entry,
         race_score: newScore,
         progress: newScore,
-        displayed_progress: Math.round(newScore),
+        displayed_progress: roundRaceScore(newScore),
         last_delta: 0,
         recent_deltas: appendRecentDelta(entry.recent_deltas, 0),
         event_note: "INJURED",
@@ -672,7 +694,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         ...entry,
         race_score: frozen,
         progress: frozen,
-        displayed_progress: Math.round(frozen),
+        displayed_progress: roundRaceScore(frozen),
         last_delta: 0,
         recent_deltas: appendRecentDelta(entry.recent_deltas, 0),
         event_note: "FIGHT",
@@ -714,7 +736,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         "injured",
         `INJURED: ${injury.injuryName}`,
         null,
-        Math.round(newScore)
+        roundRaceScore(newScore)
       );
 
       await supabase.from("injury_events").insert({
@@ -731,15 +753,15 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
 
     updated.push({
       ...entry,
-      progress: Math.round(newScore),
-      displayed_progress: Math.round(newScore),
+      progress: roundRaceScore(newScore),
+      displayed_progress: roundRaceScore(newScore),
       last_delta: isInjured ? 0 : tickResult.delta,
       recent_deltas: appendRecentDelta(
         entry.recent_deltas,
         isInjured ? 0 : tickResult.delta
       ),
       event_note: isInjured ? "INJURED" : tickResult.event_note,
-      race_score: Math.round(newScore),
+      race_score: roundRaceScore(newScore),
       is_injured: isInjured,
       injured_at_tick: injuredAtTick,
       injury_name: injuryName,
@@ -776,7 +798,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   await syncRaceWeatherEvents(supabase, race as Race, startedAt, effectiveNow);
 
   for (const entry of ranked) {
-    const score = Math.round(Number(entry.race_score));
+    const score = roundRaceScore(Number(entry.race_score));
     const peakRaceScore = normalizePeakRaceScore(Number(entry.peak_race_score ?? 0), score);
     entry.peak_race_score = peakRaceScore;
     entry.race_score = score;
@@ -966,6 +988,7 @@ export async function finalizeRace(
       fight_end_tick: entry.fight_end_tick as number | null,
       fight_frozen_score: entry.fight_frozen_score as number | null,
       race_score: entry.race_score,
+      bad_money_count: entry.bad_money_count,
     }))
   );
 
@@ -994,7 +1017,7 @@ export async function finalizeRace(
       player: entry.player as Player,
       progress: simEntry.score,
       race_score: simEntry.score,
-      displayed_progress: Math.round(simEntry.score),
+      displayed_progress: roundRaceScore(simEntry.score),
       is_disqualified: isDisqualified,
     };
   });
@@ -1056,7 +1079,7 @@ export async function finalizeRace(
 
     const peakScore = Math.max(
       Number(entry.peak_race_score ?? 0),
-      Math.round(Number(entry.race_score))
+      roundRaceScore(Number(entry.race_score))
     );
 
     await supabase
@@ -1115,7 +1138,7 @@ export async function finalizeRace(
         "injured",
         `OUT ${racesMissed} RACES`,
         finish,
-        Math.round(Number(entry.race_score))
+        roundRaceScore(Number(entry.race_score))
       );
     } else if (entry.is_disqualified) {
       updates.status = "holding";
@@ -1132,7 +1155,7 @@ export async function finalizeRace(
         "eliminated",
         "DISQUALIFIED — FIGHT AT FINISH",
         finish,
-        Math.round(Number(entry.race_score))
+        roundRaceScore(Number(entry.race_score))
       );
     } else if (isLast) {
       updates.status = "holding";
@@ -1149,7 +1172,7 @@ export async function finalizeRace(
         "eliminated",
         "ELIMINATED TO HOLDING",
         finish,
-        Math.round(Number(entry.race_score))
+        roundRaceScore(Number(entry.race_score))
       );
     }
 
@@ -1168,7 +1191,7 @@ export async function finalizeRace(
         "won",
         `WON RACE ${race.race_number}`,
         finish,
-        Math.round(Number(entry.race_score))
+        roundRaceScore(Number(entry.race_score))
       );
     } else if (!entry.is_injured && !entry.is_disqualified) {
       await addHistory(
@@ -1179,7 +1202,7 @@ export async function finalizeRace(
         "finished",
         `FINISHED ${ordinal(finish)}`,
         finish,
-        Math.round(Number(entry.race_score))
+        roundRaceScore(Number(entry.race_score))
       );
     }
 
@@ -1196,6 +1219,13 @@ export async function finalizeRace(
     .eq("id", race.id);
 
   await processRaceSupports(supabase, race, currentDay);
+
+  await processBadMoneyAtFinalize(
+    supabase,
+    race,
+    ranked as RaceEntryWithPlayer[],
+    currentDay
+  );
 
   const winnerEntry = ranked.find(
     (e) => e.final_rank === 1 && !e.is_injured && !e.is_disqualified

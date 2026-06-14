@@ -189,6 +189,7 @@ export function RaceWeatherOverlay({
   return (
     <div
       className={`race-weather race-weather--${weather.type}${isNight ? " is-night" : ""}`}
+      style={{ opacity: weather.opacity }}
       aria-hidden="true"
     >
       <div className="race-weather-sky" />

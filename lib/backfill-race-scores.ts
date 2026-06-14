@@ -8,7 +8,7 @@ import { getRaceEffectiveNow } from "./race-delay";
 import { applySimTick, applyFanLiveBonusToSim, buildRaceSim, rankSimEntries } from "./race-sim";
 import type { Player, Race, RaceEntryWithPlayer } from "./types";
 
-import { normalizePeakRaceScore } from "./score";
+import { normalizePeakRaceScore, roundRaceScore } from "./score";
 
 export async function backfillActiveRaceScores(
   supabase: SupabaseClient
@@ -74,7 +74,7 @@ export async function backfillActiveRaceScores(
         entry.fight_end_tick != null
       ) {
         if (tick === entry.fighting_at_tick) {
-          const frozen = Math.round(simEntry.score);
+          const frozen = roundRaceScore(simEntry.score);
           fightFrozenById.set(entry.player_id, frozen);
           simEntry.is_fighting = true;
           simEntry.fighting_at_tick = entry.fighting_at_tick as number;
@@ -85,7 +85,7 @@ export async function backfillActiveRaceScores(
           simEntry.is_fighting = true;
           simEntry.fighting_at_tick = entry.fighting_at_tick as number;
           simEntry.fight_end_tick = entry.fight_end_tick as number;
-          const frozen = fightFrozenById.get(entry.player_id) ?? Math.round(simEntry.score);
+          const frozen = fightFrozenById.get(entry.player_id) ?? roundRaceScore(simEntry.score);
           simEntry.fight_frozen_score = frozen;
           simEntry.score = frozen;
         } else if (tick >= entry.fight_end_tick) {
@@ -141,8 +141,8 @@ export async function backfillActiveRaceScores(
       tickNumber < entry.fight_end_tick;
     const score = fighting
       ? fightFrozenById.get(entry.player_id) ??
-        Math.round(Number(entry.fight_frozen_score ?? simRanked.score))
-      : Math.round(simRanked.score);
+        roundRaceScore(Number(entry.fight_frozen_score ?? simRanked.score))
+      : roundRaceScore(simRanked.score);
     const peakRaceScore = normalizePeakRaceScore(Number(entry.peak_race_score ?? 0), score);
     const frozenScore = fighting ? score : entry.fight_frozen_score;
 

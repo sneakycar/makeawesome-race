@@ -1,5 +1,5 @@
 import { CRON_SEGMENT_MS, getMsUntilNextUpdate } from "./race-clock";
-import { clampRaceScore } from "./score";
+import { roundRaceScore } from "./score";
 
 /** 0 at last cron tick, 1 just before the next. */
 export function getCronSegmentProgress(
@@ -56,10 +56,10 @@ export function getRollingTickAnimationState(
   recentDeltas: number[],
   segmentProgress: number
 ): RollingTickAnimationState {
-  const confirmed = clampRaceScore(Number(confirmedScore));
+  const confirmed = roundRaceScore(Number(confirmedScore));
   const deltas = recentDeltas.map(Number).slice(-ROLLING_TICK_WINDOW);
   const deltaSum = deltas.reduce((a, b) => a + b, 0);
-  const hardened = clampRaceScore(confirmed - deltaSum);
+  const hardened = roundRaceScore(confirmed - deltaSum);
 
   if (deltas.length === 0 || segmentProgress >= 1) {
     return {
@@ -85,13 +85,13 @@ export function getRollingTickAnimationState(
     } else if (segmentProgress > slotStart) {
       const t = (segmentProgress - slotStart) / partSize;
       score += deltas[i] * t;
-      animatingDelta = Math.round(deltas[i] * t);
+      animatingDelta = roundRaceScore(deltas[i] * t);
       break;
     }
   }
 
   return {
-    score: clampRaceScore(score),
+    score: roundRaceScore(score),
     confirmedScore: confirmed,
     hardenedScore: hardened,
     recentDeltas: deltas,

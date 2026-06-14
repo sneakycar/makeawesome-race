@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { clampNaturalRaceScore } from "./score";
+import { clampNaturalRaceScore, roundRaceScore } from "./score";
 import { appendRecentDelta } from "./hybrid-live-score";
 import {
   computeLiveScoreGrant,
@@ -293,7 +293,7 @@ export async function recordEncouragement(
         fan_live_bonus: newBonus,
         race_score: newScore,
         progress: newScore,
-        displayed_progress: Math.round(newScore),
+        displayed_progress: roundRaceScore(newScore),
         recent_deltas: recentDeltas,
         last_delta: liveGrant.granted,
         updated_at: now.toISOString(),

@@ -21,6 +21,7 @@ export interface RaceSimEntry {
   fight_frozen_score: number | null;
   stall_ticks_remaining: number;
   restart_pending: boolean;
+  bad_money_count: number;
 }
 
 export interface SimTickResult {
@@ -42,6 +43,7 @@ export function buildRaceSim(
     fight_end_tick?: number | null;
     fight_frozen_score?: number | null;
     race_score?: number;
+    bad_money_count?: number;
   }>
 ): RaceSimEntry[] {
   return entries.map((entry) => ({
@@ -57,6 +59,7 @@ export function buildRaceSim(
     fight_frozen_score: entry.fight_frozen_score ?? null,
     stall_ticks_remaining: 0,
     restart_pending: false,
+    bad_money_count: Math.max(0, Number(entry.bad_money_count ?? 0)),
   }));
 }
 
@@ -153,6 +156,7 @@ export function applySimTick(
       leaderScore,
       chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
       lane: entry.lane,
+      badMoneyCount: entry.bad_money_count,
     });
 
     if (entry.restart_pending) {

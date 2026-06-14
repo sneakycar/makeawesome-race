@@ -1,3 +1,4 @@
+import { roundRaceScore } from "./score";
 import type { RaceEntryWithPlayer } from "./types";
 
 /** Display score for a standings row (matches home page pip + number). */
@@ -5,11 +6,11 @@ export function getEntryDisplayScore(
   entry: RaceEntryWithPlayer,
   liveScore?: number
 ): number {
-  if (entry.is_injured) return Math.round(Number(entry.race_score));
+  if (entry.is_injured) return roundRaceScore(Number(entry.race_score));
   if (entry.is_fighting) {
-    return Math.round(Number(entry.fight_frozen_score ?? entry.race_score));
+    return roundRaceScore(Number(entry.fight_frozen_score ?? entry.race_score));
   }
-  return Math.round(liveScore ?? Number(entry.race_score));
+  return roundRaceScore(liveScore ?? Number(entry.race_score));
 }
 
 /** Same rules as server `rankEntries`: healthy by score desc, then injured. */

@@ -10,6 +10,7 @@ import {
   ordinal,
 } from "@/lib/format";
 import { formatRaceScore } from "@/lib/score";
+import { getBadMoneyFlavorLine } from "@/lib/bad-money";
 import { formatOvrRank } from "@/lib/ovr";
 import {
   formatTraitsDisplay,
@@ -152,6 +153,14 @@ export default function PlayerPage({
               {"\n"}TOTAL INJURIES: {p.total_injuries}
             </>
           )}
+
+          {"\n\n"}BAD MONEY
+
+          {"\n\n"}TOTAL: {p.bad_money_total ?? 0}
+          {"\n"}WINNING MONEY: {p.bad_money_wins ?? 0}
+          {"\n"}LOSING MONEY: {p.bad_money_losses ?? 0}
+          {"\n"}PRESSURE: {p.bad_money_pressure ?? 0}
+          {"\n"}{getBadMoneyFlavorLine(p.bad_money_total ?? 0)}
 
           {"\n\n"}HISTORY
 

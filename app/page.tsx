@@ -17,7 +17,7 @@ import {
   formatTickerAge,
   ordinal,
 } from "@/lib/format";
-import { formatRaceScore, getScorePipBackground, SCORE_PIP_SLOTS } from "@/lib/score";
+import { formatRaceScore, getScorePipBackground, roundRaceScore, SCORE_PIP_SLOTS } from "@/lib/score";
 import { getRaceProgressPipSurfaceStyle } from "@/lib/race-progress-art";
 import { useLiveRace } from "@/lib/use-live-race";
 import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
@@ -30,6 +30,7 @@ import { useEncourageCooldown } from "@/lib/use-encourage-cooldown";
 import { calculateLiveOdds } from "@/lib/live-odds";
 import { buildLiveScoreMap, computeLiveRanks } from "@/lib/live-standings";
 import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
+import { BadMoneyModal } from "@/app/components/bad-money-modal";
 import { ScorePipTrack } from "@/app/components/score-pip-track";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 
@@ -462,6 +463,15 @@ function AboutSection() {
           track. Injuries do not happen often, but they can interrupt dynasties, create comeback
           arcs, and permanently mark a racer&apos;s history.
         </p>
+        <p>
+          BAD MONEY
+          {"\n\n"}
+          Once per race, a visitor may place bad money on one racer. Bad money is not
+          real currency and has no payout. It is a superstition. It may slightly
+          disturb a racer&apos;s current race and can rarely affect long-term growth or
+          regression. The effect is tiny, capped, and unreliable. The machine remains
+          in charge.
+        </p>
       </div>
     </details>
   );
@@ -474,6 +484,13 @@ export default function HomePage() {
   const [nopeShakeId, setNopeShakeId] = useState<string | null>(null);
   const [encourageError, setEncourageError] = useState<string | null>(null);
   const [encouraging, setEncouraging] = useState(false);
+  const [badMoneyModal, setBadMoneyModal] = useState<{
+    playerId: string;
+    name: string;
+  } | null>(null);
+  const [badMoneySuccess, setBadMoneySuccess] = useState(false);
+  const [betting, setBetting] = useState(false);
+  const [betError, setBetError] = useState<string | null>(null);
   const [devBusy, setDevBusy] = useState(false);
   const [devError, setDevError] = useState<string | null>(null);
   const stateRef = useRef<GameStateResponse | null>(null);
@@ -581,7 +598,7 @@ export default function HomePage() {
             granted > 0
               ? prev.entries.map((e) => {
                   if (e.player_id !== playerId) return e;
-                  const nextScore = Math.round(Number(e.race_score) + granted);
+                  const nextScore = roundRaceScore(Number(e.race_score) + granted);
                   const recentDeltas = [
                     ...(e.recent_deltas ?? []),
                     granted,
@@ -603,6 +620,78 @@ export default function HomePage() {
       setEncourageError("Could not encourage");
     } finally {
       setEncouraging(false);
+    }
+  };
+
+  const handleBadMoneyOpen = (playerId: string, name: string) => {
+    const badMoney = state?.badMoney;
+    if (
+      betting ||
+      !badMoney?.canBet ||
+      badMoney.hasBet ||
+      state?.race.status !== "active" ||
+      state?.raceDelay?.active
+    ) {
+      return;
+    }
+    setBetError(null);
+    setBadMoneySuccess(false);
+    setBadMoneyModal({ playerId, name });
+  };
+
+  const handleBadMoneyConfirm = async () => {
+    if (!badMoneyModal || !state || betting) return;
+    setBetting(true);
+    setBetError(null);
+    try {
+      const res = await fetch("/api/bet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          raceId: state.race.id,
+          playerId: badMoneyModal.playerId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBetError(data.error || "Could not place bad money");
+        if (res.status === 409) {
+          setState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  badMoney: {
+                    betPlayerId: prev.badMoney.betPlayerId,
+                    hasBet: true,
+                    canBet: false,
+                  },
+                }
+              : prev
+          );
+        }
+        return;
+      }
+      setBadMoneySuccess(true);
+      setState((prev) =>
+        prev
+          ? {
+              ...prev,
+              badMoney: {
+                betPlayerId: badMoneyModal.playerId,
+                hasBet: true,
+                canBet: false,
+              },
+            }
+          : prev
+      );
+      window.setTimeout(() => {
+        setBadMoneyModal(null);
+        setBadMoneySuccess(false);
+      }, 1400);
+    } catch {
+      setBetError("Could not place bad money");
+    } finally {
+      setBetting(false);
     }
   };
 
@@ -736,22 +825,24 @@ export default function HomePage() {
 
       {state && (
         <>
-          <RaceMetaPanel
-            state={state}
-            betweenRaces={betweenRaces}
-            raceActive={raceActive}
-            liveRaceProgress={liveRace?.raceProgress ?? null}
-            nextUpdateMs={nextUpdateMs}
-            raceDelay={state.raceDelay}
-            isNight={isNight}
-          />
-
-          <p className="tap-hint">click a racer to see stats</p>
-
-          <div className={`race-standings-wrap${raceDelayed ? " race-standings-frozen" : ""}`}>
+          <div className="race-meta-weather-zone">
             {raceWeather && raceActive && !raceDelayed && (
               <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
             )}
+            <RaceMetaPanel
+              state={state}
+              betweenRaces={betweenRaces}
+              raceActive={raceActive}
+              liveRaceProgress={liveRace?.raceProgress ?? null}
+              nextUpdateMs={nextUpdateMs}
+              raceDelay={state.raceDelay}
+              isNight={isNight}
+            />
+
+            <p className="tap-hint">click a racer to see stats</p>
+          </div>
+
+          <div className={`race-standings-wrap${raceDelayed ? " race-standings-frozen" : ""}`}>
             <div className="race-standings" key={state.serverTime}>
           {[...state.entries]
             .sort((a, b) => a.lane - b.lane)
@@ -759,7 +850,7 @@ export default function HomePage() {
             const live = liveRace?.entries.get(entry.player_id);
             const rank = liveRankMap.get(entry.player_id) ?? entry.current_rank;
             const pipDisplayScore =
-              live?.score ?? Math.round(Number(entry.race_score));
+              live?.score ?? roundRaceScore(Number(entry.race_score));
             const pipAnimatingDelta = live?.animatingDelta ?? 0;
             const isInjured = entry.is_injured;
             const isFighting = entry.is_fighting;
@@ -819,11 +910,6 @@ export default function HomePage() {
                 >
                   <div className="row-head">
                     <span className="row-archetype">L{entry.lane}</span>
-                    {barMark ? (
-                      <span className="row-mark-slot row-mark-slot-inline">
-                        <FlatIcon id={barMark} className="race-emoji" />
-                      </span>
-                    ) : null}
                     <span className="row-name">{formatRacerName(entry.player.name)}</span>
                     {rankDeltaLabel && (
                       <span
@@ -839,6 +925,11 @@ export default function HomePage() {
                     )}
                   </div>
                   <div className="row-track">
+                    <span className="row-mark-slot" aria-hidden={!barMark}>
+                      {barMark ? (
+                        <FlatIcon id={barMark} className="race-emoji" />
+                      ) : null}
+                    </span>
                     <ScorePipTrack
                       score={pipDisplayScore}
                       animatingDelta={pipAnimatingDelta}
@@ -846,6 +937,12 @@ export default function HomePage() {
                       isLeader={isLeader}
                       isNight={isNight}
                       statusOverlay={pipOverlay}
+                      playerId={entry.player_id}
+                      raceId={state.race.id}
+                      recentDeltas={
+                        entry.recent_deltas ??
+                        (entry.last_delta ? [Number(entry.last_delta)] : [])
+                      }
                     />
                     {raceActive && !isInjured && !isFighting && encouragePhase !== "hidden" ? (
                       encouragePhase === "blocked" ? (
@@ -885,6 +982,48 @@ export default function HomePage() {
                       )
                     ) : raceActive && (isFighting || isInjured) ? (
                       <span className="encourage-btn-spacer" aria-hidden="true" />
+                    ) : null}
+                    {raceActive &&
+                    !raceDelayed &&
+                    !isInjured &&
+                    !isFighting &&
+                    state.badMoney ? (
+                      state.badMoney.hasBet &&
+                      state.badMoney.betPlayerId === entry.player_id ? (
+                        <button
+                          type="button"
+                          className="bad-money-btn bad-money-btn-placed"
+                          disabled
+                          aria-label="Bad money placed on this racer"
+                        >
+                          BET
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`bad-money-btn${
+                            !state.badMoney.canBet || state.badMoney.hasBet
+                              ? " bad-money-btn-blocked"
+                              : ""
+                          }`}
+                          disabled={
+                            betting ||
+                            !state.badMoney.canBet ||
+                            state.badMoney.hasBet
+                          }
+                          aria-label={
+                            state.badMoney.hasBet
+                              ? "Bad money already placed this race"
+                              : `Place bad money on ${formatRacerName(entry.player.name)}`
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBadMoneyOpen(entry.player_id, entry.player.name);
+                          }}
+                        >
+                          $
+                        </button>
+                      )
                     ) : null}
                     <span
                       className={`row-archetype row-place${
@@ -1007,12 +1146,29 @@ export default function HomePage() {
 
       {state?.raceDelay?.active && <RaceDelayOverlay delay={state.raceDelay} />}
 
+      {badMoneyModal && (
+        <BadMoneyModal
+          racerName={badMoneyModal.name}
+          placing={badMoneySuccess}
+          busy={betting}
+          onConfirm={handleBadMoneyConfirm}
+          onCancel={() => {
+            if (!betting) setBadMoneyModal(null);
+          }}
+        />
+      )}
+      {betError && (
+        <p className="error" style={{ textAlign: "center", marginTop: 8 }}>
+          {betError}
+        </p>
+      )}
+
       {selectedSlug && selectedEntry && (
         <PlayerCardOverlay
           slug={selectedSlug}
           liveScore={
             liveScoreMap.get(selectedEntry.player_id) ??
-            Math.round(Number(selectedEntry.race_score))
+            roundRaceScore(Number(selectedEntry.race_score))
           }
           liveRank={
             liveRankMap.get(selectedEntry.player_id) ?? selectedEntry.current_rank
@@ -1034,6 +1190,12 @@ export default function HomePage() {
           ovrInfo={state?.ovrByPlayerId[selectedEntry.player_id]}
           isNight={isNight}
           onClose={() => setSelectedSlug(null)}
+          playerId={selectedEntry.player_id}
+          raceId={state!.race.id}
+          recentDeltas={
+            selectedEntry.recent_deltas ??
+            (selectedEntry.last_delta ? [Number(selectedEntry.last_delta)] : [])
+          }
         />
       )}
     </main>

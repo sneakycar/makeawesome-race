@@ -22,7 +22,7 @@ export function useRaceWeather(
 
     const refresh = () => setWeather(getRaceWeather(raceId, raceStart, raceEnd));
     refresh();
-    const id = setInterval(refresh, 2500);
+    const id = setInterval(refresh, 100);
     return () => clearInterval(id);
   }, [raceId, startedAt, endsAt, active]);
 

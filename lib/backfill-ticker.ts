@@ -5,11 +5,14 @@ import {
   getTickNumber,
   TICKS_PER_RACE,
 } from "./race-logic";
+import { getRaceEffectiveNow } from "./race-delay";
 import {
   applySimTick,
+  buildRaceSim,
   rankSimEntries,
   type RaceSimEntry,
 } from "./race-sim";
+import { roundRaceScore } from "./score";
 import {
   generateFinalizeTickerEvents,
   generateRaceStartTickerEvents,
@@ -17,7 +20,7 @@ import {
   type TickerEntrySnapshot,
   type TickerEventDraft,
 } from "./ticker-logic";
-import type { Race, RaceEntryWithPlayer } from "./types";
+import type { Player, Race, RaceEntryWithPlayer } from "./types";
 
 interface TickerInsertRow {
   race_id: string;
@@ -75,6 +78,61 @@ function draftsToRows(
   }));
 }
 
+function applyDbFightStateForTick(
+  sim: RaceSimEntry[],
+  entries: RaceEntryWithPlayer[],
+  tick: number,
+  fightFrozenById: Map<string, number>
+): void {
+  for (const dbEntry of entries) {
+    const simEntry = sim.find((s) => s.player_id === dbEntry.player_id);
+    if (!simEntry) continue;
+
+    const fightStart = dbEntry.fighting_at_tick as number | null;
+    const fightEnd = dbEntry.fight_end_tick as number | null;
+    if (fightStart == null || fightEnd == null) {
+      simEntry.is_fighting = false;
+      continue;
+    }
+
+    if (tick >= fightStart && tick < fightEnd) {
+      if (tick === fightStart) {
+        const frozen = roundRaceScore(simEntry.score);
+        fightFrozenById.set(dbEntry.player_id, frozen);
+        simEntry.fight_frozen_score = frozen;
+      }
+      simEntry.is_fighting = true;
+      simEntry.fighting_at_tick = fightStart;
+      simEntry.fight_end_tick = fightEnd;
+      const frozen =
+        fightFrozenById.get(dbEntry.player_id) ??
+        roundRaceScore(Number(dbEntry.fight_frozen_score ?? simEntry.score));
+      simEntry.fight_frozen_score = frozen;
+      simEntry.score = frozen;
+      continue;
+    }
+
+    if (tick >= fightEnd) {
+      simEntry.is_fighting = false;
+    }
+  }
+}
+
+function applyDbInjuryStateForTick(
+  sim: RaceSimEntry[],
+  entries: RaceEntryWithPlayer[],
+  tick: number
+): void {
+  for (const dbEntry of entries) {
+    if (!dbEntry.is_injured || dbEntry.injured_at_tick == null) continue;
+    if (tick < (dbEntry.injured_at_tick as number)) continue;
+    const simEntry = sim.find((s) => s.player_id === dbEntry.player_id);
+    if (!simEntry) continue;
+    simEntry.is_injured = true;
+    simEntry.injured_at_tick = dbEntry.injured_at_tick as number;
+  }
+}
+
 export async function backfillRaceTicker(
   supabase: SupabaseClient,
   raceId: string
@@ -101,34 +159,36 @@ export async function backfillRaceTicker(
   const startedAt = new Date(typedRace.started_at);
   const endsAt = new Date(typedRace.ends_at);
   const tickMs = getRaceTickIntervalMs(startedAt, endsAt);
-  const now = typedRace.status === "finalized" ? endsAt : new Date();
+  const effectiveNow =
+    typedRace.status === "finalized" ? endsAt : getRaceEffectiveNow(typedRace, new Date());
   const maxTick =
     typedRace.status === "finalized"
       ? TICKS_PER_RACE - 1
-      : getTickNumber(startedAt, endsAt, now);
-
-  const injuryAtTick = new Map(
-    typedEntries
-      .filter((e) => e.injured_at_tick != null)
-      .map((e) => [e.player_id, e.injured_at_tick as number])
-  );
-
-  const sim: RaceSimEntry[] = typedEntries.map((entry) => ({
-    player_id: entry.player_id,
-    player: entry.player,
-    lane: entry.lane,
-    score: 0,
-    is_injured: false,
-    injured_at_tick: entry.injured_at_tick as number | null,
-    is_fighting: false,
-    fighting_at_tick: null,
-    fight_end_tick: null,
-    fight_frozen_score: null,
-    stall_ticks_remaining: 0,
-    restart_pending: false,
-  }));
+      : getTickNumber(startedAt, endsAt, effectiveNow);
 
   const chaosUsed = new Map<string, boolean>();
+  for (const entry of typedEntries) {
+    if (entry.event_note?.includes("CHAOS SURGE")) {
+      chaosUsed.set(entry.player_id, true);
+    }
+  }
+
+  const sim = buildRaceSim(
+    typedEntries.map((entry) => ({
+      player_id: entry.player_id,
+      player: entry.player as Player,
+      lane: entry.lane,
+      is_injured: Boolean(entry.is_injured),
+      injured_at_tick: entry.injured_at_tick as number | null,
+      is_fighting: Boolean(entry.is_fighting),
+      fighting_at_tick: entry.fighting_at_tick as number | null,
+      fight_end_tick: entry.fight_end_tick as number | null,
+      fight_frozen_score: entry.fight_frozen_score as number | null,
+      race_score: entry.race_score,
+    }))
+  );
+
+  const fightFrozenById = new Map<string, number>();
   const rows: TickerInsertRow[] = [];
 
   const tickTime = (tick: number) =>
@@ -148,6 +208,9 @@ export async function backfillRaceTicker(
   );
 
   for (let tick = 0; tick <= maxTick; tick++) {
+    applyDbInjuryStateForTick(sim, typedEntries, tick);
+    applyDbFightStateForTick(sim, typedEntries, tick, fightFrozenById);
+
     const percentComplete = calculatePercentComplete(
       startedAt,
       endsAt,
@@ -168,11 +231,18 @@ export async function backfillRaceTicker(
       tickResults.map((r) => [r.player_id, { delta: r.delta, event_note: r.event_note }])
     );
 
-    for (const entry of sim) {
-      const injuryTick = injuryAtTick.get(entry.player_id);
-      if (injuryTick === tick) {
-        entry.is_injured = true;
-        tickResultById.set(entry.player_id, { delta: 0, event_note: "INJURED" });
+    for (const dbEntry of typedEntries) {
+      if (
+        dbEntry.is_injured &&
+        dbEntry.injured_at_tick != null &&
+        dbEntry.injured_at_tick === tick
+      ) {
+        const simEntry = sim.find((s) => s.player_id === dbEntry.player_id);
+        if (simEntry) {
+          simEntry.is_injured = true;
+          simEntry.injured_at_tick = dbEntry.injured_at_tick as number;
+        }
+        tickResultById.set(dbEntry.player_id, { delta: 0, event_note: "INJURED" });
       }
     }
 

@@ -36,6 +36,12 @@ create table if not exists players (
   comeback_until_day integer,
   seed text not null,
   total_support_received integer not null default 0,
+  bad_money_total integer not null default 0,
+  bad_money_races integer not null default 0,
+  bad_money_wins integer not null default 0,
+  bad_money_losses integer not null default 0,
+  bad_money_pressure integer not null default 0,
+  bad_money_last_day integer,
   highest_race_score numeric not null default 0,
   highest_career_score numeric not null default 0,
   biggest_comeback integer not null default 0,
@@ -99,6 +105,8 @@ create table if not exists race_entries (
   fight_partner_id uuid references players(id) on delete set null,
   fight_frozen_score numeric,
   fan_live_bonus numeric not null default 0,
+  bad_money_count integer not null default 0,
+  bad_money_effect numeric not null default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   unique (race_id, player_id),
@@ -133,6 +141,22 @@ create index if not exists idx_race_supports_race on race_supports(race_id);
 create index if not exists idx_race_supports_player on race_supports(player_id);
 create index if not exists idx_race_supports_race_ip on race_supports(race_id, ip_hash);
 create index if not exists idx_race_supports_race_device on race_supports(race_id, device_hash);
+
+-- race_bets (bad money — one superstition bet per visitor IP per race)
+create table if not exists race_bets (
+  id uuid primary key default gen_random_uuid(),
+  race_id uuid not null references races(id) on delete cascade,
+  player_id uuid not null references players(id) on delete cascade,
+  ip_hash text not null,
+  user_agent_hash text,
+  created_at timestamptz default now(),
+  unique (race_id, ip_hash)
+);
+
+create index if not exists idx_race_bets_race on race_bets(race_id);
+create index if not exists idx_race_bets_player on race_bets(player_id);
+create index if not exists idx_race_bets_race_player on race_bets(race_id, player_id);
+create index if not exists idx_race_bets_ip on race_bets(ip_hash);
 
 -- race_ticker_events (narrative feed after each cron tick)
 create table if not exists race_ticker_events (
@@ -205,6 +229,7 @@ alter table race_entries enable row level security;
 alter table player_history enable row level security;
 alter table game_state enable row level security;
 alter table race_supports enable row level security;
+alter table race_bets enable row level security;
 alter table race_ticker_events enable row level security;
 alter table injury_events enable row level security;
 alter table race_weather_events enable row level security;
@@ -215,6 +240,7 @@ create policy "public read race_entries" on race_entries for select using (true)
 create policy "public read player_history" on player_history for select using (true);
 create policy "public read game_state" on game_state for select using (true);
 create policy "public read race_supports" on race_supports for select using (true);
+create policy "public read race_bets" on race_bets for select using (true);
 create policy "public read race_ticker_events" on race_ticker_events for select using (true);
 create policy "public read injury_events" on injury_events for select using (true);
 create policy "public read race_weather_events" on race_weather_events for select using (true);

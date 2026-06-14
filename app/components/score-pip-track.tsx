@@ -1,8 +1,13 @@
+"use client";
+
+import { useMemo } from "react";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
+import { buildPipHeightUnits } from "@/lib/pip-heights";
 import {
-  formatRaceScore,
+  formatLiveRaceScore,
   getScorePipBackground,
   HARD_SCORE_CAP,
+  roundRaceScore,
   SCORE_TRACK_SLOTS,
 } from "@/lib/score";
 
@@ -13,6 +18,9 @@ export function ScorePipTrack({
   isLeader,
   isNight,
   statusOverlay,
+  playerId,
+  raceId,
+  recentDeltas,
 }: {
   score: number;
   animatingDelta: number;
@@ -20,15 +28,49 @@ export function ScorePipTrack({
   isLeader: boolean;
   isNight: boolean;
   statusOverlay?: { icon: RaceIconId; label: string };
+  playerId?: string;
+  raceId?: string;
+  recentDeltas?: number[];
 }) {
   const slots = SCORE_TRACK_SLOTS;
-  const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, score));
+  const livePoints = roundRaceScore(Math.max(0, Math.min(HARD_SCORE_CAP, score)));
   const pipBright = Math.floor(livePoints);
   const pipPartial = livePoints - pipBright;
-  const displayPoints = Math.round(livePoints);
-  const leader = Math.max(0, Math.round(leaderScore));
-  const behind = leader - displayPoints;
+  const leader = roundRaceScore(Math.max(0, leaderScore));
+  const behind = roundRaceScore(leader - livePoints);
   const colorSpan = slots;
+
+  const deltaKey = recentDeltas?.map(Number).join(",") ?? "";
+
+  const pipHeights = useMemo(() => {
+    if (!playerId || !raceId) return null;
+    return buildPipHeightUnits(
+      playerId,
+      raceId,
+      slots,
+      pipBright,
+      recentDeltas ?? []
+    );
+  }, [playerId, raceId, slots, pipBright, deltaKey]);
+
+  const pipHeightClass = (index: number, lit: boolean) => {
+    if (!lit || !pipHeights) return " score-pip-h1";
+    return pipHeights[index] >= 2 ? " score-pip-h2" : " score-pip-h1";
+  };
+
+  const fillPercent = Math.min(100, (livePoints / slots) * 100);
+  const showOutline =
+    fillPercent > 0 &&
+    (isLeader ||
+      statusOverlay?.icon === "fight" ||
+      statusOverlay?.icon === "injured");
+  const outlineClass = isLeader
+    ? " score-pip-track-outline-leader"
+    : statusOverlay?.icon === "fight"
+      ? " score-pip-track-outline-fight"
+      : statusOverlay?.icon === "injured"
+        ? " score-pip-track-outline-injured"
+        : "";
 
   return (
     <div
@@ -37,26 +79,22 @@ export function ScorePipTrack({
       }${isNight ? " is-night" : ""}`}
       aria-label={
         statusOverlay
-          ? `${statusOverlay.label} — ${displayPoints} points`
+          ? `${statusOverlay.label} — ${formatLiveRaceScore(livePoints)} points`
           : isLeader
-            ? `${displayPoints} points, race leader`
-            : `${displayPoints} points, ${behind} behind leader`
+            ? `${formatLiveRaceScore(livePoints)} points, race leader`
+            : `${formatLiveRaceScore(livePoints)} points, ${formatLiveRaceScore(behind)} behind leader`
       }
       title={
         statusOverlay
-          ? `${statusOverlay.label} — ${displayPoints} pts`
+          ? `${statusOverlay.label} — ${formatLiveRaceScore(livePoints)} pts`
           : isLeader
-            ? `${displayPoints} points`
-            : `${displayPoints} pts · ${behind} behind lead`
+            ? `${formatLiveRaceScore(livePoints)} points`
+            : `${formatLiveRaceScore(livePoints)} pts · ${formatLiveRaceScore(behind)} behind lead`
       }
     >
       <div
         className={`score-pip-track score-pip-track--race${
-          isLeader ? " score-pip-track-leader" : ""
-        }${
-          statusOverlay?.icon === "fight" ? " score-pip-track-fight" : ""
-        }${
-          statusOverlay?.icon === "injured" ? " score-pip-track-injured" : ""
+          statusOverlay ? " score-pip-track-paused" : ""
         }`}
         style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
       >
@@ -65,7 +103,7 @@ export function ScorePipTrack({
             return (
               <span
                 key={i}
-                className="score-pip score-pip-on"
+                className={`score-pip score-pip-on${pipHeightClass(i, true)}`}
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
                 }}
@@ -77,7 +115,7 @@ export function ScorePipTrack({
             return (
               <span
                 key={i}
-                className="score-pip score-pip-on score-pip-partial"
+                className={`score-pip score-pip-on score-pip-partial${pipHeightClass(i, true)}`}
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
                   opacity: Math.max(0.15, pipPartial),
@@ -86,16 +124,29 @@ export function ScorePipTrack({
               />
             );
           }
-          return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
+          return (
+            <span key={i} className="score-pip score-pip-empty score-pip-h1" aria-hidden="true" />
+          );
         })}
+        {showOutline && (
+          <div
+            className={`score-pip-track-outline${outlineClass}`}
+            style={{ width: `${fillPercent}%` }}
+            aria-hidden="true"
+          />
+        )}
         {statusOverlay && (
-          <div className="row-scoreboard-overlay" aria-hidden="true">
+          <div
+            className="row-scoreboard-overlay"
+            style={{ width: `${fillPercent}%` }}
+            aria-hidden="true"
+          >
             <FlatIcon id={statusOverlay.icon} className="race-emoji race-emoji-overlay" />
             <span className="row-scoreboard-overlay-label">{statusOverlay.label}</span>
           </div>
         )}
       </div>
-      <span className="row-score-pip-num">{formatRaceScore(displayPoints)}</span>
+      <span className="row-score-pip-num">{formatLiveRaceScore(livePoints)}</span>
       {animatingDelta !== 0 && (
         <span
           className={`row-score-pip-delta${
@@ -104,7 +155,7 @@ export function ScorePipTrack({
           aria-hidden="true"
         >
           {animatingDelta > 0 ? "+" : ""}
-          {formatRaceScore(animatingDelta)}
+          {formatLiveRaceScore(animatingDelta)}
         </span>
       )}
     </div>

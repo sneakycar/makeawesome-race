@@ -12,6 +12,8 @@ import {
 import { getRaceClock } from "@/lib/race-clock";
 import { getRaceDelayInfo, isRaceDelayed } from "@/lib/race-delay";
 import { getVisitorEncouragementState } from "@/lib/support-db";
+import { getVisitorBadMoneyState } from "@/lib/bad-money-db";
+import { hashRequestIp, getRequestIp } from "@/lib/request-identity";
 import { hashVisitorDeviceId, normalizeDeviceId } from "@/lib/visitor-id";
 import { getRecentTickerEvents } from "@/lib/ticker-db";
 import { getLaneWinStats } from "@/lib/lane-stats";
@@ -92,6 +94,12 @@ export async function GET(request: Request) {
             canVote: false,
           };
 
+    const badMoneyIpHash = hashRequestIp(getRequestIp(request));
+    const badMoney =
+      race.status === "active"
+        ? await getVisitorBadMoneyState(supabase, race.id, badMoneyIpHash, true)
+        : { betPlayerId: null, hasBet: false, canBet: false };
+
     const ticker = await getRecentTickerEvents(supabase, race.id, 12);
 
     const activeRace = await getActiveRaceOnly(supabase);
@@ -118,6 +126,7 @@ export async function GET(request: Request) {
       laneStats,
       gameState: gameState!,
       encouragement,
+      badMoney,
       ticker,
       betweenRaces,
       nextRaceNumber,
