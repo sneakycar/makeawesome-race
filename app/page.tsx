@@ -87,7 +87,7 @@ function RaceMetaPanel({
     <div className="race-meta-block">
       <div className="race-meta">
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
-        <div className="race-meta-line">{`TIME: ${progressDisplay}`}</div>
+        <div className="race-meta-line">{`${progressDisplay} DONE`}</div>
         <div className="race-meta-line">{timerLine}</div>
         <div className="race-meta-line">{`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}</div>
       </div>
