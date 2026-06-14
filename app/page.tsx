@@ -20,9 +20,10 @@ import {
 } from "@/lib/format";
 import { formatRaceScore, SCORE_PIP_SLOTS } from "@/lib/score";
 import {
-  getRaceProgressBitmapStyle,
-  getRaceProgressFillStyle,
+  getProgressPipSurfaceStyle,
+  getRaceProgressPipSurfaceStyle,
 } from "@/lib/race-progress-art";
+import { getPipFillState } from "@/lib/hybrid-live-score";
 import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
@@ -193,7 +194,13 @@ function RaceMetaPanel({
         </div>
         <div className="race-meta-gap" aria-hidden="true" />
         <div className="race-meta-line">{timerLine}</div>
-        <div className="race-meta-line">{`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}</div>
+        <div
+          className={`race-meta-line${
+            nextUpdateMs < 3 * 60 * 1000 ? " race-meta-line-next-soon" : ""
+          }`}
+        >
+          {`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}
+        </div>
       </div>
     </div>
   );
@@ -241,25 +248,33 @@ function RaceProgressPipBar({
   isNight: boolean;
 }) {
   const clamped = Math.max(0, Math.min(100, percent));
+  const filled = Math.max(
+    0,
+    Math.min(SCORE_PIP_SLOTS, Math.round((clamped / 100) * SCORE_PIP_SLOTS))
+  );
 
   return (
     <div className="race-progress-pip-viewport" aria-hidden="true">
       <div className={`race-progress-pip-pill${isNight ? " is-night" : ""}`}>
-        <div className="race-progress-pip-track-bg" />
-        <div
-          className="race-progress-pip-fill"
-          style={getRaceProgressFillStyle(clamped)}
-        >
-          <div
-            className="race-progress-pip-bitmap"
-            style={getRaceProgressBitmapStyle(isNight)}
-          />
-          <div className="race-progress-pip-bitmap-shine" />
-        </div>
-        <div className="race-progress-pip-dividers">
-          {Array.from({ length: SCORE_PIP_SLOTS - 1 }, (_, i) => (
-            <span key={i} className="race-progress-pip-divider" />
-          ))}
+        <div className="race-progress-pip-track">
+          {Array.from({ length: SCORE_PIP_SLOTS }, (_, i) => {
+            const isOn = i < filled;
+            return (
+              <span
+                key={i}
+                className={`race-progress-pip${isOn ? " race-progress-pip-on" : " race-progress-pip-dim"}`}
+                style={
+                  isOn
+                    ? getRaceProgressPipSurfaceStyle(
+                        i,
+                        Math.max(1, filled - 1),
+                        isNight
+                      )
+                    : undefined
+                }
+              />
+            );
+          })}
         </div>
         <div className="race-progress-pip-bezel" />
       </div>
@@ -267,47 +282,99 @@ function RaceProgressPipBar({
   );
 }
 
-function ScoreReadout({
-  displayPoints,
+function ScorePipTrack({
+  confirmedScore,
   lastDelta,
   segmentProgress,
+  leaderScore,
   isLeader,
   isNight,
   statusOverlay,
 }: {
-  displayPoints: number;
+  confirmedScore: number;
   lastDelta: number;
   segmentProgress: number;
+  leaderScore: number;
   isLeader: boolean;
   isNight: boolean;
   statusOverlay?: { icon: RaceIconId; label: string };
 }) {
-  const points = Math.max(0, Math.round(displayPoints));
-  const tickDelta = Math.max(0, lastDelta);
-  const animatingGain =
-    tickDelta > 0 && segmentProgress < 1
-      ? Math.max(0, Math.round(tickDelta * segmentProgress))
+  const confirmed = Math.max(0, Math.round(confirmedScore));
+  const leader = Math.max(1, Math.round(leaderScore));
+  const slots = leader;
+  const { bright, partialIndex, partial } = getPipFillState(
+    confirmed,
+    lastDelta,
+    segmentProgress
+  );
+  const displayPoints =
+    lastDelta !== 0 && segmentProgress < 1
+      ? Math.max(0, Math.round(confirmed - lastDelta + lastDelta * segmentProgress))
+      : confirmed;
+  const animatingDelta =
+    lastDelta !== 0 && segmentProgress < 1
+      ? Math.round(lastDelta * segmentProgress)
       : 0;
+  const behind = leader - displayPoints;
 
   return (
     <div
-      className={`row-score-readout${isLeader ? " row-score-readout-leader" : ""}${
-        statusOverlay ? " row-score-readout-paused" : ""
-      }`}
+      className={`score-pip-viewport${statusOverlay ? " score-pip-viewport-paused" : ""}`}
       aria-label={
         statusOverlay
-          ? `${statusOverlay.label} — ${points} points`
-          : `${points} points scored`
+          ? `${statusOverlay.label} — ${displayPoints} points`
+          : isLeader
+            ? `${displayPoints} points, race leader`
+            : `${displayPoints} points, ${behind} behind leader`
       }
-      title={statusOverlay ? `${statusOverlay.label} — ${points} pts` : `${points} pts`}
+      title={
+        statusOverlay
+          ? `${statusOverlay.label} — ${displayPoints} pts`
+          : isLeader
+            ? `${displayPoints} points`
+            : `${displayPoints} pts · ${behind} behind lead`
+      }
     >
-      <span className="row-scoreboard-label">PTS</span>
-      <span className={`row-scoreboard-num${isNight ? " row-scoreboard-num-night" : ""}`}>
-        {formatRaceScore(points)}
-      </span>
-      {animatingGain > 0 && (
-        <span className="row-scoreboard-gain" aria-hidden="true">
-          +{formatRaceScore(animatingGain)}
+      <div className="score-pip-track">
+        {Array.from({ length: slots }, (_, i) => {
+          if (i < bright) {
+            return (
+              <span
+                key={i}
+                className="score-pip score-pip-on score-pip-bitmap"
+                style={getProgressPipSurfaceStyle(
+                  i,
+                  Math.max(1, bright - 1),
+                  isNight
+                )}
+              />
+            );
+          }
+          if (i === partialIndex && partial > 0) {
+            return (
+              <span
+                key={i}
+                className="score-pip score-pip-on score-pip-bitmap score-pip-partial"
+                style={{
+                  ...getProgressPipSurfaceStyle(i, Math.max(1, bright), isNight),
+                  opacity: Math.max(0.12, partial),
+                }}
+              />
+            );
+          }
+          return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
+        })}
+      </div>
+      <span className="row-score-pip-num">{formatRaceScore(displayPoints)}</span>
+      {animatingDelta !== 0 && (
+        <span
+          className={`row-score-pip-delta${
+            animatingDelta < 0 ? " row-score-pip-delta-loss" : ""
+          }`}
+          aria-hidden="true"
+        >
+          {animatingDelta > 0 ? "+" : ""}
+          {formatRaceScore(animatingDelta)}
         </span>
       )}
       {statusOverlay && (
@@ -329,6 +396,18 @@ function LiveOddsBoard({
   liveRace: ReturnType<typeof useLiveRace>;
   raceActive: boolean;
 }) {
+  const oddsAsOf = state.gameState.last_tick_at ?? state.serverTime;
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const oddsAge = formatTickerAge(oddsAsOf, now);
+
   const lines = useMemo(() => {
     if (!raceActive || state.race.status !== "active") return [];
 
@@ -361,8 +440,13 @@ function LiveOddsBoard({
   if (lines.length === 0) return null;
 
   return (
-    <div className="live-odds" aria-label="Live betting odds">
-      <div className="live-odds-title">LIVE ODDS</div>
+    <div
+      className="live-odds"
+      aria-label={`Live betting odds, updated ${oddsAge}`}
+    >
+      <div className="live-odds-title">
+        LIVE ODDS <span className="live-odds-asof">({oddsAge})</span>
+      </div>
       <div className="live-odds-list">
         {lines.map((line) => (
           <div
@@ -875,6 +959,18 @@ export default function HomePage() {
   const raceWeather = useRaceWeather(state?.race.id, raceActive && !raceDelayed);
   const rankDeltaById = useLiveRankDelta(state, raceActive && !raceDelayed);
 
+  const entryScorePoints =
+    state?.entries.map((e) => {
+      if (e.is_injured) return Math.round(Number(e.race_score));
+      if (e.is_fighting) return Math.round(Number(e.fight_frozen_score ?? e.race_score));
+      const live = liveRace?.entries.get(e.player_id);
+      return Math.round(live?.score ?? Number(e.race_score));
+    }) ?? [];
+
+  const leaderScorePoints = entryScorePoints.length
+    ? Math.max(...entryScorePoints)
+    : 1;
+
   const selectedEntry = selectedSlug
     ? state?.entries.find((e) => e.player.slug === selectedSlug)
     : undefined;
@@ -982,13 +1078,10 @@ export default function HomePage() {
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
             const rank = entry.current_rank;
-            const scorePoints = entry.is_injured
-              ? Math.round(Number(entry.race_score))
-              : entry.is_fighting
-                ? Math.round(Number(entry.fight_frozen_score ?? entry.race_score))
-                : Math.round(live?.score ?? Number(entry.race_score));
-            const pipLastDelta = live?.tickDelta ?? Math.max(0, Number(entry.last_delta));
+            const pipLastDelta = live?.tickDelta ?? Number(entry.last_delta);
             const pipSegmentProgress = live?.segmentProgress ?? 1;
+            const pipConfirmedScore =
+              live?.confirmedScore ?? Math.round(Number(entry.race_score));
             const isInjured = entry.is_injured;
             const isFighting = entry.is_fighting;
             const isComeback = !isInjured && !isFighting && entry.last_rank_change >= 2;
@@ -1066,10 +1159,11 @@ export default function HomePage() {
                     >
                       {barMark ? <FlatIcon id={barMark} className="flat-icon" /> : null}
                     </span>
-                    <ScoreReadout
-                      displayPoints={scorePoints}
+                    <ScorePipTrack
+                      confirmedScore={pipConfirmedScore}
                       lastDelta={pipLastDelta}
                       segmentProgress={pipSegmentProgress}
+                      leaderScore={leaderScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
                       statusOverlay={pipOverlay}

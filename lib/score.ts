@@ -1,15 +1,37 @@
-/** Midpoint winning total — actual outcomes spread ~50–200 via tempo + variance. */
+/** Midpoint winning total — actual outcomes spread ~50–215 via tempo + variance. */
 export const TARGET_WINNER_SCORE = 125;
 export const MIN_WINNER_SCORE = 50;
+/** Soft ceiling — pace math never pushes a racer above this in normal play. */
 export const MAX_WINNER_SCORE = 200;
+/** Extra leash above the tempo curve at the checkered flag. */
+export const PACE_CAP_BUFFER = 15;
+/** Natural race ceiling (pace cap at 100%). Always below HARD_SCORE_CAP. */
+export const NATURAL_SCORE_CEILING = MAX_WINNER_SCORE + PACE_CAP_BUFFER;
+/** Absolute point total — safety rail only; sim pace math stays under this. */
+export const HARD_SCORE_CAP = 240;
 
 const scoreFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
+/** Clamp stored / displayed race points to [0, HARD_SCORE_CAP]. */
+export function clampRaceScore(score: number): number {
+  return Math.max(0, Math.min(HARD_SCORE_CAP, score));
+}
+
+/** Tempo-aware soft cap for a tick (never exceeds NATURAL_SCORE_CEILING). */
+export function getPaceCap(
+  percentComplete: number,
+  raceTempo: number,
+  paceLeash: number
+): number {
+  const expectedScore = (percentComplete / 100) * TARGET_WINNER_SCORE * raceTempo;
+  return Math.min(NATURAL_SCORE_CEILING, expectedScore + paceLeash);
+}
+
 /** Format a race point total for display (e.g. 135, 1,024). */
 export function formatRaceScore(score: number): string {
-  return scoreFormatter.format(Math.round(Math.max(0, score)));
+  return scoreFormatter.format(Math.round(clampRaceScore(score)));
 }
 
 /** Per-pip fill: desaturated at low scores, richer saturation as points climb. */

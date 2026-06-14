@@ -281,6 +281,11 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   display: block;
 }
 
+.race-meta-line-next-soon {
+  color: #c0392b;
+  font-weight: 700;
+}
+
 .race-meta-gap {
   display: block;
   height: 0.85em;
@@ -314,7 +319,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   transition: width 0.12s linear;
 }
 
-/* race clock progress — bitmap gradient pill + Tiger-style pip dividers */
+/* race clock progress — bitmap pips in pill */
 .race-progress-pip-viewport {
   flex: 1 1 auto;
   min-width: 0;
@@ -337,75 +342,44 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   image-rendering: pixelated;
 }
 
-.race-progress-pip-track-bg {
-  position: absolute;
-  inset: 2px 4px;
-  border-radius: 999px;
-  background-color: #1c1c1c;
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255, 255, 255, 0.04) 0px,
-      rgba(255, 255, 255, 0.04) 1px,
-      transparent 1px,
-      transparent 2px
-    ),
-    repeating-linear-gradient(
-      -45deg,
-      #222 0px,
-      #222 1px,
-      #181818 1px,
-      #181818 2px
-    );
-}
-
-.race-progress-pip-fill {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: 4px;
-  overflow: hidden;
-  border-radius: 999px 0 0 999px;
-  z-index: 1;
-}
-
-.race-progress-pip-bitmap {
-  height: 100%;
-  width: calc(100% * 100 / var(--fill-pct, 100));
-  image-rendering: pixelated;
-}
-
-.race-progress-pip-bitmap-shine {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.38) 0px,
-    rgba(255, 255, 255, 0.38) 1px,
-    transparent 1px,
-    transparent calc(100% - 1px),
-    rgba(0, 0, 0, 0.35) calc(100% - 1px)
-  );
-  pointer-events: none;
-}
-
-.race-progress-pip-dividers {
-  position: absolute;
-  inset: 2px 4px;
+.race-progress-pip-track {
   display: flex;
   flex-wrap: nowrap;
-  pointer-events: none;
-  z-index: 2;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0 1px;
+  overflow: hidden;
 }
 
-.race-progress-pip-divider {
+.race-progress-pip {
   flex: 1 1 0;
   min-width: 0;
+  height: 100%;
   transform: skewX(-22deg);
   transform-origin: center center;
   margin: 0 -0.5px;
-  border-right: 1px solid rgba(0, 0, 0, 0.55);
-  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.1);
+  border-radius: 1px;
+}
+
+.race-progress-pip-on {
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.28),
+    inset -1px 0 0 rgba(0, 0, 0, 0.2);
+}
+
+.race-progress-pip-dim {
+  background-color: #222;
+  background-image:
+    repeating-linear-gradient(
+      -45deg,
+      #2a2a2a 0px,
+      #2a2a2a 1px,
+      #1a1a1a 1px,
+      #1a1a1a 2px
+    );
+  opacity: 0.85;
 }
 
 .race-progress-pip-bezel {
@@ -414,7 +388,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   border-radius: inherit;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   pointer-events: none;
-  z-index: 3;
+  z-index: 1;
 }
 
 .race-progress-pip-pill.is-night {
@@ -426,28 +400,98 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
     0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.race-progress-pip-pill.is-night .race-progress-pip-track-bg {
-  background-color: #111;
+.race-progress-pip-pill.is-night .race-progress-pip-dim {
+  background-color: #161616;
   background-image:
     repeating-linear-gradient(
-      0deg,
-      rgba(255, 255, 255, 0.03) 0px,
-      rgba(255, 255, 255, 0.03) 1px,
-      transparent 1px,
-      transparent 2px
-    ),
-    repeating-linear-gradient(
       -45deg,
-      #1a1a1a 0px,
-      #1a1a1a 1px,
-      #121212 1px,
-      #121212 2px
+      #222 0px,
+      #222 1px,
+      #141414 1px,
+      #141414 2px
     );
 }
 
-.race-progress-pip-pill.is-night .race-progress-pip-divider {
-  border-right-color: rgba(0, 0, 0, 0.65);
-  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.06);
+.score-pip-viewport {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: min(52vw, 220px);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.score-pip-viewport-paused .score-pip-on,
+.score-pip-viewport-paused .score-pip-bitmap {
+  opacity: 0.45;
+}
+
+.row-score-pip-num {
+  flex-shrink: 0;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #333;
+  min-width: 1.25rem;
+  text-align: right;
+}
+
+.row-score-pip-delta {
+  flex-shrink: 0;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #1a8a52;
+}
+
+.row-score-pip-delta-loss {
+  color: #c0392b;
+}
+
+.score-pip-track {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 1px;
+  min-width: 0;
+  height: 10px;
+  padding: 1px 0;
+}
+
+.score-pip {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 9px;
+  image-rendering: pixelated;
+}
+
+.score-pip-bitmap {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 0 0.5px rgba(0, 0, 0, 0.45);
+}
+
+.score-pip-partial {
+  transition: opacity 0.12s linear;
+}
+
+.score-pip-dim {
+  background-color: #ccc;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.06) 0px,
+    rgba(0, 0, 0, 0.06) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  opacity: 0.55;
 }
 
 .tap-hint {
@@ -960,20 +1004,6 @@ body[data-home-theme="night"] .row-mark-slot {
   }
 }
 
-.score-pip-viewport {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: min(48vw, 200px);
-  height: 10px;
-  overflow: hidden;
-  position: relative;
-}
-
-.score-pip-viewport-paused .score-pip-on,
-.score-pip-viewport-paused .score-pip-dim {
-  opacity: 0.45;
-}
-
 .score-pip-overlay {
   position: absolute;
   inset: 0;
@@ -1005,38 +1035,6 @@ body[data-home-theme="night"] .row-mark-slot {
 .score-pip-overlay-legend {
   font-size: 10px;
   line-height: 1;
-}
-
-.score-pip-track {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: flex-end;
-  gap: 1px;
-  width: 100%;
-  height: 10px;
-  padding: 1px 0;
-}
-
-.score-pip {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 9px;
-}
-
-.score-pip-on {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 0 0 0.5px rgba(0, 0, 0, 0.5);
-}
-
-.score-pip-partial {
-  transition: opacity 0.12s linear;
-}
-
-.score-pip-dim {
-  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 55%, #c4c4c4 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  opacity: 0.55;
 }
 
 .row-place {
@@ -1114,6 +1112,13 @@ body[data-home-theme="night"] .row-mark-slot {
   font-weight: 700;
   color: #666;
   margin-bottom: 8px;
+}
+
+.live-odds-asof {
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: #888;
+  text-transform: none;
 }
 
 .live-odds-list {
@@ -2188,6 +2193,22 @@ body[data-home-theme="night"] .score-pip-on {
     0 0 0 0.5px rgba(255, 255, 255, 0.25);
 }
 
+body[data-home-theme="night"] .row-score-pip-num {
+  color: #ddd;
+}
+
+body[data-home-theme="night"] .row-score-pip-delta {
+  color: #5fd99a;
+}
+
+body[data-home-theme="night"] .row-score-pip-delta-loss {
+  color: #f87171;
+}
+
+body[data-home-theme="night"] .race-meta-line-next-soon {
+  color: #f87171;
+}
+
 body[data-home-theme="night"] .score-pip-dim {
   background: linear-gradient(180deg, #333 0%, #2a2a2a 55%, #222 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -2235,6 +2256,10 @@ body[data-home-theme="night"] .live-odds {
 
 body[data-home-theme="night"] .live-odds-title {
   color: #888;
+}
+
+body[data-home-theme="night"] .live-odds-asof {
+  color: #666;
 }
 
 body[data-home-theme="night"] .live-odds-name {

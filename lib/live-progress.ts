@@ -1,6 +1,7 @@
 import { getRaceClock } from "./race-clock";
 import { getRaceEffectiveNow, isRaceDelayed } from "./race-delay";
 import { TICKS_PER_RACE, getRaceTickIntervalMs, getTickNumber } from "./race-logic";
+import { clampRaceScore } from "./score";
 import {
   applySimTick,
   buildRaceSim,
@@ -101,7 +102,7 @@ export function simulateLiveEntries(
       const row = entries.find((e) => e.player_id === entry.player_id);
       if (!row) continue;
       if (row.is_injured || row.is_fighting) continue;
-      entry.score = Math.max(0, Number(row.race_score));
+      entry.score = clampRaceScore(Number(row.race_score));
     }
   }
 
@@ -134,7 +135,7 @@ export function simulateLiveEntries(
       ) {
         continue;
       }
-      entry.score = Math.max(0, entry.score + result.delta * subTick);
+      entry.score = clampRaceScore(entry.score + result.delta * subTick);
     }
   }
 

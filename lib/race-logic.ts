@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
-import { TARGET_WINNER_SCORE, MAX_WINNER_SCORE } from "./score";
+import { TARGET_WINNER_SCORE, clampRaceScore, getPaceCap } from "./score";
 import { ordinal, slugify } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
 import { processRaceSupports } from "./support-db";
@@ -243,18 +243,25 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
     eventNote = eventNote ? `${eventNote} / STALL` : "STALL";
   }
 
-  delta = Math.max(0, Math.min(getMaxTickDelta(player), delta));
+  // Random bleed — points can go backwards
+  if (seededBool(`${seedBase}:bleed`, 0.05 + player.drag / 500) && currentScore > 2) {
+    delta -= seededRange(`${seedBase}:bleedamt`, 0.8, 4.2);
+    eventNote = eventNote ? `${eventNote} / BLEED` : "BLEED";
+  }
+
+  const maxSwing = getMaxTickDelta(player);
+  delta = Math.max(-maxSwing, Math.min(maxSwing, delta));
 
   delta *= getLanePerformanceMultiplier(input.lane);
 
-  // Soft pace cap — tempo sets the night (cold ~50, hot ~200)
-  const expectedScore = (percentComplete / 100) * TARGET_WINNER_SCORE * raceTempo;
+  // Soft pace cap — tempo sets the night (cold ~50, hot ~215); hard cap is 240
   const paceLeash = 42 + player.burst * 0.14 + player.luck * 0.1 + player.chaos * 0.06;
-  const paceCap = Math.min(MAX_WINNER_SCORE + 15, expectedScore + paceLeash);
-  const newScore = currentScore + delta;
+  const paceCap = getPaceCap(percentComplete, raceTempo, paceLeash);
+  let newScore = clampRaceScore(currentScore + delta);
   if (newScore > paceCap) {
-    delta = Math.max(0, paceCap - currentScore);
+    newScore = paceCap;
   }
+  delta = newScore - currentScore;
 
   return { delta, eventNote, chaosBurstUsed };
 }

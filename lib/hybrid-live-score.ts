@@ -1,4 +1,5 @@
 import { CRON_SEGMENT_MS, getMsUntilNextUpdate } from "./race-clock";
+import { clampRaceScore } from "./score";
 
 /** 0 at last cron tick, 1 just before the next. */
 export function getCronSegmentProgress(
@@ -16,7 +17,7 @@ export interface HybridScoreState {
   score: number;
   /** Confirmed total from the last cron tick. */
   confirmedScore: number;
-  /** Points gained on the last cron tick (>= 0 for animation). */
+  /** Signed point change on the last cron tick. */
   tickDelta: number;
   /** Score at the start of this 15m segment. */
   baseScore: number;
@@ -28,12 +29,11 @@ export function getHybridScoreState(
   lastDelta: number,
   segmentProgress: number
 ): HybridScoreState {
-  const confirmedScore = Math.max(0, Number(raceScore));
-  const rawDelta = Number(lastDelta);
-  const tickDelta = rawDelta > 0 ? rawDelta : 0;
-  const baseScore = Math.max(0, confirmedScore - tickDelta);
+  const confirmedScore = clampRaceScore(Number(raceScore));
+  const tickDelta = Number(lastDelta);
+  const baseScore = clampRaceScore(confirmedScore - tickDelta);
 
-  if (tickDelta <= 0 || segmentProgress >= 1) {
+  if (tickDelta === 0 || segmentProgress >= 1) {
     return {
       score: confirmedScore,
       confirmedScore,
@@ -44,7 +44,7 @@ export function getHybridScoreState(
   }
 
   return {
-    score: baseScore + tickDelta * segmentProgress,
+    score: clampRaceScore(baseScore + tickDelta * segmentProgress),
     confirmedScore,
     tickDelta,
     baseScore,
@@ -55,22 +55,22 @@ export function getHybridScoreState(
 export interface PipFillState {
   /** Fully lit pip count. */
   bright: number;
-  /** Index of the pip currently filling (if any). */
+  /** Index of the pip currently filling or draining (if any). */
   partialIndex: number;
   /** 0–1 fill amount for partialIndex. */
   partial: number;
 }
 
-/** How many pips are lit, with the trailing pip easing in over the segment. */
+/** Lit pips for animated score, with trailing pip easing over the segment. */
 export function getPipFillState(
   confirmedScore: number,
   lastDelta: number,
   segmentProgress: number
 ): PipFillState {
   const hybrid = getHybridScoreState(confirmedScore, lastDelta, segmentProgress);
-  const target = hybrid.baseScore + hybrid.tickDelta;
+  const animatedTotal = hybrid.score;
 
-  if (hybrid.tickDelta <= 0 || hybrid.segmentProgress >= 1) {
+  if (hybrid.tickDelta === 0 || hybrid.segmentProgress >= 1) {
     return {
       bright: Math.round(hybrid.confirmedScore),
       partialIndex: -1,
@@ -78,13 +78,14 @@ export function getPipFillState(
     };
   }
 
-  const animatedTotal = hybrid.baseScore + hybrid.tickDelta * hybrid.segmentProgress;
   const bright = Math.floor(animatedTotal);
   const partial = animatedTotal - bright;
-  const maxBright = Math.ceil(target);
 
-  if (partial > 0.001 && bright < maxBright) {
+  if (partial > 0.001) {
     return { bright, partialIndex: bright, partial: Math.min(1, partial) };
+  }
+  if (partial < -0.001 && bright >= 0) {
+    return { bright: bright + 1, partialIndex: bright, partial: 1 + partial };
   }
 
   return { bright, partialIndex: -1, partial: 0 };

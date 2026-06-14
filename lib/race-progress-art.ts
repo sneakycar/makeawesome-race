@@ -31,6 +31,37 @@ export const RACE_PROGRESS_BITMAP_STOPS_NIGHT = [
   "#ee2222",
 ] as const;
 
+/** Black → white hard steps for the race % pill only. */
+export const RACE_PROGRESS_PILL_STOPS_DAY = [
+  "#0a0a0a",
+  "#1a1a1a",
+  "#2a2a2a",
+  "#404040",
+  "#555555",
+  "#6a6a6a",
+  "#808080",
+  "#969696",
+  "#acacac",
+  "#c2c2c2",
+  "#d8d8d8",
+  "#f0f0f0",
+] as const;
+
+export const RACE_PROGRESS_PILL_STOPS_NIGHT = [
+  "#000000",
+  "#141414",
+  "#282828",
+  "#3c3c3c",
+  "#505050",
+  "#646464",
+  "#787878",
+  "#8c8c8c",
+  "#a0a0a0",
+  "#b4b4b4",
+  "#c8c8c8",
+  "#dcdcdc",
+] as const;
+
 function bitmapGradient(stops: readonly string[]): string {
   const n = stops.length;
   const bands = stops
@@ -41,6 +72,62 @@ function bitmapGradient(stops: readonly string[]): string {
     })
     .join(", ");
   return `linear-gradient(90deg, ${bands})`;
+}
+
+export function getProgressPipColor(
+  index: number,
+  maxIndex: number,
+  isNight: boolean
+): string {
+  const palette = isNight ? RACE_PROGRESS_BITMAP_STOPS_NIGHT : RACE_PROGRESS_BITMAP_STOPS_DAY;
+  return pickPaletteColor(palette, index, maxIndex);
+}
+
+function pickPaletteColor(
+  palette: readonly string[],
+  index: number,
+  maxIndex: number
+): string {
+  if (maxIndex <= 0) return palette[palette.length - 1];
+  const slot = Math.min(
+    palette.length - 1,
+    Math.round((index / maxIndex) * (palette.length - 1))
+  );
+  return palette[slot];
+}
+
+function bitmapPipSurfaceLayers(): Pick<CSSProperties, "backgroundImage" | "backgroundSize"> {
+  return {
+    backgroundImage: [
+      "repeating-conic-gradient(from 0deg, rgba(0,0,0,0.22) 0deg 90deg, transparent 90deg 180deg, rgba(0,0,0,0.22) 180deg 270deg, transparent 270deg 360deg)",
+      "linear-gradient(180deg, rgba(255,255,255,0.32) 0px, rgba(255,255,255,0.32) 1px, transparent 1px)",
+    ].join(", "),
+    backgroundSize: "2px 2px, 100% 100%",
+  };
+}
+
+export function getProgressPipSurfaceStyle(
+  index: number,
+  maxIndex: number,
+  isNight: boolean
+): CSSProperties {
+  return {
+    backgroundColor: getProgressPipColor(index, maxIndex, isNight),
+    ...bitmapPipSurfaceLayers(),
+  };
+}
+
+/** B&W bitmap fill for the race % done pill. */
+export function getRaceProgressPipSurfaceStyle(
+  index: number,
+  maxIndex: number,
+  isNight: boolean
+): CSSProperties {
+  const palette = isNight ? RACE_PROGRESS_PILL_STOPS_NIGHT : RACE_PROGRESS_PILL_STOPS_DAY;
+  return {
+    backgroundColor: pickPaletteColor(palette, index, maxIndex),
+    ...bitmapPipSurfaceLayers(),
+  };
 }
 
 export function getRaceProgressBitmapStyle(isNight: boolean): CSSProperties {
