@@ -168,8 +168,8 @@ main,
 
 .encourage-btn {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -181,7 +181,6 @@ main,
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
-  margin-top: 1px;
 }
 
 .encourage-btn:active:not(:disabled) {
@@ -203,50 +202,62 @@ main,
 
 .row-line {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 10px;
-  padding: 4px 0;
+  padding: 5px 0;
   max-width: 100%;
 }
 
-.row-main {
-  flex: 1;
-  cursor: pointer;
+.row-labels {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-width: 0;
+  justify-content: center;
+  gap: 1px;
+  cursor: pointer;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
-.row-head {
+.row-lane {
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  color: #555;
+}
+
+.row-name-row {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .row-name {
   font-size: 11px;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: 0.02em;
   color: #111;
   word-break: break-word;
 }
 
-.row-bar-line {
+.row-track {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  min-height: 100%;
 }
 
 .row-bar {
+  flex: 1;
   white-space: pre;
-  font-size: 13px;
+  font-size: 22px;
   line-height: 1;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .row-bar-default {
@@ -282,9 +293,10 @@ main,
   line-height: 1;
   color: #333;
   min-width: 2rem;
+  text-align: right;
 }
 
-.row-main:active {
+.row-labels:active {
   opacity: 0.55;
 }
 

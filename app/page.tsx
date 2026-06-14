@@ -417,7 +417,7 @@ export default function HomePage() {
             return (
               <div key={entry.id} className="row-line">
                 <div
-                  className="row-main"
+                  className="row-labels"
                   onClick={() => setSelectedSlug(entry.player.slug)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -427,10 +427,9 @@ export default function HomePage() {
                   role="button"
                   tabIndex={0}
                 >
-                  <div className="row-head">
-                    <span className="row-name">
-                      LANE {entry.lane}] {entry.player.name}
-                    </span>
+                  <div className="row-lane">LANE {entry.lane}]</div>
+                  <div className="row-name-row">
+                    <span className="row-name">{entry.player.name}</span>
                     {isComeback && (
                       <span
                         className="comeback-mark"
@@ -440,24 +439,24 @@ export default function HomePage() {
                       </span>
                     )}
                   </div>
-                  <div className="row-bar-line">
-                    <span className={`row-bar ${barClass}`}>{bar}</span>
-                    <span className="row-pct">{entry.displayed_progress}%</span>
-                  </div>
                 </div>
-                {raceActive && (
-                  <button
-                    type="button"
-                    className={`encourage-btn${isSupported ? " supported" : ""}`}
-                    disabled={buttonDisabled}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEncourage(entry.player_id);
-                    }}
-                  >
-                    +1
-                  </button>
-                )}
+                <div className="row-track">
+                  <span className={`row-bar ${barClass}`}>{bar}</span>
+                  <span className="row-pct">{entry.displayed_progress}%</span>
+                  {raceActive && (
+                    <button
+                      type="button"
+                      className={`encourage-btn${isSupported ? " supported" : ""}`}
+                      disabled={buttonDisabled}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEncourage(entry.player_id);
+                      }}
+                    >
+                      +1
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
