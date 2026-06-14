@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getRaceClock, getMsUntilNextUpdate, type RaceClock } from "@/lib/race-clock";
+import { getRaceClock, type RaceClock } from "@/lib/race-clock";
+import { useCronUpdate } from "@/lib/use-cron-update";
 import type { GameStateResponse, Player, PlayerProfileResponse, TickerEvent } from "@/lib/types";
 import {
   formatRaceBegan,
@@ -27,16 +28,17 @@ function RaceMetaPanel({
   betweenRaces,
   raceActive,
   liveRaceProgress,
+  nextUpdateMs,
 }: {
   state: GameStateResponse;
   betweenRaces: boolean;
   raceActive: boolean;
   liveRaceProgress: number | null;
+  nextUpdateMs: number;
 }) {
   const [clock, setClock] = useState<RaceClock>(() =>
     getRaceClock(new Date(state.race.started_at), new Date(state.race.ends_at))
   );
-  const [nextUpdateMs, setNextUpdateMs] = useState(() => getMsUntilNextUpdate());
 
   useEffect(() => {
     const startedAt = new Date(state.race.started_at);
@@ -44,7 +46,6 @@ function RaceMetaPanel({
 
     const tick = () => {
       setClock(getRaceClock(startedAt, endsAt, new Date()));
-      setNextUpdateMs(getMsUntilNextUpdate());
     };
 
     tick();
@@ -541,7 +542,7 @@ export default function HomePage() {
 
   const loadState = useCallback(async () => {
     try {
-      const res = await fetch("/api/state");
+      const res = await fetch("/api/state", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to load");
@@ -554,10 +555,10 @@ export default function HomePage() {
     }
   }, []);
 
+  const { nextUpdateMs, isFlickering } = useCronUpdate(loadState);
+
   useEffect(() => {
     loadState();
-    const interval = setInterval(loadState, 30000);
-    return () => clearInterval(interval);
   }, [loadState]);
 
   const handleEncourage = async (playerId: string) => {
@@ -634,6 +635,10 @@ export default function HomePage() {
 
   return (
     <main data-theme={isNight ? "night" : "day"}>
+      <div
+        className={`race-update-shell${isFlickering ? " is-flickering" : ""}`}
+        aria-busy={isFlickering}
+      >
       {state && (
         <ScrollingTicker
           events={state.ticker}
@@ -676,11 +681,12 @@ export default function HomePage() {
             betweenRaces={betweenRaces}
             raceActive={raceActive}
             liveRaceProgress={liveRace?.raceProgress ?? null}
+            nextUpdateMs={nextUpdateMs}
           />
 
           <p className="tap-hint">tap to see player&apos;s stats</p>
 
-          <div className="race-standings">
+          <div className="race-standings" key={state.serverTime}>
           {[...state.entries]
             .sort((a, b) => a.lane - b.lane)
             .map((entry) => {
@@ -836,6 +842,7 @@ export default function HomePage() {
           )}
         </>
       )}
+      </div>
 
       {selectedSlug && (
         <PlayerOverlay

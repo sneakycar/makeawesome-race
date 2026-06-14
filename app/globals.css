@@ -138,6 +138,94 @@ main,
   margin-bottom: 10px;
 }
 
+.race-update-shell {
+  position: relative;
+}
+
+.race-update-shell.is-flickering {
+  animation: race-update-flicker 720ms steps(6, end);
+}
+
+@keyframes race-update-flicker {
+  0% {
+    opacity: 1;
+    filter: none;
+  }
+  12% {
+    opacity: 0.08;
+    filter: brightness(2.4);
+  }
+  24% {
+    opacity: 1;
+    filter: none;
+  }
+  36% {
+    opacity: 0.18;
+    filter: brightness(1.8);
+  }
+  48% {
+    opacity: 0.95;
+    filter: none;
+  }
+  60% {
+    opacity: 0.12;
+    filter: brightness(2.1);
+  }
+  72% {
+    opacity: 1;
+    filter: none;
+  }
+  84% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+body[data-home-theme="night"] .race-update-shell.is-flickering {
+  animation: race-update-flicker-night 720ms steps(6, end);
+}
+
+@keyframes race-update-flicker-night {
+  0% {
+    opacity: 1;
+    filter: none;
+  }
+  12% {
+    opacity: 0.06;
+    filter: brightness(2.8) invert(0.08);
+  }
+  24% {
+    opacity: 1;
+    filter: none;
+  }
+  36% {
+    opacity: 0.14;
+    filter: brightness(2.2);
+  }
+  48% {
+    opacity: 0.92;
+    filter: none;
+  }
+  60% {
+    opacity: 0.1;
+    filter: brightness(2.5);
+  }
+  72% {
+    opacity: 1;
+    filter: none;
+  }
+  84% {
+    opacity: 0.28;
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+  }
+}
+
 .race-meta {
   margin-bottom: 8px;
   font-size: 12px;
