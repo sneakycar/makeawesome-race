@@ -8,7 +8,7 @@ import {
   formatRemainingTime,
   formatCompactDuration,
   formatNextRaceBegin,
-  formatPips,
+  pipCount20,
   formatStreak,
   formatTickerAge,
   formatCurrentRaceLabel,
@@ -132,6 +132,24 @@ function ScrollingTicker({
   );
 }
 
+function RetroStatBar({ label, value }: { label: string; value: number }) {
+  const filled = pipCount20(value);
+  return (
+    <div className="retro-stat-row">
+      <span className="retro-stat-label">{label}</span>
+      <div className="retro-pip-track" aria-label={`${label} ${value} out of 100`}>
+        {Array.from({ length: 20 }, (_, i) => (
+          <span
+            key={i}
+            className={i < filled ? "retro-pip retro-pip-on" : "retro-pip retro-pip-off"}
+          />
+        ))}
+      </div>
+      <span className="retro-stat-num">{value}</span>
+    </div>
+  );
+}
+
 function PlayerOverlay({
   slug,
   onClose,
@@ -172,77 +190,121 @@ function PlayerOverlay({
 
   return (
     <div className="overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="overlay-panel" onClick={(e) => e.stopPropagation()}>
-        {error && <p className="error">{error}</p>}
-        {!profile && !error && <p className="loading">LOADING...</p>}
+      <div className="overlay-scanlines" aria-hidden="true" />
+      <div className="retro-screen" onClick={(e) => e.stopPropagation()}>
+        {error && <p className="retro-error">{error}</p>}
+        {!profile && !error && <p className="retro-loading">LOADING...</p>}
         {p && (
           <>
-            <div className="overlay-panel-name">{p.name}</div>
-
-            <div className="overlay-section">
-              <div className="overlay-section-title">STATUS</div>
-              <span className="overlay-stat">STATUS: {p.status.toUpperCase()}</span>
-              <span className="overlay-stat">AGE: {p.age_days} DAYS</span>
-              {profile.currentRaceNumber != null && (
-                <span className="overlay-stat">
-                  CURRENT RACE:{" "}
-                  {formatCurrentRaceLabel(profile.currentRaceNumber, profile.currentRank)}
-                </span>
-              )}
-              {profile.currentProgress != null && (
-                <span className="overlay-stat">
-                  CURRENT PROGRESS: {profile.currentProgress.toFixed(2)}%
-                </span>
-              )}
+            <div className="retro-header">
+              <span className="retro-header-tag">RACER FILE</span>
+              <h2 className="retro-name">{p.name}</h2>
+              <span className="retro-header-badge">{p.status}</span>
             </div>
 
-            <div className="overlay-section">
-              <div className="overlay-section-title">ABILITIES</div>
-              <span className="overlay-ability">GRIT      {formatPips(p.grit)}</span>
-              <span className="overlay-ability">CHAOS     {formatPips(p.chaos)}</span>
-              <span className="overlay-ability">NERVE     {formatPips(p.nerve)}</span>
-              <span className="overlay-ability">LUCK      {formatPips(p.luck)}</span>
-              <span className="overlay-ability">BURST     {formatPips(p.burst)}</span>
-              <span className="overlay-ability">DRAG      {formatPips(p.drag)}</span>
+            <div className="retro-box">
+              <div className="retro-box-title">▶ STATUS</div>
+              <div className="retro-status-grid">
+                <div className="retro-kv">
+                  <span className="retro-k">AGE</span>
+                  <span className="retro-v">{p.age_days} DAYS</span>
+                </div>
+                {profile.currentRaceNumber != null && (
+                  <div className="retro-kv">
+                    <span className="retro-k">RACE</span>
+                    <span className="retro-v">
+                      {formatCurrentRaceLabel(profile.currentRaceNumber, profile.currentRank)}
+                    </span>
+                  </div>
+                )}
+                {profile.currentProgress != null && (
+                  <div className="retro-kv retro-kv-wide">
+                    <span className="retro-k">PROGRESS</span>
+                    <span className="retro-v">{profile.currentProgress.toFixed(2)}%</span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="overlay-section">
-              <div className="overlay-section-title">CAREER</div>
-              <span className="overlay-stat">RACES: {p.races}</span>
-              <span className="overlay-stat">WINS: {p.wins}</span>
-              <span className="overlay-stat">ELIMINATIONS: {p.eliminations}</span>
-              <span className="overlay-stat">RETURNS: {p.returns}</span>
-              <span className="overlay-stat">
-                BEST FINISH: {p.best_finish != null ? ordinal(p.best_finish) : "—"}
-              </span>
-              <span className="overlay-stat">
-                WORST FINISH: {p.worst_finish != null ? ordinal(p.worst_finish) : "—"}
-              </span>
-              <span className="overlay-stat">
-                CURRENT STREAK: {formatStreak(p.current_streak_type, p.current_streak_count)}
-              </span>
-              <span className="overlay-stat">LONGEST WIN STREAK: {p.longest_win_streak}</span>
-              <span className="overlay-stat">TOTAL DAYS IN HOLDING: {p.total_holding_days}</span>
-              <span className="overlay-stat">
-                TOTAL SUPPORT RECEIVED: {p.total_support_received ?? 0}
-              </span>
+            <div className="retro-box">
+              <div className="retro-box-title">▶ ATTRIBUTES</div>
+              <RetroStatBar label="GRIT" value={p.grit} />
+              <RetroStatBar label="CHAOS" value={p.chaos} />
+              <RetroStatBar label="NERVE" value={p.nerve} />
+              <RetroStatBar label="LUCK" value={p.luck} />
+              <RetroStatBar label="BURST" value={p.burst} />
+              <RetroStatBar label="DRAG" value={p.drag} />
             </div>
 
-            <div className="overlay-section">
-              <div className="overlay-section-title">HISTORY</div>
-              {profile.history.length === 0 ? (
-                <span className="overlay-stat">NO HISTORY YET</span>
-              ) : (
-                profile.history.map((h) => (
-                  <span key={h.id} className="overlay-history-item">
-                    DAY {h.day_number} — {h.event_text}
+            <div className="retro-box">
+              <div className="retro-box-title">▶ CAREER</div>
+              <div className="retro-career-grid">
+                <div className="retro-kv">
+                  <span className="retro-k">RACES</span>
+                  <span className="retro-v">{p.races}</span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">WINS</span>
+                  <span className="retro-v">{p.wins}</span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">OUTS</span>
+                  <span className="retro-v">{p.eliminations}</span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">RETURNS</span>
+                  <span className="retro-v">{p.returns}</span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">BEST</span>
+                  <span className="retro-v">
+                    {p.best_finish != null ? ordinal(p.best_finish) : "—"}
                   </span>
-                ))
-              )}
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">WORST</span>
+                  <span className="retro-v">
+                    {p.worst_finish != null ? ordinal(p.worst_finish) : "—"}
+                  </span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">STREAK</span>
+                  <span className="retro-v">
+                    {formatStreak(p.current_streak_type, p.current_streak_count)}
+                  </span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">WIN STK</span>
+                  <span className="retro-v">{p.longest_win_streak}</span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">HOLDING</span>
+                  <span className="retro-v">{p.total_holding_days}D</span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">SUPPORT</span>
+                  <span className="retro-v">{p.total_support_received ?? 0}</span>
+                </div>
+              </div>
             </div>
 
-            <button type="button" className="overlay-close" onClick={onClose}>
-              [CLOSE]
+            <div className="retro-box">
+              <div className="retro-box-title">▶ GAME LOG</div>
+              <div className="retro-log">
+                {profile.history.length === 0 ? (
+                  <div className="retro-log-line retro-log-empty">— NO ENTRIES —</div>
+                ) : (
+                  profile.history.map((h) => (
+                    <div key={h.id} className="retro-log-line">
+                      ► DAY {h.day_number} · {h.event_text}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <button type="button" className="retro-close" onClick={onClose}>
+              ◄ PRESS [X] TO CLOSE ►
             </button>
           </>
         )}

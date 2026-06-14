@@ -42,6 +42,17 @@ export function formatPips(value: number): string {
   return "●".repeat(filled) + "○".repeat(5 - filled);
 }
 
+/** Map 0–100 stat to a block pip string (default 20 segments). */
+export function pipCount20(value: number, width = 20): number {
+  const clamped = Math.max(0, Math.min(100, Math.round(value)));
+  return Math.round((clamped / 100) * width);
+}
+
+export function formatPips20(value: number, width = 20): string {
+  const filled = pipCount20(value, width);
+  return "█".repeat(filled) + "░".repeat(width - filled);
+}
+
 export function ordinal(rank: number): string {
   const n = Math.max(1, Math.floor(rank));
   const mod100 = n % 100;
