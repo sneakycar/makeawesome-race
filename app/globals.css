@@ -229,6 +229,29 @@ main,
   -webkit-tap-highlight-color: transparent;
 }
 
+.row-ovr-strip {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.row-ovr {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: #111;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-ovr-rank {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: #888;
+  font-variant-numeric: tabular-nums;
+}
+
 .row-head {
   display: flex;
   align-items: baseline;
@@ -253,6 +276,15 @@ main,
   word-break: break-word;
   text-transform: lowercase;
   font-weight: 600;
+}
+
+.row-archetype {
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: #aaa;
+  text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .row-track {
@@ -296,14 +328,22 @@ main,
   line-height: 1;
 }
 
-.row-pct {
+.row-score {
   flex-shrink: 0;
   font-size: 11px;
   line-height: 1;
   color: #333;
-  min-width: 4.25rem;
+  min-width: 4.75rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.row-injured {
+  flex-shrink: 0;
+  font-size: 10px;
+  line-height: 1;
+  color: #333;
+  white-space: nowrap;
 }
 
 .row-labels:active {
@@ -462,6 +502,36 @@ main,
   margin-bottom: 8px;
 }
 
+.retro-ovr {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.retro-ovr-num {
+  font-size: 22px;
+  line-height: 1;
+  color: #fff;
+  text-shadow:
+    3px 3px 0 #000,
+    -1px -1px 0 #ffd700;
+}
+
+.retro-ovr-label {
+  font-size: 8px;
+  color: #1a0820;
+  letter-spacing: 0.1em;
+}
+
+.retro-ovr-rank {
+  font-size: 7px;
+  color: #1a0820;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
 .retro-name {
   margin: 0 0 8px;
   font-size: 11px;
@@ -499,6 +569,15 @@ main,
   text-shadow: 1px 1px 0 #000;
 }
 
+.retro-identity-text {
+  font-size: 6px;
+  line-height: 1.7;
+  color: #ccd6ff;
+  margin-bottom: 8px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
 .retro-status-grid,
 .retro-career-grid {
   display: grid;
@@ -525,6 +604,11 @@ main,
 .retro-v {
   font-size: 7px;
   color: #fff;
+}
+
+.retro-score {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .retro-stat-row {

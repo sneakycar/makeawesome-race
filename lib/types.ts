@@ -1,4 +1,4 @@
-export type PlayerStatus = "active" | "holding" | "retired";
+export type PlayerStatus = "active" | "holding" | "injured" | "retired";
 export type RaceStatus = "active" | "finalized";
 export type StreakType = "win" | "lose" | "none";
 
@@ -35,6 +35,17 @@ export interface Player {
   comeback_until_day: number | null;
   seed: string;
   total_support_received: number;
+  highest_race_score: number;
+  highest_career_score: number;
+  biggest_comeback: number;
+  archetype: string;
+  traits: string[];
+  signature_stat: string;
+  current_injury_name: string | null;
+  injured_at_day: number | null;
+  injury_races_remaining: number;
+  total_injuries: number;
+  injury_history: InjuryRecord[];
   created_at: string;
   updated_at: string;
 }
@@ -63,11 +74,26 @@ export interface RaceEntry {
   last_delta: number;
   last_rank_change: number;
   race_score: number;
+  peak_race_score: number;
   condition: number;
   event_note: string | null;
+  is_injured: boolean;
+  injured_at_tick: number | null;
+  injury_name: string | null;
+  injury_severity: string | null;
+  injury_note: string | null;
+  injury_races_missed: number | null;
   created_at: string;
   updated_at: string;
   player?: Player;
+}
+
+export interface InjuryRecord {
+  day: number;
+  name: string;
+  severity: string;
+  races_missed: number;
+  race_id: string;
 }
 
 export interface PlayerHistory {
@@ -123,6 +149,12 @@ export interface TickerEvent {
   created_at: string;
 }
 
+export interface OvrRanking {
+  ovr: number;
+  rank: number;
+  total: number;
+}
+
 export interface StreakEntry {
   name: string;
   slug: string;
@@ -137,6 +169,8 @@ export interface GameStateResponse {
   allTime: Player[];
   streaks: StreakEntry[];
   holding: Player[];
+  injured: Player[];
+  ovrByPlayerId: Record<string, OvrRanking>;
   serverTime: string;
   remainingMs: number;
   startsInMs: number;
@@ -159,4 +193,13 @@ export interface PlayerProfileResponse {
   currentRaceNumber: number | null;
   currentRank: number | null;
   currentProgress: number | null;
+  currentScore: number | null;
+  ovr: number;
+  ovrRank: number;
+  ovrTotal: number;
+  raceInjury?: {
+    is_injured: boolean;
+    injury_name: string | null;
+    injury_severity: string | null;
+  } | null;
 }

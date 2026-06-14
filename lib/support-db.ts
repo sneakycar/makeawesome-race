@@ -129,12 +129,13 @@ export async function recordEncouragement(
 
   const { data: entry } = await supabase
     .from("race_entries")
-    .select("id")
+    .select("id, is_injured")
     .eq("race_id", raceId)
     .eq("player_id", playerId)
     .maybeSingle();
 
   if (!entry) return { ok: false, error: "Player not in this race" };
+  if (entry.is_injured) return { ok: false, error: "Cannot support injured racer" };
 
   const { error } = await supabase.from("race_supports").insert({
     race_id: raceId,

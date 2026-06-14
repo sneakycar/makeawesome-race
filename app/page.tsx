@@ -16,7 +16,9 @@ import {
   formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
-import { formatLivePercent } from "@/lib/live-progress";
+import { formatLiveScore, formatStoredScore } from "@/lib/score";
+import { formatOvrRank } from "@/lib/ovr";
+import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
 
 function RaceMetaPanel({
@@ -75,8 +77,8 @@ function RaceMetaPanel({
 
   const progressDisplay =
     liveRaceProgress != null
-      ? formatLivePercent(liveRaceProgress)
-      : `${clock.percentComplete}.000`;
+      ? formatLiveScore(liveRaceProgress)
+      : formatLiveScore(clock.percentComplete);
   const progressBarWidth =
     liveRaceProgress != null ? liveRaceProgress : clock.percentComplete;
 
@@ -84,7 +86,7 @@ function RaceMetaPanel({
     <div className="race-meta-block">
       <div className="race-meta">
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
-        <div className="race-meta-line">{`PROGRESS: ${progressDisplay}%`}</div>
+        <div className="race-meta-line">{`PROGRESS: ${progressDisplay}`}</div>
         <div className="race-meta-line">{timerLine}</div>
         <div className="race-meta-line">{`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}</div>
       </div>
@@ -130,7 +132,15 @@ function ScrollingTicker({
   );
 }
 
-function RetroStatBar({ label, value }: { label: string; value: number }) {
+function RetroStatBar({
+  label,
+  value,
+  signature,
+}: {
+  label: string;
+  value: number;
+  signature?: boolean;
+}) {
   const filled = pipCount20(value);
   return (
     <div className="retro-stat-row">
@@ -143,16 +153,23 @@ function RetroStatBar({ label, value }: { label: string; value: number }) {
           />
         ))}
       </div>
-      <span className="retro-stat-num">{value}</span>
+      <span className="retro-stat-num">
+        {value}
+        {signature ? " ★" : ""}
+      </span>
     </div>
   );
 }
 
 function PlayerOverlay({
   slug,
+  liveProgress,
+  ovrInfo,
   onClose,
 }: {
   slug: string;
+  liveProgress?: number;
+  ovrInfo?: { ovr: number; rank: number; total: number };
   onClose: () => void;
 }) {
   const [profile, setProfile] = useState<PlayerProfileResponse | null>(null);
@@ -185,6 +202,15 @@ function PlayerOverlay({
   }, [onClose]);
 
   const p = profile?.player;
+  const ovr = ovrInfo?.ovr ?? profile?.ovr;
+  const ovrRank = ovrInfo?.rank ?? profile?.ovrRank;
+  const ovrTotal = ovrInfo?.total ?? profile?.ovrTotal;
+  const scoreDisplay =
+    liveProgress != null
+      ? formatLiveScore(liveProgress)
+      : profile?.currentScore != null
+        ? formatStoredScore(profile.currentScore)
+        : null;
 
   return (
     <div className="overlay" onClick={onClose} role="dialog" aria-modal="true">
@@ -196,6 +222,15 @@ function PlayerOverlay({
           <>
             <div className="retro-header">
               <span className="retro-header-tag">RACER FILE</span>
+              {ovr != null && ovrRank != null && ovrTotal != null && (
+                <div className="retro-ovr">
+                  <span className="retro-ovr-num">{ovr}</span>
+                  <span className="retro-ovr-label">OVR</span>
+                  <span className="retro-ovr-rank">
+                    {formatOvrRank({ ovr, rank: ovrRank, total: ovrTotal })}
+                  </span>
+                </div>
+              )}
               <h2 className="retro-name">{p.name}</h2>
               <span className="retro-header-badge">{p.status}</span>
             </div>
@@ -203,6 +238,42 @@ function PlayerOverlay({
             <div className="retro-box">
               <div className="retro-box-title">▶ STATUS</div>
               <div className="retro-status-grid">
+                {profile.raceInjury?.is_injured && (
+                  <>
+                    <div className="retro-kv retro-kv-wide">
+                      <span className="retro-k">RACE STATUS</span>
+                      <span className="retro-v">🏥 INJURED</span>
+                    </div>
+                    {profile.raceInjury.injury_name && (
+                      <div className="retro-kv retro-kv-wide">
+                        <span className="retro-k">INJURY</span>
+                        <span className="retro-v">{profile.raceInjury.injury_name}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                {p.status === "injured" && (
+                  <>
+                    <div className="retro-kv retro-kv-wide">
+                      <span className="retro-k">STATUS</span>
+                      <span className="retro-v">INJURED</span>
+                    </div>
+                    {p.current_injury_name && (
+                      <div className="retro-kv retro-kv-wide">
+                        <span className="retro-k">INJURY</span>
+                        <span className="retro-v">{p.current_injury_name}</span>
+                      </div>
+                    )}
+                    <div className="retro-kv">
+                      <span className="retro-k">OUT</span>
+                      <span className="retro-v">{p.injury_races_remaining} RACES REMAINING</span>
+                    </div>
+                    <div className="retro-kv">
+                      <span className="retro-k">RETURN</span>
+                      <span className="retro-v">HOLDING</span>
+                    </div>
+                  </>
+                )}
                 <div className="retro-kv">
                   <span className="retro-k">AGE</span>
                   <span className="retro-v">{p.age_days} DAYS</span>
@@ -215,23 +286,62 @@ function PlayerOverlay({
                     </span>
                   </div>
                 )}
-                {profile.currentProgress != null && (
+                {scoreDisplay != null && (
                   <div className="retro-kv retro-kv-wide">
-                    <span className="retro-k">PROGRESS</span>
-                    <span className="retro-v">{profile.currentProgress.toFixed(2)}%</span>
+                    <span className="retro-k">SCORE</span>
+                    <span className="retro-v retro-score">{scoreDisplay}</span>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="retro-box">
-              <div className="retro-box-title">▶ ATTRIBUTES</div>
-              <RetroStatBar label="GRIT" value={p.grit} />
-              <RetroStatBar label="CHAOS" value={p.chaos} />
-              <RetroStatBar label="NERVE" value={p.nerve} />
-              <RetroStatBar label="LUCK" value={p.luck} />
-              <RetroStatBar label="BURST" value={p.burst} />
-              <RetroStatBar label="DRAG" value={p.drag} />
+              <div className="retro-box-title">▶ IDENTITY</div>
+              <div className="retro-identity-text">{getIdentityText(p)}</div>
+              <div className="retro-status-grid">
+                <div className="retro-kv retro-kv-wide">
+                  <span className="retro-k">ARCHETYPE</span>
+                  <span className="retro-v">{p.archetype ?? "UNKNOWN"}</span>
+                </div>
+                <div className="retro-kv retro-kv-wide">
+                  <span className="retro-k">TRAITS</span>
+                  <span className="retro-v">{formatTraitsDisplay(p.traits ?? [])}</span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">SIGNATURE</span>
+                  <span className="retro-v">{(p.signature_stat ?? "grit").toUpperCase()} ★</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="retro-box">
+              <div className="retro-box-title">▶ STATS</div>
+              <div className="retro-status-grid">
+                <div className="retro-kv">
+                  <span className="retro-k">HIGH RACE</span>
+                  <span className="retro-v">{formatStoredScore(p.highest_race_score ?? 0)}</span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">HIGH CAREER</span>
+                  <span className="retro-v">{formatStoredScore(p.highest_career_score ?? 0)}</span>
+                </div>
+                <div className="retro-kv">
+                  <span className="retro-k">COMEBACK</span>
+                  <span className="retro-v">
+                    {p.biggest_comeback > 0 ? `+${p.biggest_comeback} SPOTS` : "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="retro-box">
+              <div className="retro-box-title">▶ ABILITIES</div>
+              <RetroStatBar label="GRIT" value={p.grit} signature={p.signature_stat === "grit"} />
+              <RetroStatBar label="CHAOS" value={p.chaos} signature={p.signature_stat === "chaos"} />
+              <RetroStatBar label="NERVE" value={p.nerve} signature={p.signature_stat === "nerve"} />
+              <RetroStatBar label="LUCK" value={p.luck} signature={p.signature_stat === "luck"} />
+              <RetroStatBar label="BURST" value={p.burst} signature={p.signature_stat === "burst"} />
+              <RetroStatBar label="DRAG" value={p.drag} signature={p.signature_stat === "drag"} />
             </div>
 
             <div className="retro-box">
@@ -333,6 +443,21 @@ function StreakSection({ streaks }: { streaks: GameStateResponse["streaks"] }) {
   );
 }
 
+function InjuredSection({ players }: { players: Player[] }) {
+  if (players.length === 0) {
+    return <div className="holding-list">NONE</div>;
+  }
+
+  const list = players
+    .map(
+      (p) =>
+        `${p.name} (${p.current_injury_name ?? "UNKNOWN"}, OUT ${p.injury_races_remaining})`
+    )
+    .join(", ");
+
+  return <div className="holding-list">{list}</div>;
+}
+
 function HoldingSection({ players }: { players: Player[] }) {
   if (players.length === 0) {
     return (
@@ -362,11 +487,31 @@ function AboutSection() {
           history forever.
         </p>
         <p>
-          Once per race, visitors may encourage a single racer. Encouragement does
-          not affect the current race. Instead, it creates a small chance for
-          permanent growth after the race is complete. Strong racers improve
-          slowly, while struggling racers benefit more. The race itself remains
-          fully automatic.
+          RACERS
+          {"\n\n"}
+          Every racer is born with an archetype, traits, and a signature ability.
+          These do not give the user control, but they shape how each racer behaves
+          over time. Some are steady workhorses, some are unstable gamblers, some
+          bloom late, some collapse under pressure, and some come back stronger
+          after holding. The race is still automatic, but the racers are not
+          identical.
+        </p>
+        <p>
+          SUPPORT
+          {"\n\n"}
+          Once per race, visitors may give +1 support to a single racer. Support
+          does not affect the current race. After the race ends, support creates
+          a small chance for permanent growth. Strong racers improve slowly,
+          while struggling racers benefit more. The machine remains in charge.
+        </p>
+        <p>
+          INJURIES
+          {"\n\n"}
+          During a race, a racer can rarely suffer an injury. Injured racers freeze in place,
+          stop gaining progress, and leave the active roster after the race. They miss one or
+          more future races, then recover into Holding instead of returning directly to the
+          track. Injuries do not happen often, but they can interrupt dynasties, create comeback
+          arcs, and permanently mark a racer&apos;s history.
         </p>
       </div>
     </details>
@@ -438,8 +583,22 @@ export default function HomePage() {
   const betweenRaces = state?.betweenRaces ?? false;
   const liveRace = useLiveRace(state, raceActive);
 
-  const winner = state?.entries.find((e) => e.final_rank === 1 || e.current_rank === 1);
-  const eliminated = state?.entries.find((e) => e.final_rank === 8 || e.current_rank === 8);
+  const selectedEntry = selectedSlug
+    ? state?.entries.find((e) => e.player.slug === selectedSlug)
+    : undefined;
+  const selectedLiveProgress =
+    selectedEntry && liveRace
+      ? liveRace.entries.get(selectedEntry.player_id)?.progress
+      : undefined;
+
+  const winner = state?.entries.find(
+    (e) => (e.final_rank === 1 || e.current_rank === 1) && !e.is_injured
+  );
+  const raceInjured = state?.entries.filter((e) => e.is_injured) ?? [];
+  const hadRaceInjuries = raceInjured.length > 0;
+  const eliminated =
+    !hadRaceInjuries &&
+    state?.entries.find((e) => e.final_rank === 8 || e.current_rank === 8);
 
   const handleDevAction = async (path: string) => {
     setDevBusy(true);
@@ -484,7 +643,12 @@ export default function HomePage() {
         <div className="between-races">
           {`RACE ${state.race.race_number} COMPLETE\n\n`}
           {winner && `WINNER: ${winner.player.name}\n`}
+          {hadRaceInjuries &&
+            raceInjured
+              .map((e) => `INJURED: ${e.player.name} → ${e.injury_name ?? "UNKNOWN"}\n`)
+              .join("")}
           {eliminated && `ELIMINATED: ${eliminated.player.name} → HOLDING\n\n`}
+          {!hadRaceInjuries && !eliminated && winner && "\n"}
           {state.nextRaceNumber != null &&
             state.nextRaceStartsAt != null &&
             `NEXT RACE: ${state.nextRaceNumber} BEGINS ${formatNextRaceBegin(new Date(state.nextRaceStartsAt))}`}
@@ -508,16 +672,29 @@ export default function HomePage() {
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
             const rank = live?.current_rank ?? entry.current_rank;
-            const progress = live?.progress ?? entry.displayed_progress;
-            const isComeback = entry.last_rank_change >= 2;
-            const isLeader = rank === 1;
-            const isLast = rank === 8;
-            const barMark = isLeader ? "🏆" : isLast ? "💀" : isComeback ? "👀" : null;
+            const progress = entry.is_injured
+              ? Number(entry.progress)
+              : (live?.progress ?? entry.displayed_progress);
+            const isInjured = entry.is_injured;
+            const isComeback = !isInjured && entry.last_rank_change >= 2;
+            const isLeader = !isInjured && rank === 1;
+            const isLast = !isInjured && rank === 8;
+            const barMark = isInjured
+              ? null
+              : isLeader
+                ? "🏆"
+                : isLast
+                  ? "💀"
+                  : isComeback
+                    ? "👀"
+                    : null;
             const filled = Math.min(18, Math.max(0, Math.round((progress / 100) * 18)));
             const isSupported = supportedId === entry.player_id;
             const hasSupported = supportedId != null;
+            const ovrInfo = state.ovrByPlayerId[entry.player_id];
 
-            let buttonDisabled = !raceActive || encouraging || hasSupported;
+            let buttonDisabled =
+              !raceActive || encouraging || hasSupported || isInjured;
 
             return (
               <div key={entry.id} className="row-line">
@@ -532,9 +709,20 @@ export default function HomePage() {
                   role="button"
                   tabIndex={0}
                 >
+                  <div className="row-ovr-strip">
+                    {ovrInfo && (
+                      <>
+                        <span className="row-ovr">{ovrInfo.ovr} OVR</span>
+                        <span className="row-ovr-rank">{formatOvrRank(ovrInfo)}</span>
+                      </>
+                    )}
+                  </div>
                   <div className="row-head">
                     <span className="row-lane">Lane {entry.lane}</span>
                     <span className="row-name">{formatRacerName(entry.player.name)}</span>
+                    {entry.player.archetype && entry.player.archetype !== "UNKNOWN" && (
+                      <span className="row-archetype">{entry.player.archetype}</span>
+                    )}
                   </div>
                   <div className="row-track">
                     <div className="row-bar-cell">
@@ -557,8 +745,11 @@ export default function HomePage() {
                         </span>
                       )}
                     </div>
-                    <span className="row-pct">{formatLivePercent(progress)}%</span>
-                    {raceActive && (
+                    <span className="row-score">{formatLiveScore(progress)}</span>
+                    {isInjured && (
+                      <span className="row-injured">🏥 INJURED</span>
+                    )}
+                    {raceActive && !isInjured && (
                       <button
                         type="button"
                         className={`encourage-btn${isSupported ? " supported" : ""}`}
@@ -612,6 +803,9 @@ export default function HomePage() {
           <div className="section-label">HOLDING</div>
           <HoldingSection players={state.holding} />
 
+          <div className="section-label">INJURED</div>
+          <InjuredSection players={state.injured ?? []} />
+
           <div className="divider">{"────────────────────────"}</div>
 
           <AboutSection />
@@ -646,7 +840,16 @@ export default function HomePage() {
       )}
 
       {selectedSlug && (
-        <PlayerOverlay slug={selectedSlug} onClose={() => setSelectedSlug(null)} />
+        <PlayerOverlay
+          slug={selectedSlug}
+          liveProgress={selectedLiveProgress}
+          ovrInfo={
+            selectedEntry
+              ? state?.ovrByPlayerId[selectedEntry.player_id]
+              : undefined
+          }
+          onClose={() => setSelectedSlug(null)}
+        />
       )}
     </main>
   );

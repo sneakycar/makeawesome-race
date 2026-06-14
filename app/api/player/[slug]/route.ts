@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveRaceWithEntries } from "@/lib/race-logic";
+import { progressToScore } from "@/lib/score";
+import { calculatePlayerOvr, getOvrRankings } from "@/lib/ovr";
 import type { PlayerProfileResponse } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +36,8 @@ export async function GET(
     let currentRaceNumber: number | null = null;
     let currentRank: number | null = null;
     let currentProgress: number | null = null;
+    let currentScore: number | null = null;
+    let raceInjury: PlayerProfileResponse["raceInjury"] = null;
 
     const active = await getActiveRaceWithEntries(supabase);
     if (active) {
@@ -41,9 +45,20 @@ export async function GET(
       const entry = active.entries.find((e) => e.player_id === player.id);
       if (entry) {
         currentRank = entry.current_rank;
-        currentProgress = entry.displayed_progress;
+        currentProgress = Number(entry.progress);
+        currentScore = progressToScore(currentProgress);
+        if (entry.is_injured) {
+          raceInjury = {
+            is_injured: true,
+            injury_name: entry.injury_name,
+            injury_severity: entry.injury_severity,
+          };
+        }
       }
     }
+
+    const ovrRankings = await getOvrRankings(supabase);
+    const ovrInfo = ovrRankings.get(player.id);
 
     const body: PlayerProfileResponse = {
       player,
@@ -51,6 +66,11 @@ export async function GET(
       currentRaceNumber,
       currentRank,
       currentProgress,
+      currentScore,
+      ovr: ovrInfo?.ovr ?? calculatePlayerOvr(player),
+      ovrRank: ovrInfo?.rank ?? 1,
+      ovrTotal: ovrInfo?.total ?? 1,
+      raceInjury,
     };
 
     return NextResponse.json(body);

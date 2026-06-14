@@ -5,6 +5,7 @@ import {
   calculateTickDelta,
   getRaceTickIntervalMs,
 } from "./race-logic";
+import { formatLiveScore } from "./score";
 import { seededRange } from "./seeded-rng";
 import type { Race, RaceEntryWithPlayer } from "./types";
 
@@ -61,7 +62,10 @@ export function simulateLiveEntries(
   const sim = entries.map((entry) => ({
     player_id: entry.player_id,
     player: entry.player,
-    progress: seededRange(`${race.id}:${entry.player_id}:init`, 0, 6),
+    progress: entry.is_injured
+      ? Number(entry.progress)
+      : seededRange(`${race.id}:${entry.player_id}:init`, 0, 6),
+    is_injured: Boolean(entry.is_injured),
   }));
 
   const chaosUsed = new Map<string, boolean>();
@@ -72,7 +76,19 @@ export function simulateLiveEntries(
     const tickTime = new Date(startMs + tickNumber * tickMs + fraction * tickMs);
     const percentComplete = calculatePercentComplete(startedAt, endsAt, tickTime);
 
+    const rankedBefore = [...sim].sort((a, b) => b.progress - a.progress);
+    const rankById = new Map(
+      rankedBefore.map((entry, index) => [entry.player_id, index + 1])
+    );
+
     const deltas = sim.map((entry) => {
+      if (entry.is_injured) {
+        return {
+          player_id: entry.player_id,
+          delta: 0,
+          chaosBurstUsed: false,
+        };
+      }
       const result = calculateTickDelta({
         raceId: race.id,
         playerId: entry.player_id,
@@ -81,6 +97,7 @@ export function simulateLiveEntries(
         percentComplete,
         player: entry.player,
         currentProgress: entry.progress,
+        currentRank: rankById.get(entry.player_id) ?? sim.length,
         chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
       });
       return {
@@ -107,7 +124,10 @@ export function simulateLiveEntries(
     applyTick(completedTicks, subTick);
   }
 
-  const ranked = [...sim].sort((a, b) => b.progress - a.progress);
+  const ranked = [...sim].sort((a, b) => {
+    if (a.is_injured !== b.is_injured) return a.is_injured ? 1 : -1;
+    return b.progress - a.progress;
+  });
   return ranked.map((entry, index) => ({
     player_id: entry.player_id,
     progress: Math.min(100, entry.progress),
@@ -130,5 +150,5 @@ export function liveEntriesById(
 }
 
 export function formatLivePercent(progress: number): string {
-  return Math.max(0, Math.min(100, progress)).toFixed(3);
+  return formatLiveScore(progress);
 }

@@ -1,11 +1,17 @@
 import { seededBool, seededInt } from "./seeded-rng";
 import type { Player } from "./types";
+import {
+  getMaxSupportGainsPerRace,
+  getSupportGrowthChanceBonus,
+  pickWeightedGrowthStat,
+  recalculateRatingFromPartial,
+  type GrowthStat,
+} from "./identity";
 
 export const GROWTH_STATS = ["grit", "chaos", "nerve", "luck", "burst"] as const;
-export type GrowthStat = (typeof GROWTH_STATS)[number];
+export type { GrowthStat };
 
 const BASE_GROWTH_CHANCE = 0.25;
-const MAX_GROWTH_POINTS_PER_RACE = 2;
 
 export function isBottom3AllTime(player: Player, allPlayers: Player[]): boolean {
   if (allPlayers.length < 3) return player.wins === 0;
@@ -42,6 +48,8 @@ export function computeGrowthChance(
     chance += 0.1;
   }
 
+  chance += getSupportGrowthChanceBonus(player);
+
   return Math.min(1, Math.max(0, chance));
 }
 
@@ -60,12 +68,17 @@ export function rollGrowthGains(
 ): GrowthRollResult[] {
   const chance = computeGrowthChance(player, currentDay, allPlayers);
   const gains: GrowthRollResult[] = [];
+  const maxGains = getMaxSupportGainsPerRace(player);
 
-  for (let i = 0; i < supportCount && gains.length < MAX_GROWTH_POINTS_PER_RACE; i++) {
+  for (let i = 0; i < supportCount && gains.length < maxGains; i++) {
     const seed = `${raceId}:${playerId}:support:${i}:growth`;
     if (seededBool(seed, chance)) {
-      const stat = GROWTH_STATS[seededInt(`${seed}:stat`, 0, GROWTH_STATS.length - 1)];
-      gains.push({ stat, label: `${stat.toUpperCase()} +1` });
+      const stat = pickWeightedGrowthStat(`${seed}:stat`, player);
+      const isSignature = stat === player.signature_stat;
+      gains.push({
+        stat,
+        label: isSignature ? `SIGNATURE ${stat.toUpperCase()} +1` : `${stat.toUpperCase()} +1`,
+      });
     }
   }
 
@@ -80,6 +93,9 @@ export function applyGrowthToPlayer(
   for (const gain of gains) {
     const current = player[gain.stat];
     updates[gain.stat] = Math.min(100, ((updates[gain.stat] as number) ?? current) + 1);
+  }
+  if (gains.length > 0) {
+    updates.rating = recalculateRatingFromPartial({ ...player, ...updates });
   }
   return updates;
 }

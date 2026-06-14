@@ -9,6 +9,14 @@ import {
   formatCurrentRaceLabel,
   ordinal,
 } from "@/lib/format";
+import { formatStoredScore } from "@/lib/score";
+import { formatOvrRank } from "@/lib/ovr";
+import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
+
+function abilityLine(label: string, value: number, signature: boolean): string {
+  const pips = formatPips(value);
+  return `${label.padEnd(8)} ${pips}${signature ? " ★" : ""}`;
+}
 
 export default function PlayerPage({
   params,
@@ -35,6 +43,7 @@ export default function PlayerPage({
   }, [slug]);
 
   const p = profile?.player;
+  const sig = p?.signature_stat ?? "grit";
 
   return (
     <div className="player-page">
@@ -49,7 +58,29 @@ export default function PlayerPage({
         <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
           {p.name}
 
-          {"\n\n"}STATUS: {p.status.toUpperCase()}
+          {"\n\n"}OVR: {profile!.ovr} ({formatOvrRank({
+            ovr: profile!.ovr,
+            rank: profile!.ovrRank,
+            total: profile!.ovrTotal,
+          })})
+          {"\n"}STATUS: {p.status.toUpperCase()}
+          {p.status === "injured" && p.current_injury_name && (
+            <>
+              {"\n"}INJURY: {p.current_injury_name}
+              {"\n"}OUT: {p.injury_races_remaining} RACES
+              {"\n"}RETURNING TO: HOLDING
+            </>
+          )}
+          {profile!.raceInjury?.is_injured && (
+            <>
+              {"\n"}RACE STATUS: 🏥 INJURED
+              {profile!.raceInjury.injury_name && (
+                <>
+                  {"\n"}INJURY: {profile!.raceInjury.injury_name}
+                </>
+              )}
+            </>
+          )}
           {"\n"}AGE: {p.age_days} DAYS
           {profile!.currentRaceNumber != null && (
             <>
@@ -57,20 +88,43 @@ export default function PlayerPage({
               {formatCurrentRaceLabel(profile!.currentRaceNumber, profile!.currentRank)}
             </>
           )}
-          {profile!.currentProgress != null && (
+          {profile!.currentScore != null && (
             <>
-              {"\n"}CURRENT PROGRESS: {profile!.currentProgress}%
+              {"\n"}CURRENT SCORE: {formatStoredScore(profile!.currentScore)}
             </>
           )}
 
+          {"\n\n"}ARCHETYPE
+          {"\n"}{p.archetype ?? "UNKNOWN"}
+
+          {"\n\n"}TRAITS
+          {"\n"}{formatTraitsDisplay(p.traits ?? [])}
+
+          {"\n\n"}SIGNATURE
+          {"\n"}{sig.toUpperCase()} ★
+
+          {"\n\n"}{getIdentityText(p)}
+
+          {"\n\n"}STATS
+
+          {"\n\n"}HIGH RACE SCORE: {formatStoredScore(p.highest_race_score ?? 0)}
+          {"\n"}HIGH CAREER SCORE: {formatStoredScore(p.highest_career_score ?? 0)}
+          {"\n"}BIGGEST COMEBACK: {p.biggest_comeback > 0 ? `+${p.biggest_comeback} SPOTS` : "—"}
+
           {"\n\n"}ABILITIES
 
-          {"\n\n"}GRIT      {formatPips(p.grit)}
-          {"\n"}CHAOS     {formatPips(p.chaos)}
-          {"\n"}NERVE     {formatPips(p.nerve)}
-          {"\n"}LUCK      {formatPips(p.luck)}
-          {"\n"}BURST     {formatPips(p.burst)}
-          {"\n"}DRAG      {formatPips(p.drag)}
+          {"\n\n"}
+          {abilityLine("GRIT", p.grit, sig === "grit")}
+          {"\n"}
+          {abilityLine("CHAOS", p.chaos, sig === "chaos")}
+          {"\n"}
+          {abilityLine("NERVE", p.nerve, sig === "nerve")}
+          {"\n"}
+          {abilityLine("LUCK", p.luck, sig === "luck")}
+          {"\n"}
+          {abilityLine("BURST", p.burst, sig === "burst")}
+          {"\n"}
+          {abilityLine("DRAG", p.drag, sig === "drag")}
 
           {"\n\n"}CAREER
 
@@ -84,6 +138,11 @@ export default function PlayerPage({
           {"\n"}LONGEST WIN STREAK: {p.longest_win_streak}
           {"\n"}TOTAL DAYS IN HOLDING: {p.total_holding_days}
           {"\n"}TOTAL SUPPORT RECEIVED: {p.total_support_received ?? 0}
+          {p.total_injuries > 0 && (
+            <>
+              {"\n"}TOTAL INJURIES: {p.total_injuries}
+            </>
+          )}
 
           {"\n\n"}HISTORY
 

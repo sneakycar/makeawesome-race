@@ -7,7 +7,7 @@ create table if not exists players (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   slug text unique not null,
-  status text not null check (status in ('active', 'holding', 'retired')),
+  status text not null check (status in ('active', 'holding', 'injured', 'retired')),
   created_day integer not null,
   age_days integer not null default 0,
   active_days integer not null default 0,
@@ -36,6 +36,17 @@ create table if not exists players (
   comeback_until_day integer,
   seed text not null,
   total_support_received integer not null default 0,
+  highest_race_score numeric not null default 0,
+  highest_career_score numeric not null default 0,
+  biggest_comeback integer not null default 0,
+  archetype text not null default 'UNKNOWN',
+  traits text[] not null default '{}',
+  signature_stat text not null default 'grit' check (signature_stat in ('grit', 'chaos', 'nerve', 'luck', 'burst', 'drag')),
+  current_injury_name text,
+  injured_at_day integer,
+  injury_races_remaining integer not null default 0,
+  total_injuries integer not null default 0,
+  injury_history jsonb not null default '[]'::jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -66,8 +77,15 @@ create table if not exists race_entries (
   last_delta numeric not null default 0,
   last_rank_change integer not null default 0,
   race_score numeric not null default 0,
+  peak_race_score numeric not null default 0,
   condition integer not null default 0,
   event_note text,
+  is_injured boolean not null default false,
+  injured_at_tick integer,
+  injury_name text,
+  injury_severity text,
+  injury_note text,
+  injury_races_missed integer,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   unique (race_id, player_id),
@@ -114,6 +132,23 @@ create table if not exists race_ticker_events (
 
 create index if not exists idx_race_ticker_race_time on race_ticker_events(race_id, created_at desc);
 
+-- injury_events
+create table if not exists injury_events (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references players(id) on delete cascade,
+  race_id uuid not null references races(id) on delete cascade,
+  day_number integer not null,
+  injury_name text not null,
+  severity text not null,
+  races_missed integer not null,
+  occurred_at_tick integer,
+  occurred_at_percent integer,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_injury_events_player on injury_events(player_id, created_at desc);
+create index if not exists idx_injury_events_race on injury_events(race_id);
+
 -- game_state
 create table if not exists game_state (
   id integer primary key default 1 check (id = 1),
@@ -137,6 +172,7 @@ alter table player_history enable row level security;
 alter table game_state enable row level security;
 alter table race_supports enable row level security;
 alter table race_ticker_events enable row level security;
+alter table injury_events enable row level security;
 
 create policy "public read players" on players for select using (true);
 create policy "public read races" on races for select using (true);
@@ -145,3 +181,4 @@ create policy "public read player_history" on player_history for select using (t
 create policy "public read game_state" on game_state for select using (true);
 create policy "public read race_supports" on race_supports for select using (true);
 create policy "public read race_ticker_events" on race_ticker_events for select using (true);
+create policy "public read injury_events" on injury_events for select using (true);

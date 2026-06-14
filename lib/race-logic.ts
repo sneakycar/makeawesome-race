@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
+import { progressToScore } from "./score";
 import { ordinal, slugify } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
 import { processRaceSupports } from "./support-db";
@@ -12,7 +13,38 @@ import {
   generateTickTickerEvents,
   type TickerEntrySnapshot,
 } from "./ticker-logic";
-import type { Player, Race, RaceEntry, RaceEntryWithPlayer } from "./types";
+import {
+  generateIdentity,
+  buildPlayerStatsFromSeed,
+  getArchetypeRaceModifier,
+  getTraitRaceModifier,
+  getChaosRangeMultiplier,
+  getWildSwingMultiplier,
+  getBurstChanceMultiplier,
+  getCollapseChanceMultiplier,
+  getMaxTickDelta,
+  getPressurePenaltyMultiplier,
+  getArchetypeFatigueModifier,
+  getArchetypePressureModifier,
+  getArchetypeGrowthChanceBonus,
+  getPostRaceMutationChance,
+  getHoldingMutationChance,
+  getMutationDelta,
+  getDecayChance,
+  pickWeightedAnyStat,
+  getHoldingPressureRecovery,
+  getHoldingFatigueRecovery,
+  recalculateRatingFromPartial,
+} from "./identity";
+import {
+  calculateInjuryChance,
+  rollRaceInjury,
+  shouldInjure,
+  getRecoveryMutationChance,
+  getRecoveryPositiveChance,
+  getSupportRecoveryBonus,
+} from "./injuries";
+import type { Player, Race, RaceEntry, RaceEntryWithPlayer, InjuryRecord } from "./types";
 
 export const TICKS_PER_RACE = 48;
 /** @deprecated use TICKS_PER_RACE */
@@ -41,6 +73,7 @@ export interface TickDeltaInput {
   percentComplete: number;
   player: Player;
   currentProgress: number;
+  currentRank: number;
   chaosBurstUsed: boolean;
 }
 
@@ -66,15 +99,24 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
     percentComplete,
     player,
     currentProgress,
+    currentRank,
   } = input;
   let chaosBurstUsed = input.chaosBurstUsed;
+
+  const raceCtx = {
+    percentComplete,
+    currentRank,
+    currentProgress,
+    dayNumber,
+  };
 
   const seedBase = `${raceId}:${playerId}:${tickNumber}:delta`;
   const lateRaceFactor =
     percentComplete < 50 ? 0.5 : percentComplete <= 80 ? 1.0 : 1.5;
 
-  const chaosMin = -player.chaos * 0.2;
-  const chaosMax = player.chaos * 0.25;
+  const chaosMult = getChaosRangeMultiplier(player);
+  const chaosMin = -player.chaos * 0.2 * chaosMult;
+  const chaosMax = player.chaos * 0.25 * chaosMult;
   const chaosRandomComponent = seededRange(`${seedBase}:chaos`, chaosMin, chaosMax);
 
   let rookieBonus = 0;
@@ -90,12 +132,16 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
   const pressurePenalty =
     player.pressure *
     seededRange(`${seedBase}:pressure`, 0.05, 0.18) *
-    (1 - player.nerve / 200);
+    (1 - player.nerve / 200) *
+    getPressurePenaltyMultiplier(player, percentComplete);
 
   const fatiguePenalty =
     player.fatigue *
     seededRange(`${seedBase}:fatigue`, 0.03, 0.15) *
     (1 - player.grit / 200);
+
+  const identityMod =
+    getArchetypeRaceModifier(player, raceCtx) + getTraitRaceModifier(player, raceCtx);
 
   const baseSkill =
     player.rating * 0.35 +
@@ -106,22 +152,24 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
     chaosRandomComponent -
     player.drag * 0.1 -
     player.fatigue * 0.08 -
-    pressurePenalty;
+    pressurePenalty +
+    identityMod;
 
   const normalizedSkill = Math.max(0, Math.min(100, baseSkill + rookieBonus + comebackBonus)) / 100;
   const skillMultiplier = 0.65 + normalizedSkill * 0.9;
 
   const wildSwingBase = seededRange(`${seedBase}:wild`, -0.8, 1.2);
-  const wildSwing = wildSwingBase * (1 + player.chaos / 200);
+  const wildSwing = wildSwingBase * (1 + player.chaos / 200) * getWildSwingMultiplier(player);
 
   let delta = EXPECTED_DELTA * skillMultiplier + wildSwing;
   let eventNote: string | null = null;
 
+  const burstChance = (0.04 + player.chaos / 500) * getBurstChanceMultiplier(player);
   // Rare chaos burst
   if (
     !chaosBurstUsed &&
     player.chaos >= 55 &&
-    seededBool(`${seedBase}:burst`, 0.04 + player.chaos / 500)
+    seededBool(`${seedBase}:burst`, burstChance)
   ) {
     const burst = seededRange(`${seedBase}:burstamt`, 3, 8);
     delta += burst;
@@ -129,11 +177,10 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
     eventNote = "CHAOS SURGE";
   }
 
+  const collapseChance =
+    (0.03 + player.drag / 400) * getCollapseChanceMultiplier(player, raceCtx);
   // Rare collapse
-  if (
-    seededBool(`${seedBase}:collapse`, 0.03 + player.drag / 400) &&
-    currentProgress > 5
-  ) {
+  if (seededBool(`${seedBase}:collapse`, collapseChance) && currentProgress > 5) {
     const drop = seededRange(`${seedBase}:drop`, 1, 5);
     delta -= drop;
     eventNote = eventNote ? `${eventNote} / COLLAPSE` : "COLLAPSE";
@@ -145,7 +192,7 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
     eventNote = eventNote ? `${eventNote} / STALL` : "STALL";
   }
 
-  delta = Math.max(0, Math.min(4.5, delta));
+  delta = Math.max(0, Math.min(getMaxTickDelta(player), delta));
 
   // Cap progress before final 10%
   const maxAllowed =
@@ -158,27 +205,6 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
   return { delta, eventNote, chaosBurstUsed };
 }
 
-export function rollPlayerStats(seed: string): {
-  grit: number;
-  chaos: number;
-  nerve: number;
-  luck: number;
-  burst: number;
-  drag: number;
-  rating: number;
-  volatility: number;
-} {
-  const rating = seededInt(`${seed}:rating`, 42, 68);
-  const grit = seededInt(`${seed}:grit`, 25, 80);
-  const chaos = seededInt(`${seed}:chaos`, 25, 80);
-  const nerve = seededInt(`${seed}:nerve`, 25, 80);
-  const luck = seededInt(`${seed}:luck`, 25, 80);
-  const burst = seededInt(`${seed}:burst`, 25, 80);
-  const drag = seededInt(`${seed}:drag`, 5, 60);
-  const volatility = seededInt(`${seed}:volatility`, 20, 80);
-  return { grit, chaos, nerve, luck, burst, drag, rating, volatility };
-}
-
 export function buildPlayerInsert(
   name: string,
   slug: string,
@@ -186,7 +212,8 @@ export function buildPlayerInsert(
   createdDay: number,
   seed: string
 ) {
-  const stats = rollPlayerStats(seed);
+  const identity = generateIdentity(seed);
+  const stats = buildPlayerStatsFromSeed(seed, identity);
   return {
     name: name.toUpperCase(),
     slug,
@@ -205,12 +232,30 @@ export function buildPlayerInsert(
     current_streak_count: 0,
     longest_win_streak: 0,
     total_holding_days: 0,
-    ...stats,
+    grit: stats.grit,
+    chaos: stats.chaos,
+    nerve: stats.nerve,
+    luck: stats.luck,
+    burst: stats.burst,
+    drag: stats.drag,
+    rating: stats.rating,
+    volatility: stats.volatility,
     fatigue: 0,
-    pressure: 0,
+    pressure: stats.pressure,
     rookie_until_day: status === "active" ? createdDay + 7 : null,
     comeback_until_day: null,
     total_support_received: 0,
+    highest_race_score: 0,
+    highest_career_score: 0,
+    biggest_comeback: 0,
+    archetype: identity.archetype,
+    traits: identity.traits,
+    signature_stat: identity.signature_stat,
+    current_injury_name: null,
+    injured_at_day: null,
+    injury_races_remaining: 0,
+    total_injuries: 0,
+    injury_history: [],
     seed,
   };
 }
@@ -294,10 +339,12 @@ export function shuffleLanes(playerIds: string[], dayNumber: number): string[] {
   return arr;
 }
 
-function rankEntries<T extends { progress: number; player_id?: string; id?: string }>(
+function rankEntries<T extends { progress: number; is_injured?: boolean }>(
   entries: T[]
 ): (T & { current_rank: number; race_score: number; displayed_progress: number })[] {
-  const sorted = [...entries].sort((a, b) => b.progress - a.progress);
+  const healthy = entries.filter((e) => !e.is_injured).sort((a, b) => b.progress - a.progress);
+  const injured = entries.filter((e) => e.is_injured).sort((a, b) => b.progress - a.progress);
+  const sorted = [...healthy, ...injured];
   return sorted.map((e, i) => ({
     ...e,
     current_rank: i + 1,
@@ -354,8 +401,19 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     event_note: entry.event_note,
   }));
 
-  const updated = entries.map((entry) => {
+  const updated = [];
+  for (const entry of entries) {
     const player = entry.player as Player;
+
+    if (entry.is_injured) {
+      updated.push({
+        ...entry,
+        last_delta: 0,
+        event_note: "INJURED",
+      });
+      continue;
+    }
+
     const result = calculateTickDelta({
       raceId: race.id,
       playerId: entry.player_id,
@@ -364,19 +422,75 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
       percentComplete,
       player,
       currentProgress: Number(entry.progress),
+      currentRank: entry.current_rank,
       chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
     });
 
     const newProgress = Math.max(0, Number(entry.progress) + result.delta);
-    return {
+    let isInjured = Boolean(entry.is_injured);
+    let injuredAtTick = entry.injured_at_tick as number | null;
+    let injuryName = entry.injury_name as string | null;
+    let injurySeverity = entry.injury_severity as string | null;
+    let injuryNote = entry.injury_note as string | null;
+    let injuryRacesMissed = entry.injury_races_missed as number | null;
+
+    const injuryCtx = {
+      dayNumber: race.day_number,
+      raceNumber: race.race_number,
+      tickNumber,
+      percentComplete,
+      currentRank: entry.current_rank,
+    };
+    const injuryChance = calculateInjuryChance(player, entry, injuryCtx);
+    const injurySeed = `${race.id}:${entry.player_id}:${tickNumber}:injury-roll`;
+
+    if (shouldInjure(injurySeed, injuryChance)) {
+      const injury = rollRaceInjury(race, player, injuryCtx);
+      isInjured = true;
+      injuredAtTick = tickNumber;
+      injuryName = injury.injuryName;
+      injurySeverity = injury.severity;
+      injuryNote = injury.injuryNote;
+      injuryRacesMissed = injury.racesMissed;
+
+      await addHistory(
+        supabase,
+        player.id,
+        race.id,
+        race.day_number,
+        "injured",
+        `INJURED: ${injury.injuryName}`,
+        null,
+        Math.round(newProgress)
+      );
+
+      await supabase.from("injury_events").insert({
+        player_id: player.id,
+        race_id: race.id,
+        day_number: race.day_number,
+        injury_name: injury.injuryName,
+        severity: injury.severity,
+        races_missed: injury.racesMissed,
+        occurred_at_tick: tickNumber,
+        occurred_at_percent: percentComplete,
+      });
+    }
+
+    updated.push({
       ...entry,
       progress: newProgress,
       displayed_progress: Math.round(newProgress),
-      last_delta: result.delta,
-      event_note: result.eventNote,
+      last_delta: isInjured ? 0 : result.delta,
+      event_note: isInjured ? "INJURED" : result.eventNote,
       race_score: newProgress,
-    };
-  });
+      is_injured: isInjured,
+      injured_at_tick: injuredAtTick,
+      injury_name: injuryName,
+      injury_severity: injurySeverity,
+      injury_note: injuryNote,
+      injury_races_missed: injuryRacesMissed,
+    });
+  }
 
   const ranked = rankEntries(updated).map((entry) => {
     const prev = beforeSnapshots.find((b) => b.player_id === entry.player_id);
@@ -406,6 +520,10 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   await saveTickerEvents(supabase, race.id, tickNumber, tickerEvents);
 
   for (const entry of ranked) {
+    const score = progressToScore(Number(entry.progress));
+    const peakRaceScore = Math.max(Number(entry.peak_race_score ?? 0), score);
+    entry.peak_race_score = peakRaceScore;
+
     await supabase
       .from("race_entries")
       .update({
@@ -416,9 +534,29 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         last_rank_change: entry.last_rank_change,
         event_note: entry.event_note,
         race_score: entry.race_score,
-        updated_at: new Date().toISOString(),
+        peak_race_score: peakRaceScore,
+        is_injured: entry.is_injured ?? false,
+        injured_at_tick: entry.injured_at_tick ?? null,
+        injury_name: entry.injury_name ?? null,
+        injury_severity: entry.injury_severity ?? null,
+        injury_note: entry.injury_note ?? null,
+        injury_races_missed: entry.injury_races_missed ?? null,
+        updated_at: now.toISOString(),
       })
       .eq("id", entry.id);
+
+    const player = entry.player as Player;
+    await supabase
+      .from("players")
+      .update({
+        highest_career_score: Math.max(Number(player.highest_career_score ?? 0), score),
+        biggest_comeback:
+          entry.last_rank_change > 0
+            ? Math.max(Number(player.biggest_comeback ?? 0), entry.last_rank_change)
+            : player.biggest_comeback,
+        updated_at: now.toISOString(),
+      })
+      .eq("id", player.id);
   }
 
   await supabase
@@ -430,6 +568,97 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     .from("game_state")
     .update({ last_tick_at: now.toISOString(), updated_at: now.toISOString() })
     .eq("id", 1);
+}
+
+async function processInjuredRecovery(supabase: SupabaseClient, currentDay: number): Promise<void> {
+  const { data: injuredPlayers } = await supabase
+    .from("players")
+    .select("*")
+    .eq("status", "injured");
+
+  if (!injuredPlayers?.length) return;
+
+  for (const player of injuredPlayers as Player[]) {
+    const remaining = player.injury_races_remaining - 1;
+
+    if (remaining > 0) {
+      await supabase
+        .from("players")
+        .update({
+          injury_races_remaining: remaining,
+          age_days: player.age_days + 1,
+          pressure: Math.max(0, player.pressure - 3),
+          fatigue: Math.max(0, player.fatigue - 4),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", player.id);
+
+      if (seededBool(`${player.id}:${currentDay}:still`, 0.15)) {
+        await addHistory(
+          supabase,
+          player.id,
+          null,
+          currentDay,
+          "injured",
+          "STILL INJURED",
+          null,
+          null
+        );
+      }
+      continue;
+    }
+
+    const comebackDays = player.archetype === "COMEBACKER" ? 6 : 3;
+    const recoveryBonus = getSupportRecoveryBonus(player);
+    const updates: Partial<Player> = {
+      status: "holding",
+      current_injury_name: null,
+      injured_at_day: null,
+      injury_races_remaining: 0,
+      comeback_until_day: currentDay + comebackDays,
+      pressure: Math.max(0, player.pressure - 10 - Math.round(recoveryBonus * 20)),
+      fatigue: Math.max(0, player.fatigue - 12 - Math.round(recoveryBonus * 20)),
+      age_days: player.age_days + 1,
+    };
+
+    if (seededBool(`${player.id}:${currentDay}:recmut`, getRecoveryMutationChance(player))) {
+      const stat = pickWeightedAnyStat(`${player.id}:${currentDay}:recmuts`, player);
+      const positive = seededBool(
+        `${player.id}:${currentDay}:recmutp`,
+        getRecoveryPositiveChance(player)
+      );
+      const delta = positive ? 1 : -1;
+      updates[stat] = Math.max(1, Math.min(100, (player[stat] as number) + delta));
+      await addHistory(
+        supabase,
+        player.id,
+        null,
+        currentDay,
+        "recovery",
+        `${stat.toUpperCase()} ${delta > 0 ? "+" : ""}${delta} AFTER INJURY`,
+        null,
+        null
+      );
+    }
+
+    updates.rating = recalculateRatingFromPartial({ ...player, ...updates });
+
+    await supabase
+      .from("players")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", player.id);
+
+    await addHistory(
+      supabase,
+      player.id,
+      null,
+      currentDay,
+      "recovered",
+      "RECOVERED TO HOLDING",
+      null,
+      null
+    );
+  }
 }
 
 export async function finalizeRace(
@@ -451,8 +680,16 @@ export async function finalizeRace(
   if (entriesErr) throw entriesErr;
   if (!entries?.length) return;
 
-  // Final tick pass
+  const { data: gameState } = await supabase.from("game_state").select("*").eq("id", 1).single();
+  const currentDay = gameState?.current_day ?? race.day_number;
+
+  await processInjuredRecovery(supabase, currentDay);
+
+  // Final tick pass — skip progress for already-injured entries
   let processed = entries.map((entry) => {
+    if (entry.is_injured) {
+      return { ...entry, player: entry.player as Player };
+    }
     const player = entry.player as Player;
     const result = calculateTickDelta({
       raceId: race.id,
@@ -462,47 +699,54 @@ export async function finalizeRace(
       percentComplete: 100,
       player,
       currentProgress: Number(entry.progress),
+      currentRank: entry.current_rank,
       chaosBurstUsed: false,
     });
-    let newProgress = Math.max(0, Number(entry.progress) + result.delta);
+    const newProgress = Math.max(0, Number(entry.progress) + result.delta);
     return { ...entry, progress: newProgress, player };
   });
 
   let ranked = rankEntries(processed);
-  const leaderProgress = Number(ranked[0]?.progress ?? 0);
-  if (ranked[0]) {
-    ranked[0].progress = 100;
-    ranked[0].displayed_progress = 100;
-    ranked[0].race_score = 100;
-    for (let i = 1; i < ranked.length; i++) {
-      const ratio = leaderProgress > 0 ? Number(ranked[i].progress) / leaderProgress : 0.5;
+  const leaderEntry = ranked.find((e) => !e.is_injured) ?? ranked[0];
+  const leaderProgress = Number(leaderEntry?.progress ?? 0);
+
+  if (leaderEntry) {
+    leaderEntry.progress = 100;
+    leaderEntry.displayed_progress = 100;
+    leaderEntry.race_score = 100;
+    for (const entry of ranked) {
+      if (entry.is_injured || entry.player_id === leaderEntry.player_id) continue;
+      const ratio = leaderProgress > 0 ? Number(entry.progress) / leaderProgress : 0.5;
       const scaled = Math.min(99, Math.max(1, Math.round(100 * ratio * 0.95)));
-      ranked[i].progress = scaled;
-      ranked[i].displayed_progress = scaled;
-      ranked[i].race_score = scaled;
+      entry.progress = scaled;
+      entry.displayed_progress = scaled;
+      entry.race_score = scaled;
     }
     ranked = rankEntries(ranked);
   }
 
   for (let i = 0; i < ranked.length; i++) {
-    ranked[i].current_rank = i + 1;
     ranked[i].final_rank = i + 1;
   }
 
-  const { data: gameState } = await supabase.from("game_state").select("*").eq("id", 1).single();
-  const currentDay = gameState?.current_day ?? race.day_number;
+  const hadInjuries = ranked.some((e) => e.is_injured);
+  const injuredIds = ranked.filter((e) => e.is_injured).map((e) => e.player_id);
 
   const allTimeTop = await getAllTimeTop3(supabase);
   const top3Ids = new Set(allTimeTop.map((p) => p.id));
 
-  // Age existing holding pool before today's eliminee joins them
   await updateHoldingPlayers(supabase, currentDay);
 
   for (const entry of ranked) {
     const player = entry.player as Player;
     const finish = entry.final_rank ?? entry.current_rank;
-    const isWinner = finish === 1;
-    const isLast = finish === 8;
+    const isWinner = !entry.is_injured && finish === 1;
+    const isLast = !hadInjuries && !entry.is_injured && finish === 8;
+
+    const peakScore = Math.max(
+      Number(entry.peak_race_score ?? 0),
+      progressToScore(Number(entry.progress))
+    );
 
     await supabase
       .from("race_entries")
@@ -512,13 +756,52 @@ export async function finalizeRace(
         current_rank: entry.current_rank,
         final_rank: entry.final_rank,
         race_score: entry.race_score,
+        peak_race_score: peakScore,
+        is_injured: entry.is_injured ?? false,
+        injured_at_tick: entry.injured_at_tick ?? null,
+        injury_name: entry.injury_name ?? null,
+        injury_severity: entry.injury_severity ?? null,
+        injury_note: entry.injury_note ?? null,
+        injury_races_missed: entry.injury_races_missed ?? null,
         updated_at: now.toISOString(),
       })
       .eq("id", entry.id);
 
     const updates = mutatePlayerAfterRace(player, finish, isWinner, currentDay, top3Ids.has(player.id));
+    updates.highest_race_score = Math.max(Number(player.highest_race_score ?? 0), peakScore);
+    updates.highest_career_score = Math.max(Number(player.highest_career_score ?? 0), peakScore);
 
-    if (isLast) {
+    if (entry.is_injured) {
+      const racesMissed = Number(entry.injury_races_missed ?? 1);
+      const injuryRecord: InjuryRecord = {
+        day: currentDay,
+        name: entry.injury_name ?? "UNKNOWN",
+        severity: entry.injury_severity ?? "NORMAL",
+        races_missed: racesMissed,
+        race_id: race.id,
+      };
+      const history = [...(player.injury_history ?? []), injuryRecord];
+
+      updates.status = "injured";
+      updates.current_injury_name = entry.injury_name;
+      updates.injured_at_day = currentDay;
+      updates.injury_races_remaining = racesMissed;
+      updates.total_injuries = player.total_injuries + 1;
+      updates.injury_history = history;
+      updates.pressure = Math.max(0, (updates.pressure ?? player.pressure) - 6);
+      updates.fatigue = Math.max(0, (updates.fatigue ?? player.fatigue) - 4);
+
+      await addHistory(
+        supabase,
+        player.id,
+        race.id,
+        currentDay,
+        "injured",
+        `OUT ${racesMissed} RACES`,
+        finish,
+        Math.round(Number(entry.progress))
+      );
+    } else if (isLast) {
       updates.status = "holding";
       updates.eliminations = player.eliminations + 1;
       updates.holding_days = player.holding_days + 1;
@@ -554,7 +837,7 @@ export async function finalizeRace(
         finish,
         100
       );
-    } else {
+    } else if (!entry.is_injured) {
       await addHistory(
         supabase,
         player.id,
@@ -581,20 +864,21 @@ export async function finalizeRace(
 
   await processRaceSupports(supabase, race, currentDay);
 
-  const winnerEntry = ranked.find((e) => e.final_rank === 1);
-  const lastEntry = ranked.find((e) => e.final_rank === 8);
-  if (winnerEntry && lastEntry) {
+  const winnerEntry = ranked.find((e) => e.final_rank === 1 && !e.is_injured);
+  const lastHealthy = [...ranked].reverse().find((e) => !e.is_injured);
+  if (winnerEntry && lastHealthy) {
     const finalizeMessages = generateFinalizeTickerEvents(
       (winnerEntry.player as Player).name,
-      (lastEntry.player as Player).name,
+      (lastHealthy.player as Player).name,
       race.race_number,
       winnerEntry.player_id,
-      lastEntry.player_id
+      lastHealthy.player_id
     );
     await saveTickerEvents(supabase, race.id, TICKS_PER_RACE, finalizeMessages);
   }
 
-  const replacement = await chooseReplacement(supabase, currentDay + 1);
+  const slotsNeeded = injuredIds.length + (hadInjuries ? 0 : 1);
+  const excludeIds = new Set(injuredIds);
 
   if (!createNextRace) {
     await supabase
@@ -612,16 +896,34 @@ export async function finalizeRace(
   const { startedAt, endsAt } = getNextRaceDayBounds(new Date(race.ends_at));
 
   const { data: activePlayers } = await supabase.from("players").select("id").eq("status", "active");
-  const rosterIds = (activePlayers || []).map((p) => p.id);
-  if (!rosterIds.includes(replacement.id)) {
-    rosterIds.push(replacement.id);
+  let rosterIds = (activePlayers || []).map((p) => p.id);
+
+  for (let i = 0; i < slotsNeeded; i++) {
+    const replacement = await chooseReplacement(supabase, nextDay, {
+      excludePlayerIds: [...excludeIds],
+    });
+    excludeIds.add(replacement.id);
+    if (!rosterIds.includes(replacement.id)) {
+      rosterIds.push(replacement.id);
+    }
   }
+
   while (rosterIds.length > 8) {
-    const idx = rosterIds.findIndex((id) => id !== replacement.id);
+    const idx = rosterIds.findIndex((id) => !excludeIds.has(id));
     if (idx >= 0) rosterIds.splice(idx, 1);
   }
   while (rosterIds.length < 8) {
+    const replacement = await chooseReplacement(supabase, nextDay, {
+      excludePlayerIds: [...excludeIds],
+    });
+    excludeIds.add(replacement.id);
     rosterIds.push(replacement.id);
+  }
+
+  for (const injuredId of injuredIds) {
+    if (rosterIds.includes(injuredId)) {
+      throw new Error("Injured racer cannot join the next race");
+    }
   }
 
   await createRace(supabase, nextDay, nextRaceNumber, rosterIds.slice(0, 8), startedAt, endsAt);
@@ -675,31 +977,40 @@ export function mutatePlayerAfterRace(
     updates.pressure = (updates.pressure ?? player.pressure) + 1;
   }
 
+  const fatigueCtx = { isWinner, finish };
+  updates.fatigue =
+    (updates.fatigue ?? player.fatigue) +
+    getArchetypeFatigueModifier(player, fatigueCtx);
+  updates.pressure =
+    (updates.pressure ?? player.pressure) +
+    getArchetypePressureModifier(player, {
+      isWinner,
+      finish,
+      isTop3AllTime,
+    });
+
   if (isTop3AllTime) {
     updates.pressure = (updates.pressure ?? player.pressure) + 2;
   }
 
-  if (player.active_days > 60 && seededBool(`${player.id}:${currentDay}:veteran`, 0.08)) {
-    const stat = seededPickStat(`${player.id}:${currentDay}:decay`);
-    updates[stat] = Math.max(20, (player[stat] as number) - 1);
-  }
-  if (player.active_days > 120 && seededBool(`${player.id}:${currentDay}:veteran2`, 0.12)) {
-    const stat = seededPickStat(`${player.id}:${currentDay}:decay2`);
+  const growthCtx = { finish, isWinner, currentDay, isTop3AllTime };
+  const decayChance = getDecayChance(player, currentDay);
+  if (decayChance > 0 && seededBool(`${player.id}:${currentDay}:decay`, decayChance)) {
+    const stat = pickWeightedAnyStat(`${player.id}:${currentDay}:decay`, player);
     updates[stat] = Math.max(15, ((updates[stat] as number) ?? (player[stat] as number)) - 1);
   }
 
-  if (seededBool(`${player.id}:${currentDay}:mutate`, 0.06)) {
-    const stat = seededPickStat(`${player.id}:${currentDay}:mut`);
-    const delta = seededInt(`${player.id}:${currentDay}:mutd`, -2, 2);
-    updates[stat] = Math.max(1, Math.min(100, (player[stat] as number) + delta));
+  const mutationChance = getPostRaceMutationChance(player);
+  if (seededBool(`${player.id}:${currentDay}:mutate`, mutationChance)) {
+    const stat = pickWeightedAnyStat(`${player.id}:${currentDay}:mut`, player);
+    const delta = getMutationDelta(player, `${player.id}:${currentDay}:mutd`);
+    updates[stat] = Math.max(1, Math.min(100, ((updates[stat] as number) ?? (player[stat] as number)) + delta));
   }
 
-  return updates;
-}
+  const merged = { ...player, ...updates };
+  updates.rating = recalculateRatingFromPartial(merged);
 
-function seededPickStat(seed: string): keyof Pick<Player, "grit" | "chaos" | "nerve" | "luck" | "burst" | "drag"> {
-  const stats = ["grit", "chaos", "nerve", "luck", "burst", "drag"] as const;
-  return stats[seededInt(seed, 0, stats.length - 1)];
+  return updates;
 }
 
 export async function updateHoldingPlayers(supabase: SupabaseClient, currentDay: number): Promise<void> {
@@ -715,30 +1026,47 @@ export async function updateHoldingPlayers(supabase: SupabaseClient, currentDay:
       holding_days: player.holding_days + 1,
       total_holding_days: player.total_holding_days + 1,
       age_days: player.age_days + 1,
-      pressure: Math.max(0, player.pressure - 2),
-      fatigue: Math.max(0, player.fatigue - 3),
+      pressure: Math.max(0, player.pressure - getHoldingPressureRecovery(player)),
+      fatigue: Math.max(0, player.fatigue - getHoldingFatigueRecovery(player)),
     };
 
-    if (seededBool(`${player.id}:${currentDay}:holdmut`, 0.05)) {
-      const stat = seededPickStat(`${player.id}:${currentDay}:holdmuts`);
-      const delta = seededInt(`${player.id}:${currentDay}:holdmutd`, -1, 3);
+    if (player.archetype === "RELIC" && seededBool(`${player.id}:${currentDay}:relicdecay`, 0.06)) {
+      const stat = pickWeightedAnyStat(`${player.id}:${currentDay}:relicdecay`, player);
+      updates[stat] = Math.max(15, (player[stat] as number) - 1);
+    }
+
+    const holdMutChance = getHoldingMutationChance(player);
+    if (seededBool(`${player.id}:${currentDay}:holdmut`, holdMutChance)) {
+      const stat = pickWeightedAnyStat(`${player.id}:${currentDay}:holdmuts`, player);
+      const delta = getMutationDelta(player, `${player.id}:${currentDay}:holdmutd`);
       updates[stat] = Math.max(1, Math.min(100, (player[stat] as number) + delta));
     }
+
+    const merged = { ...player, ...updates };
+    updates.rating = recalculateRatingFromPartial(merged);
 
     await supabase.from("players").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", player.id);
   }
 }
 
-export async function chooseReplacement(supabase: SupabaseClient, nextDay: number): Promise<Player> {
+export async function chooseReplacement(
+  supabase: SupabaseClient,
+  nextDay: number,
+  options: { excludePlayerIds?: string[] } = {}
+): Promise<Player> {
+  const excluded = new Set(options.excludePlayerIds ?? []);
+
   const { data: holding } = await supabase
     .from("players")
     .select("*")
     .eq("status", "holding")
     .gte("races", 1);
 
-  if (holding?.length && seededBool(`${nextDay}:replacement`, 0.3)) {
-    const idx = seededInt(`${nextDay}:replacement-pick`, 0, holding.length - 1);
-    const picked = holding[idx];
+  const eligible = (holding || []).filter((player) => !excluded.has(player.id));
+
+  if (eligible.length && seededBool(`${nextDay}:replacement`, 0.3)) {
+    const idx = seededInt(`${nextDay}:replacement-pick`, 0, eligible.length - 1);
+    const picked = eligible[idx];
     await supabase
       .from("players")
       .update({
@@ -809,6 +1137,7 @@ export async function createRace(
   const shuffled = shuffleLanes(rosterIds, dayNumber);
   const entries = shuffled.map((playerId, idx) => {
     const progress = seededRange(`${race.id}:${playerId}:init`, 0, 6);
+    const score = progressToScore(progress);
     return {
       race_id: race.id,
       player_id: playerId,
@@ -818,6 +1147,7 @@ export async function createRace(
       current_rank: 1,
       last_delta: 0,
       race_score: progress,
+      peak_race_score: score,
       condition: 0,
     };
   });
@@ -1060,6 +1390,9 @@ export async function resetToFirstRace(supabase: SupabaseClient): Promise<Race> 
         comeback_until_day: null,
         rookie_until_day: 8,
         total_support_received: 0,
+        highest_race_score: 0,
+        highest_career_score: 0,
+        biggest_comeback: 0,
         updated_at: now.toISOString(),
       })
       .eq("id", id);

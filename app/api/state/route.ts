@@ -12,6 +12,7 @@ import {
 import { getRaceClock } from "@/lib/race-clock";
 import { getVisitorSupportForRace } from "@/lib/support-db";
 import { getRecentTickerEvents } from "@/lib/ticker-db";
+import { getOvrRankings, ovrRankingsToRecord } from "@/lib/ovr";
 import type { GameStateResponse } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -42,12 +43,19 @@ export async function GET(request: Request) {
 
     const allTime = await getAllTimeTop3(supabase);
     const streaks = await getActiveStreaks(supabase);
+    const ovrRankings = ovrRankingsToRecord(await getOvrRankings(supabase));
 
     const { data: holding } = await supabase
       .from("players")
       .select("*")
       .eq("status", "holding")
       .gte("races", 1)
+      .order("name", { ascending: true });
+
+    const { data: injured } = await supabase
+      .from("players")
+      .select("*")
+      .eq("status", "injured")
       .order("name", { ascending: true });
 
     const { data: gameState } = await supabase.from("game_state").select("*").eq("id", 1).single();
@@ -73,6 +81,8 @@ export async function GET(request: Request) {
       allTime: allTime || [],
       streaks,
       holding: holding || [],
+      injured: injured || [],
+      ovrByPlayerId: ovrRankings,
       serverTime: now.toISOString(),
       remainingMs: clock.remainingMs,
       startsInMs: clock.startsInMs,
