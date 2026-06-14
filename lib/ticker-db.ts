@@ -2,8 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TickerEvent, TickerEventFacts } from "./types";
 import type { TickerEventDraft } from "./ticker-logic";
 
-/** Event types that are standings updates, not announcer calls. */
-const NON_ANNOUNCER_EVENT_TYPES = new Set(["status_pulse"]);
+/** Event types stored but hidden from the scrolling ticker (if any). */
+const HIDDEN_TICKER_EVENT_TYPES = new Set<string>([]);
 
 export async function saveTickerEvents(
   supabase: SupabaseClient,
@@ -50,7 +50,7 @@ export async function getAnnouncerTickerEvents(
   if (error) throw error;
 
   const announcer = (data || []).filter((row) => {
-    if (NON_ANNOUNCER_EVENT_TYPES.has(row.event_type)) return false;
+    if (HIDDEN_TICKER_EVENT_TYPES.has(row.event_type)) return false;
     if (row.event_type === "legacy") {
       return !/^RACE \d+\s*[—–-]/i.test(row.message);
     }
