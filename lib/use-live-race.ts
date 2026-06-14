@@ -8,7 +8,7 @@ import {
   getHybridScoreState,
   type HybridScoreState,
 } from "./hybrid-live-score";
-import { calculatePrecisePercentComplete } from "./live-progress";
+import { calculatePrecisePercentComplete, simulateLiveEntries } from "./live-progress";
 import type { GameStateResponse } from "./types";
 
 export interface LiveEntryState extends HybridScoreState {
@@ -58,6 +58,8 @@ export function useLiveRace(
       }
 
       const segmentProgress = getCronSegmentProgress(state.gameState.last_tick_at, now);
+      const simulated = simulateLiveEntries(state.race, state.entries, now);
+      const simById = new Map(simulated.map((entry) => [entry.player_id, entry]));
       const entries = new Map<string, LiveEntryState>();
 
       for (const entry of state.entries) {
@@ -83,11 +85,16 @@ export function useLiveRace(
           Number(entry.last_delta),
           segmentProgress
         );
+        const sim = simById.get(entry.player_id);
 
         entries.set(entry.player_id, {
           player_id: entry.player_id,
-          ...hybrid,
-          current_rank: entry.current_rank,
+          score: sim?.score ?? hybrid.score,
+          confirmedScore: hybrid.confirmedScore,
+          tickDelta: hybrid.tickDelta,
+          baseScore: hybrid.baseScore,
+          segmentProgress: hybrid.segmentProgress,
+          current_rank: sim?.current_rank ?? entry.current_rank,
         });
       }
 

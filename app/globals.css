@@ -437,8 +437,11 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .score-pip-viewport {
   flex: 1 1 auto;
   min-width: 0;
-  max-width: min(48vw, 200px);
-  height: 10px;
+  max-width: min(52vw, 220px);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 12px;
   overflow: hidden;
   position: relative;
   border-radius: 2px;
@@ -456,12 +459,37 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   opacity: 0.45;
 }
 
+.row-score-pip-num {
+  flex-shrink: 0;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #333;
+  min-width: 1.5rem;
+  text-align: right;
+}
+
+.row-score-pip-delta {
+  flex-shrink: 0;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #1a8a52;
+}
+
+.row-score-pip-delta-loss {
+  color: #c0392b;
+}
+
 .score-pip-track {
+  flex: 1 1 auto;
   display: flex;
   flex-wrap: nowrap;
   align-items: flex-end;
   gap: 0;
-  width: 100%;
+  min-width: 0;
   height: 10px;
   padding: 1px 0;
 }
@@ -470,13 +498,12 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   flex: 1 1 0;
   min-width: 0;
   height: 9px;
-  image-rendering: pixelated;
 }
 
 .score-pip-on {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 0 0 0.5px rgba(0, 0, 0, 0.45);
+    0 0 0 0.5px rgba(0, 0, 0, 0.5);
 }
 
 .score-pip-partial {
@@ -484,16 +511,9 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .score-pip-dim {
-  background-color: #bbb;
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(0, 0, 0, 0.08) 0px,
-    rgba(0, 0, 0, 0.08) 1px,
-    transparent 1px,
-    transparent 2px
-  );
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  opacity: 0.5;
+  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 55%, #c4c4c4 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  opacity: 0.55;
 }
 
 .tap-hint {
@@ -2191,8 +2211,20 @@ body[data-home-theme="night"] .row-scoreboard-overlay-label {
 
 body[data-home-theme="night"] .score-pip-on {
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 0 0 0.5px rgba(255, 255, 255, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+body[data-home-theme="night"] .row-score-pip-num {
+  color: #ddd;
+}
+
+body[data-home-theme="night"] .row-score-pip-delta {
+  color: #5fd99a;
+}
+
+body[data-home-theme="night"] .row-score-pip-delta-loss {
+  color: #f87171;
 }
 
 body[data-home-theme="night"] .score-pip-viewport-leader {
@@ -2206,16 +2238,9 @@ body[data-home-theme="night"] .race-meta-line-next-soon {
 }
 
 body[data-home-theme="night"] .score-pip-dim {
-  background-color: #2a2a2a;
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(255, 255, 255, 0.05) 0px,
-    rgba(255, 255, 255, 0.05) 1px,
-    transparent 1px,
-    transparent 2px
-  );
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  opacity: 0.55;
+  background: linear-gradient(180deg, #333 0%, #2a2a2a 55%, #222 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  opacity: 0.45;
 }
 
 body[data-home-theme="night"] .row-place-1 {
