@@ -18,9 +18,8 @@ import {
   formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
-import { formatRaceScore, SCORE_PIP_SLOTS } from "@/lib/score";
+import { formatRaceScore, getScorePipBackground, HARD_SCORE_CAP, SCORE_PIP_SLOTS } from "@/lib/score";
 import {
-  getProgressPipSurfaceStyle,
   getRaceProgressPipSurfaceStyle,
 } from "@/lib/race-progress-art";
 import { getPipFillState } from "@/lib/hybrid-live-score";
@@ -299,23 +298,19 @@ function ScorePipTrack({
   isNight: boolean;
   statusOverlay?: { icon: RaceIconId; label: string };
 }) {
-  const confirmed = Math.max(0, Math.round(confirmedScore));
-  const leader = Math.max(1, Math.round(leaderScore));
-  const slots = leader;
+  const leader = Math.max(0, Math.min(HARD_SCORE_CAP, Math.round(leaderScore)));
+  const slots = HARD_SCORE_CAP;
   const { bright, partialIndex, partial } = getPipFillState(
-    confirmed,
+    confirmedScore,
     lastDelta,
     segmentProgress
   );
   const displayPoints =
     lastDelta !== 0 && segmentProgress < 1
-      ? Math.max(0, Math.round(confirmed - lastDelta + lastDelta * segmentProgress))
-      : confirmed;
-  const animatingDelta =
-    lastDelta !== 0 && segmentProgress < 1
-      ? Math.round(lastDelta * segmentProgress)
-      : 0;
+      ? Math.max(0, Math.round(confirmedScore - lastDelta + lastDelta * segmentProgress))
+      : Math.round(confirmedScore);
   const behind = leader - displayPoints;
+  const colorSpan = Math.max(1, leader);
 
   return (
     <div
@@ -341,12 +336,11 @@ function ScorePipTrack({
             return (
               <span
                 key={i}
-                className="score-pip score-pip-on score-pip-bitmap"
-                style={getProgressPipSurfaceStyle(
-                  i,
-                  Math.max(1, bright - 1),
-                  isNight
-                )}
+                className="score-pip score-pip-on"
+                style={{
+                  background: getScorePipBackground(i, colorSpan, isNight),
+                }}
+                aria-hidden="true"
               />
             );
           }
@@ -354,29 +348,21 @@ function ScorePipTrack({
             return (
               <span
                 key={i}
-                className="score-pip score-pip-on score-pip-bitmap score-pip-partial"
+                className="score-pip score-pip-on score-pip-partial"
                 style={{
-                  ...getProgressPipSurfaceStyle(i, Math.max(1, bright), isNight),
+                  background: getScorePipBackground(i, colorSpan, isNight),
                   opacity: Math.max(0.12, partial),
                 }}
+                aria-hidden="true"
               />
             );
           }
-          return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
+          if (i < leader) {
+            return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
+          }
+          return <span key={i} className="score-pip score-pip-empty" aria-hidden="true" />;
         })}
       </div>
-      <span className="row-score-pip-num">{formatRaceScore(displayPoints)}</span>
-      {animatingDelta !== 0 && (
-        <span
-          className={`row-score-pip-delta${
-            animatingDelta < 0 ? " row-score-pip-delta-loss" : ""
-          }`}
-          aria-hidden="true"
-        >
-          {animatingDelta > 0 ? "+" : ""}
-          {formatRaceScore(animatingDelta)}
-        </span>
-      )}
       {statusOverlay && (
         <div className="row-scoreboard-overlay" aria-hidden="true">
           <FlatIcon id={statusOverlay.icon} className="flat-icon flat-icon-overlay" />
