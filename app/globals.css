@@ -11,6 +11,12 @@
 html {
   -webkit-text-size-adjust: 100%;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
 }
 
 html,
@@ -20,6 +26,8 @@ body {
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   background: #fafafa;
   color: #111;
   font-family:
@@ -35,6 +43,10 @@ body {
   line-height: 1.35;
   -webkit-font-smoothing: antialiased;
   touch-action: manipulation;
+}
+
+body::-webkit-scrollbar {
+  display: none;
 }
 
 a {
@@ -59,9 +71,9 @@ main,
   max-width: 100%;
   padding:
     max(10px, env(safe-area-inset-top))
-    max(10px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-right))
     max(24px, env(safe-area-inset-bottom))
-    max(10px, env(safe-area-inset-left));
+    max(20px, env(safe-area-inset-left));
   margin: 0;
 }
 
@@ -645,7 +657,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .race-progress-wrap {
   position: relative;
   width: 100%;
-  padding-top: 13px;
+  padding-top: 16px;
 }
 
 .race-progress-marker {
@@ -787,7 +799,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   align-items: center;
   justify-content: flex-start;
   gap: 5px;
-  height: 14px;
+  height: 19px;
   overflow: hidden;
   position: relative;
   border-radius: 2px;
@@ -858,7 +870,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   align-items: flex-end;
   gap: 0;
   min-width: 0;
-  height: 10px;
+  height: 15px;
   padding: 1px 0;
 }
 
@@ -884,11 +896,11 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .score-pip-track--race .score-pip-h1 {
-  height: 4px;
+  height: 12px;
 }
 
 .score-pip-track--race .score-pip-h2 {
-  height: 9px;
+  height: 13px;
 }
 
 .score-pip-track--race .score-pip-empty {
@@ -925,7 +937,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .tap-hint {
-  margin: -5px 0 5px;
+  margin: -5px 0 10px;
   font-size: 9px;
   color: #555;
   opacity: 0.72;
@@ -1935,12 +1947,6 @@ body[data-home-theme="night"] .row-mark-slot {
   letter-spacing: 0.02em;
 }
 
-.live-odds-row-fav .live-odds-name,
-.live-odds-row-fav .live-odds-american {
-  font-weight: 700;
-  color: #111;
-}
-
 .live-odds-name {
   min-width: 0;
   overflow: hidden;
@@ -1954,10 +1960,6 @@ body[data-home-theme="night"] .row-mark-slot {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   color: #333;
-}
-
-.live-odds-row-fav .live-odds-american {
-  color: #9a3b00;
 }
 
 .lane-stat-list {
@@ -3797,11 +3799,6 @@ body[data-home-theme="night"] .live-odds-american {
   color: #ddd;
 }
 
-body[data-home-theme="night"] .live-odds-row-fav .live-odds-name,
-body[data-home-theme="night"] .live-odds-row-fav .live-odds-american {
-  color: #ffd700;
-}
-
 body[data-home-theme="night"] .lane-stat-row {
   color: #bbb;
 }
@@ -3948,16 +3945,16 @@ body[data-home-theme="night"] .race-weather-lightning {
   main {
     padding:
       max(16px, env(safe-area-inset-top))
-      max(24px, env(safe-area-inset-right))
+      max(34px, env(safe-area-inset-right))
       max(32px, env(safe-area-inset-bottom))
-      max(24px, env(safe-area-inset-left));
+      max(34px, env(safe-area-inset-left));
   }
 
   .home-content {
     width: 100%;
     max-width: 680px;
     margin: 0 auto;
-    padding: 16px 18px 20px;
+    padding: 16px 28px 20px;
     border: 1px solid #ddd;
     border-radius: 8px;
     background: #fff;
@@ -3973,7 +3970,7 @@ body[data-home-theme="night"] .race-weather-lightning {
   }
 
   .ticker-wrap {
-    margin: -16px -18px 16px;
+    margin: -16px -28px 16px;
     border-top: none;
     border-left: none;
     border-right: none;
@@ -4014,7 +4011,7 @@ body[data-home-theme="night"] .race-weather-lightning {
 
   .tap-hint {
     font-size: 10px;
-    margin: -5px 0 5px;
+    margin: -5px 0 10px;
     opacity: 0.72;
   }
 
@@ -4125,7 +4122,7 @@ body[data-home-theme="night"] .race-weather-lightning {
   .player-page {
     max-width: 680px;
     margin: 0 auto;
-    padding: 24px;
+    padding: 24px 34px;
     border: 1px solid #ddd;
     border-radius: 8px;
     background: #fff;
@@ -4149,11 +4146,11 @@ body[data-home-theme="night"] .race-weather-lightning {
 
   .home-content {
     max-width: 760px;
-    padding: 20px 24px 24px;
+    padding: 20px 34px 24px;
   }
 
   .ticker-wrap {
-    margin: -20px -24px 20px;
+    margin: -20px -34px 20px;
   }
 
   .ticker-track {

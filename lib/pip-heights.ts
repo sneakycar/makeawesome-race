@@ -2,9 +2,13 @@ import { seededRange } from "./seeded-rng";
 import { RACE_PIP_TICKS, SCORE_TRACK_SLOTS } from "./score";
 
 const SLOTS_PER_TICK = SCORE_TRACK_SLOTS / RACE_PIP_TICKS;
-const SMOOTH_WINDOW = 7;
-/** Typical tick gain — used to bias trailing bands hot/cold. */
+const SMOOTH_WINDOW = 2;
+/** Typical tick gain — dramatic bumps only well above this. */
 const BASELINE_DELTA = 3.2;
+/** Quality at or above this maps to the +1px tall pip. */
+const TALL_THRESHOLD = 0.84;
+/** Minimum tick delta to lift a band at all. */
+const DRAMATIC_DELTA = 7.5;
 
 function smooth(values: number[], window: number): number[] {
   const half = Math.floor(window / 2);
@@ -19,7 +23,7 @@ function smooth(values: number[], window: number): number[] {
   });
 }
 
-/** Per-slot quality 0–1: tick bands cluster, recent deltas lift or drop the tail. */
+/** Per-slot quality 0–1: nearly flat; only huge recent deltas lift a band. */
 export function buildPipQualityProfile(
   playerId: string,
   raceId: string,
@@ -31,10 +35,9 @@ export function buildPipQualityProfile(
   const qualities: number[] = [];
 
   for (let tick = 0; tick < tickCount; tick++) {
-    const tickQuality = seededRange(`${raceId}:${playerId}:tickq:${tick}`, 0.22, 0.78);
     for (let j = 0; j < SLOTS_PER_TICK && qualities.length < slotCount; j++) {
-      const jitter = seededRange(`${raceId}:${playerId}:pq:${tick}:${j}`, -0.08, 0.08);
-      qualities.push(Math.max(0, Math.min(1, tickQuality + jitter)));
+      const jitter = seededRange(`${raceId}:${playerId}:pq:${tick}:${j}`, -0.012, 0.012);
+      qualities.push(Math.max(0, Math.min(1, 0.5 + jitter)));
     }
   }
 
@@ -42,10 +45,16 @@ export function buildPipQualityProfile(
     const band = Math.max(2, Math.round(SLOTS_PER_TICK));
     let end = filledCount;
     for (let i = recentDeltas.length - 1; i >= 0 && end > 0; i--) {
+      const delta = Number(recentDeltas[i]);
+      if (delta < DRAMATIC_DELTA) {
+        end = Math.max(0, end - band);
+        continue;
+      }
+
       const start = Math.max(0, end - band);
-      const bias = Math.max(
-        -0.32,
-        Math.min(0.38, (Number(recentDeltas[i]) - BASELINE_DELTA) / (BASELINE_DELTA * 2.2))
+      const bias = Math.min(
+        0.42,
+        0.2 + (delta - DRAMATIC_DELTA) / (BASELINE_DELTA * 4)
       );
       for (let slot = start; slot < end; slot++) {
         qualities[slot] = Math.max(0, Math.min(1, qualities[slot] + bias));
@@ -57,7 +66,7 @@ export function buildPipQualityProfile(
   return smooth(qualities, SMOOTH_WINDOW);
 }
 
-/** Height units per slot: 1 = short, 2 = tall (performance cluster). */
+/** Height units per slot: 1 = baseline, 2 = +1px bump (rare, dramatic only). */
 export function buildPipHeightUnits(
   playerId: string,
   raceId: string,
@@ -72,5 +81,5 @@ export function buildPipHeightUnits(
     filledCount,
     recentDeltas
   );
-  return qualities.map((q) => (q >= 0.5 ? 2 : 1));
+  return qualities.map((q) => (q >= TALL_THRESHOLD ? 2 : 1));
 }

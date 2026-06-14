@@ -27,7 +27,7 @@ import { RaceWeatherOverlay } from "@/app/components/race-weather-overlay";
 import { canEncourageVote, getEncourageButtonPhase, vibrateNope } from "@/lib/nope-feedback";
 import { getOrCreateDeviceId } from "@/lib/client-device-id";
 import { useEncourageCooldown } from "@/lib/use-encourage-cooldown";
-import { calculateLiveOdds } from "@/lib/live-odds";
+import { calculateLiveOdds, buildBadMoneyOpacityMap } from "@/lib/live-odds";
 import { buildLiveScoreMap, computeLiveRanks } from "@/lib/live-standings";
 import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
 import { BadMoneyModal } from "@/app/components/bad-money-modal";
@@ -299,50 +299,12 @@ function RaceProgressPipBar({
 }
 
 function LiveOddsBoard({
-  state,
-  liveRace,
-  raceActive,
+  lines,
+  oddsAge,
 }: {
-  state: GameStateResponse;
-  liveRace: ReturnType<typeof useLiveRace>;
-  raceActive: boolean;
+  lines: ReturnType<typeof calculateLiveOdds>;
+  oddsAge: string;
 }) {
-  const oddsAsOf = state.gameState.last_tick_at ?? state.serverTime;
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const tick = () => setNow(new Date());
-    tick();
-    const id = setInterval(tick, 30000);
-    return () => clearInterval(id);
-  }, []);
-
-  const oddsAge = formatTickerAge(oddsAsOf, now);
-
-  const lines = useMemo(() => {
-    if (
-      !raceActive ||
-      state.race.status !== "active" ||
-      state.racePhase !== "live" ||
-      !liveRace
-    ) {
-      return [];
-    }
-
-    const scores = buildLiveScoreMap(state.entries, liveRace.entries);
-    const ranks = computeLiveRanks(state.entries, scores);
-
-    return calculateLiveOdds(
-      state.race.id,
-      state.race.day_number,
-      liveRace.raceProgress,
-      state.entries,
-      scores,
-      ranks,
-      state.ovrByPlayerId
-    );
-  }, [state, liveRace, raceActive]);
-
   if (lines.length === 0) return null;
 
   return (
@@ -355,10 +317,7 @@ function LiveOddsBoard({
       </div>
       <div className="live-odds-list">
         {lines.map((line) => (
-          <div
-            key={line.playerId}
-            className={`live-odds-row${line.isFavorite ? " live-odds-row-fav" : ""}`}
-          >
+          <div key={line.playerId} className="live-odds-row">
             <span className="live-odds-name">{formatRacerName(line.name)}</span>
             <span className="live-odds-american">{line.american}</span>
           </div>
@@ -726,6 +685,46 @@ export default function HomePage() {
     [state, liveScoreMap]
   );
 
+  const oddsAsOf = state?.gameState.last_tick_at ?? state?.serverTime;
+  const [oddsNow, setOddsNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const tick = () => setOddsNow(new Date());
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const oddsAge = oddsAsOf ? formatTickerAge(oddsAsOf, oddsNow) : "";
+
+  const liveOddsLines = useMemo(() => {
+    if (
+      !state ||
+      !raceActive ||
+      raceDelayed ||
+      state.race.status !== "active" ||
+      state.racePhase !== "live" ||
+      !liveRace
+    ) {
+      return [];
+    }
+
+    return calculateLiveOdds(
+      state.race.id,
+      state.race.day_number,
+      liveRace.raceProgress,
+      state.entries,
+      liveScoreMap,
+      liveRankMap,
+      state.ovrByPlayerId
+    );
+  }, [state, raceActive, raceDelayed, liveRace, liveScoreMap, liveRankMap]);
+
+  const badMoneyOpacityMap = useMemo(
+    () => buildBadMoneyOpacityMap(liveOddsLines),
+    [liveOddsLines]
+  );
+
   const entryScorePoints =
     state?.entries.map((e) => liveScoreMap.get(e.player_id) ?? 0) ?? [];
 
@@ -1013,6 +1012,15 @@ export default function HomePage() {
                               ? " bad-money-btn-blocked"
                               : ""
                           }`}
+                          style={
+                            state.badMoney.canBet && !state.badMoney.hasBet
+                              ? {
+                                  opacity:
+                                    badMoneyOpacityMap.get(entry.player_id) ??
+                                    0.45,
+                                }
+                              : undefined
+                          }
                           disabled={
                             betting ||
                             !state.badMoney.canBet ||
@@ -1080,8 +1088,8 @@ export default function HomePage() {
             </span>
           </div>
 
-          {raceActive && !raceDelayed && liveRace && state.racePhase === "live" && (
-            <LiveOddsBoard state={state} liveRace={liveRace} raceActive={raceActive} />
+          {liveOddsLines.length > 0 && (
+            <LiveOddsBoard lines={liveOddsLines} oddsAge={oddsAge} />
           )}
 
           <div className="divider">{"────────────────────────"}</div>
