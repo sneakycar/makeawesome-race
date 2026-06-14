@@ -88,14 +88,15 @@ function RaceMetaPanel({
       <div className="race-meta">
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
         <div className="race-meta-line">{`${progressDisplay} DONE`}</div>
+        <div className="race-progress-track" aria-hidden="true">
+          <div
+            className="race-progress-fill"
+            style={{ width: `${progressBarWidth}%` }}
+          />
+        </div>
+        <div className="race-meta-gap" aria-hidden="true" />
         <div className="race-meta-line">{timerLine}</div>
         <div className="race-meta-line">{`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}</div>
-      </div>
-      <div className="race-progress-track" aria-hidden="true">
-        <div
-          className="race-progress-fill"
-          style={{ width: `${progressBarWidth}%` }}
-        />
       </div>
     </div>
   );

@@ -251,17 +251,25 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   display: block;
 }
 
+.race-meta-gap {
+  display: block;
+  height: 0.85em;
+}
+
 .race-progress-track {
-  height: 8px;
+  height: 10px;
   width: 100%;
+  margin-top: 6px;
   background: #eee;
   border: 1px solid #999;
+  border-radius: 999px;
   overflow: hidden;
 }
 
 .race-progress-fill {
   height: 100%;
   background: #111;
+  border-radius: 999px;
   transition: width 0.12s linear;
 }
 
