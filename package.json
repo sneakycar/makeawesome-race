@@ -12,7 +12,8 @@
     "reset-race-one": "tsx scripts/reset-race-one.ts",
     "backfill-identity": "tsx scripts/backfill-identity.ts",
     "backfill-ticker": "tsx scripts/backfill-ticker.ts",
-    "apply-ticker-migration": "tsx scripts/apply-ticker-migration.ts"
+    "apply-ticker-migration": "tsx scripts/apply-ticker-migration.ts",
+    "force-fight-next-tick": "tsx scripts/force-fight-next-tick.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

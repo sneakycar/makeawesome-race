@@ -4,15 +4,22 @@ import { useEffect, useState } from "react";
 import { getRaceClock } from "./race-clock";
 import { isRaceDelayed } from "./race-delay";
 import {
-  calculatePrecisePercentComplete,
-  liveEntriesById,
-  type LiveEntryState,
-} from "./live-progress";
+  getCronSegmentProgress,
+  getHybridScoreState,
+  type HybridScoreState,
+} from "./hybrid-live-score";
+import { calculatePrecisePercentComplete } from "./live-progress";
 import type { GameStateResponse } from "./types";
+
+export interface LiveEntryState extends HybridScoreState {
+  player_id: string;
+  current_rank: number;
+}
 
 export interface LiveRaceSnapshot {
   entries: Map<string, LiveEntryState>;
   raceProgress: number;
+  segmentProgress: number;
 }
 
 export function useLiveRace(
@@ -50,15 +57,38 @@ export function useLiveRace(
         return;
       }
 
-      const entries = liveEntriesById(
-        state.race,
-        state.entries,
-        now,
-        new Date(state.serverTime)
-      );
-      if (!entries) {
-        setSnapshot(null);
-        return;
+      const segmentProgress = getCronSegmentProgress(state.gameState.last_tick_at, now);
+      const entries = new Map<string, LiveEntryState>();
+
+      for (const entry of state.entries) {
+        if (entry.is_injured || entry.is_fighting) {
+          const frozen = Math.max(
+            0,
+            Number(entry.fight_frozen_score ?? entry.race_score)
+          );
+          entries.set(entry.player_id, {
+            player_id: entry.player_id,
+            score: frozen,
+            confirmedScore: frozen,
+            tickDelta: 0,
+            baseScore: frozen,
+            segmentProgress: 1,
+            current_rank: entry.current_rank,
+          });
+          continue;
+        }
+
+        const hybrid = getHybridScoreState(
+          Number(entry.race_score),
+          Number(entry.last_delta),
+          segmentProgress
+        );
+
+        entries.set(entry.player_id, {
+          player_id: entry.player_id,
+          ...hybrid,
+          current_rank: entry.current_rank,
+        });
       }
 
       const progress =
@@ -69,6 +99,7 @@ export function useLiveRace(
       setSnapshot({
         entries,
         raceProgress: progress,
+        segmentProgress,
       });
     };
 

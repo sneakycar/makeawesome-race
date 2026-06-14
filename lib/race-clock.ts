@@ -65,7 +65,8 @@ export function getRaceClock(
   };
 }
 
-const TICK_INTERVAL_MS = 15 * 60 * 1000;
+export const CRON_SEGMENT_MS = 15 * 60 * 1000;
+const TICK_INTERVAL_MS = CRON_SEGMENT_MS;
 
 /** Ms until the next :00/:15/:30/:45 UTC cron tick. */
 export function getMsUntilNextUpdate(now: Date = new Date()): number {

@@ -730,15 +730,96 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   line-height: 1;
 }
 
-.row-score {
+.row-score-readout {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: min(52vw, 220px);
+  position: relative;
+}
+
+.row-score-readout-leader .row-scoreboard-num {
+  border-color: #c9a100;
+  box-shadow:
+    inset 0 -2px 0 rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(201, 161, 0, 0.35);
+}
+
+.row-score-readout-paused .row-scoreboard-num,
+.row-score-readout-paused .row-scoreboard-gain {
+  opacity: 0.45;
+}
+
+.row-scoreboard-label {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 7px;
   line-height: 1;
-  color: #333;
-  min-width: 2rem;
-  text-align: right;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: #888;
+}
+
+.row-scoreboard-num {
+  flex-shrink: 0;
+  min-width: 2.25rem;
+  padding: 3px 7px;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: right;
+  color: #111;
+  background: #f4f4f4;
+  border: 2px solid #222;
+  box-shadow: inset 0 -2px 0 #d8d8d8;
+}
+
+.row-scoreboard-gain {
+  flex-shrink: 0;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: #1a8a52;
+  animation: score-gain-pulse 1.2s ease-in-out infinite;
+}
+
+.row-scoreboard-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.row-scoreboard-overlay-emoji {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.row-scoreboard-overlay-label {
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+@keyframes score-gain-pulse {
+  50% {
+    opacity: 0.55;
+  }
 }
 
 .score-pip-viewport {
@@ -810,6 +891,10 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
     0 0 0 0.5px rgba(0, 0, 0, 0.5);
 }
 
+.score-pip-partial {
+  transition: opacity 0.12s linear;
+}
+
 .score-pip-dim {
   background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 55%, #c4c4c4 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
@@ -875,6 +960,64 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.live-odds {
+  margin: 14px 0 6px;
+  padding: 10px 10px 8px;
+  border: 1px dashed #bbb;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.live-odds-title {
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.live-odds-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+}
+
+.live-odds-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+}
+
+.live-odds-row-fav .live-odds-name,
+.live-odds-row-fav .live-odds-american {
+  font-weight: 700;
+  color: #111;
+}
+
+.live-odds-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #444;
+}
+
+.live-odds-american {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: #333;
+}
+
+.live-odds-row-fav .live-odds-american {
+  color: #9a3b00;
 }
 
 .lane-stat-list {
@@ -1830,7 +1973,7 @@ body[data-home-theme="night"] .encourage-btn.supported {
 
 body[data-home-theme="night"] .row-ovr,
 body[data-home-theme="night"] .row-name,
-body[data-home-theme="night"] .row-score,
+body[data-home-theme="night"] .row-scoreboard-num,
 body[data-home-theme="night"] .row-injured {
   color: #f0f0f0;
 }
@@ -1860,6 +2003,36 @@ body[data-home-theme="night"] .row-bar-fill {
 
 body[data-home-theme="night"] .row-bar-empty {
   color: #444;
+}
+
+body[data-home-theme="night"] .row-scoreboard-label {
+  color: #888;
+}
+
+body[data-home-theme="night"] .row-scoreboard-num {
+  background: #1a1a1a;
+  border-color: #555;
+  box-shadow: inset 0 -2px 0 #111;
+}
+
+body[data-home-theme="night"] .row-score-readout-leader .row-scoreboard-num {
+  border-color: #ffd700;
+  box-shadow:
+    inset 0 -2px 0 #111,
+    0 0 0 1px rgba(255, 215, 0, 0.25);
+}
+
+body[data-home-theme="night"] .row-scoreboard-gain {
+  color: #5fd99a;
+}
+
+body[data-home-theme="night"] .row-scoreboard-overlay {
+  background: rgba(0, 0, 0, 0.68);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+body[data-home-theme="night"] .row-scoreboard-overlay-label {
+  color: #f0f0f0;
 }
 
 body[data-home-theme="night"] .race-progress-pip-pill {
@@ -1931,6 +2104,28 @@ body[data-home-theme="night"] .score-pip-overlay-label {
 
 body[data-home-theme="night"] .race-legend {
   color: #aaa;
+}
+
+body[data-home-theme="night"] .live-odds {
+  border-color: #444;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+body[data-home-theme="night"] .live-odds-title {
+  color: #888;
+}
+
+body[data-home-theme="night"] .live-odds-name {
+  color: #bbb;
+}
+
+body[data-home-theme="night"] .live-odds-american {
+  color: #ddd;
+}
+
+body[data-home-theme="night"] .live-odds-row-fav .live-odds-name,
+body[data-home-theme="night"] .live-odds-row-fav .live-odds-american {
+  color: #ffd700;
 }
 
 body[data-home-theme="night"] .lane-stat-row {
@@ -2111,18 +2306,19 @@ body[data-home-theme="night"] .race-weather-fog {
     height: 13px;
   }
 
-  .score-pip-viewport {
+  .row-score-readout {
     max-width: none;
     flex: 1 1 0;
-    height: 12px;
   }
 
-  .score-pip-track {
-    height: 12px;
+  .row-scoreboard-num {
+    font-size: 15px;
+    min-width: 2.5rem;
+    padding: 4px 8px;
   }
 
-  .score-pip {
-    height: 11px;
+  .row-scoreboard-gain {
+    font-size: 11px;
   }
 
   .row-line {
@@ -2135,11 +2331,6 @@ body[data-home-theme="night"] .race-weather-fog {
 
   .row-name {
     font-size: 14px;
-  }
-
-  .row-score {
-    font-size: 14px;
-    min-width: 2.25rem;
   }
 
   .encourage-btn {
@@ -2199,6 +2390,15 @@ body[data-home-theme="night"] .race-weather-fog {
   .race-legend {
     font-size: 11px;
     gap: 16px 24px;
+  }
+
+  .live-odds-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px 18px;
+  }
+
+  .live-odds-row {
+    font-size: 11px;
   }
 
   .player-page {

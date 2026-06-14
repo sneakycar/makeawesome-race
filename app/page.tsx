@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getRaceClock, type RaceClock } from "@/lib/race-clock";
 import { useCronUpdate } from "@/lib/use-cron-update";
 import type { GameStateResponse, Player, PlayerProfileResponse, TickerEvent } from "@/lib/types";
@@ -27,6 +27,7 @@ import { useRaceWeather } from "@/lib/use-race-weather";
 import { formatRankDelta, useLiveRankDelta } from "@/lib/use-live-rank-delta";
 import { WEATHER_ART, type RaceWeatherState } from "@/lib/race-weather";
 import { canEncourageVote, vibrateNope } from "@/lib/nope-feedback";
+import { calculateLiveOdds } from "@/lib/live-odds";
 
 function RaceDelayOverlay({
   delay,
@@ -270,70 +271,113 @@ function RaceProgressPipBar({
   );
 }
 
-function ScorePipTrack({
-  score,
-  leaderScore,
+function ScoreReadout({
+  displayPoints,
+  lastDelta,
+  segmentProgress,
   isLeader,
   isNight,
   statusOverlay,
 }: {
-  score: number;
-  leaderScore: number;
+  displayPoints: number;
+  lastDelta: number;
+  segmentProgress: number;
   isLeader: boolean;
   isNight: boolean;
   statusOverlay?: { emoji: string; label: string };
 }) {
-  const points = Math.max(0, Math.round(score));
-  const leader = Math.max(1, Math.round(leaderScore));
-  const slots = leader;
-  const bright = Math.max(0, Math.min(points, leader));
-  const behind = leader - points;
+  const points = Math.max(0, Math.round(displayPoints));
+  const tickDelta = Math.max(0, lastDelta);
+  const animatingGain =
+    tickDelta > 0 && segmentProgress < 1
+      ? Math.max(0, Math.round(tickDelta * segmentProgress))
+      : 0;
 
   return (
     <div
-      className={`score-pip-viewport${statusOverlay ? " score-pip-viewport-paused" : ""}`}
+      className={`row-score-readout${isLeader ? " row-score-readout-leader" : ""}${
+        statusOverlay ? " row-score-readout-paused" : ""
+      }`}
       aria-label={
         statusOverlay
           ? `${statusOverlay.label} — ${points} points`
-          : isLeader
-            ? `${points} points, race leader`
-            : `${points} points, ${behind} behind leader`
+          : `${points} points scored`
       }
-      title={
-        statusOverlay
-          ? `${statusOverlay.label} — ${points} pts`
-          : isLeader
-            ? `${points} points`
-            : `${points} pts · ${behind} behind lead`
-      }
+      title={statusOverlay ? `${statusOverlay.label} — ${points} pts` : `${points} pts`}
     >
-      <div className="score-pip-track">
-        {Array.from({ length: slots }, (_, i) => {
-          if (i < bright) {
-            return (
-              <span
-                key={i}
-                className="score-pip score-pip-on"
-                style={{
-                  background: getScorePipBackground(
-                    i,
-                    Math.max(1, bright),
-                    isNight
-                  ),
-                }}
-                aria-hidden="true"
-              />
-            );
-          }
-          return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
-        })}
-      </div>
+      <span className="row-scoreboard-label">PTS</span>
+      <span className={`row-scoreboard-num${isNight ? " row-scoreboard-num-night" : ""}`}>
+        {formatRaceScore(points)}
+      </span>
+      {animatingGain > 0 && (
+        <span className="row-scoreboard-gain" aria-hidden="true">
+          +{formatRaceScore(animatingGain)}
+        </span>
+      )}
       {statusOverlay && (
-        <div className="score-pip-overlay" aria-hidden="true">
-          <span className="score-pip-overlay-emoji">{statusOverlay.emoji}</span>
-          <span className="score-pip-overlay-label">{statusOverlay.label}</span>
+        <div className="row-scoreboard-overlay" aria-hidden="true">
+          <span className="row-scoreboard-overlay-emoji">{statusOverlay.emoji}</span>
+          <span className="row-scoreboard-overlay-label">{statusOverlay.label}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+function LiveOddsBoard({
+  state,
+  liveRace,
+  raceActive,
+}: {
+  state: GameStateResponse;
+  liveRace: ReturnType<typeof useLiveRace>;
+  raceActive: boolean;
+}) {
+  const lines = useMemo(() => {
+    if (!raceActive || state.race.status !== "active") return [];
+
+    const scores = new Map<string, number>();
+    for (const entry of state.entries) {
+      if (entry.is_injured) {
+        scores.set(entry.player_id, Math.round(Number(entry.race_score)));
+      } else if (entry.is_fighting) {
+        scores.set(
+          entry.player_id,
+          Math.round(Number(entry.fight_frozen_score ?? entry.race_score))
+        );
+      } else {
+        const live = liveRace?.entries.get(entry.player_id);
+        scores.set(entry.player_id, Math.round(live?.score ?? Number(entry.race_score)));
+      }
+    }
+
+    return calculateLiveOdds(
+      state.race.id,
+      state.race.day_number,
+      state.race.percent_complete,
+      state.entries,
+      scores,
+      state.ovrByPlayerId,
+      state.gameState.last_tick_at ?? state.serverTime
+    );
+  }, [state, liveRace, raceActive]);
+
+  if (lines.length === 0) return null;
+
+  return (
+    <div className="live-odds" aria-label="Live betting odds">
+      <div className="live-odds-title">LIVE ODDS</div>
+      <div className="live-odds-list">
+        {lines.map((line) => (
+          <div
+            key={line.playerId}
+            className={`live-odds-row${line.isFavorite ? " live-odds-row-fav" : ""}`}
+          >
+            <span className="live-odds-name">{formatRacerName(line.name)}</span>
+            <span className="live-odds-american">{line.american}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -830,19 +874,7 @@ export default function HomePage() {
   const isNight = useDayNight();
   useHomeDayNightTheme(isNight);
   const raceWeather = useRaceWeather(state?.race.id, raceActive && !raceDelayed);
-  const rankDeltaById = useLiveRankDelta(state, liveRace, raceActive && !raceDelayed);
-
-  const entryScorePoints =
-    state?.entries.map((e) => {
-      if (e.is_injured) return Math.round(Number(e.race_score));
-      if (e.is_fighting) return Math.round(Number(e.fight_frozen_score ?? e.race_score));
-      const live = liveRace?.entries.get(e.player_id);
-      return Math.round(live?.score ?? Number(e.race_score));
-    }) ?? [];
-
-  const leaderScorePoints = entryScorePoints.length
-    ? Math.max(...entryScorePoints)
-    : 1;
+  const rankDeltaById = useLiveRankDelta(state, raceActive && !raceDelayed);
 
   const selectedEntry = selectedSlug
     ? state?.entries.find((e) => e.player.slug === selectedSlug)
@@ -950,12 +982,14 @@ export default function HomePage() {
             .sort((a, b) => a.lane - b.lane)
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
-            const rank = live?.current_rank ?? entry.current_rank;
+            const rank = entry.current_rank;
             const scorePoints = entry.is_injured
               ? Math.round(Number(entry.race_score))
               : entry.is_fighting
                 ? Math.round(Number(entry.fight_frozen_score ?? entry.race_score))
                 : Math.round(live?.score ?? Number(entry.race_score));
+            const pipLastDelta = live?.tickDelta ?? Math.max(0, Number(entry.last_delta));
+            const pipSegmentProgress = live?.segmentProgress ?? 1;
             const isInjured = entry.is_injured;
             const isFighting = entry.is_fighting;
             const isComeback = !isInjured && !isFighting && entry.last_rank_change >= 2;
@@ -1033,14 +1067,14 @@ export default function HomePage() {
                     >
                       {barMark}
                     </span>
-                    <ScorePipTrack
-                      score={scorePoints}
-                      leaderScore={leaderScorePoints}
+                    <ScoreReadout
+                      displayPoints={scorePoints}
+                      lastDelta={pipLastDelta}
+                      segmentProgress={pipSegmentProgress}
                       isLeader={isLeader}
                       isNight={isNight}
                       statusOverlay={pipOverlay}
                     />
-                    <span className="row-score">{formatRaceScore(scorePoints)}</span>
                     {raceActive && !isInjured && !isFighting && (
                       <button
                         type="button"
@@ -1099,6 +1133,10 @@ export default function HomePage() {
               FIGHT
             </span>
           </div>
+
+          {raceActive && !raceDelayed && (
+            <LiveOddsBoard state={state} liveRace={liveRace} raceActive={raceActive} />
+          )}
 
           <div className="divider">{"────────────────────────"}</div>
 
