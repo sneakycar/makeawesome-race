@@ -292,8 +292,9 @@ main,
   font-size: 11px;
   line-height: 1;
   color: #333;
-  min-width: 2rem;
+  min-width: 3.5rem;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .row-labels:active {

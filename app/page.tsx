@@ -15,6 +15,22 @@ import {
   formatCurrentRaceLabel,
   ordinal,
 } from "@/lib/format";
+import { useCosmeticProgress } from "@/lib/cosmetic-progress";
+
+function LivePercent({
+  base,
+  seed,
+  active,
+  className,
+}: {
+  base: number;
+  seed: string;
+  active: boolean;
+  className?: string;
+}) {
+  const text = useCosmeticProgress(base, seed, active);
+  return <span className={className}>{text}%</span>;
+}
 
 function RaceMetaPanel({
   state,
@@ -29,6 +45,9 @@ function RaceMetaPanel({
     getRaceClock(new Date(state.race.started_at), new Date(state.race.ends_at))
   );
   const [nextUpdateMs, setNextUpdateMs] = useState(() => getMsUntilNextUpdate());
+  const liveMeta =
+    raceActive && clock.phase === "live" && state.race.status === "active";
+  const progressLabel = useCosmeticProgress(clock.percentComplete, "race-meta", liveMeta);
 
   useEffect(() => {
     const startedAt = new Date(state.race.started_at);
@@ -73,7 +92,7 @@ function RaceMetaPanel({
       <div className="race-meta">
         {`RACE ${state.race.race_number}\n`}
         {`${beganLabel}\n`}
-        {`PROGRESS: ${clock.percentComplete}%\n`}
+        {`PROGRESS: ${progressLabel}%\n`}
         {timerLine}
         {"\n"}
         {`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}
@@ -176,7 +195,7 @@ function PlayerOverlay({
               )}
               {profile.currentProgress != null && (
                 <span className="overlay-stat">
-                  CURRENT PROGRESS: {profile.currentProgress}%
+                  CURRENT PROGRESS: {profile.currentProgress.toFixed(2)}%
                 </span>
               )}
             </div>
@@ -451,7 +470,12 @@ export default function HomePage() {
                 </div>
                 <div className="row-track">
                   <span className={`row-bar ${barClass}`}>{bar}</span>
-                  <span className="row-pct">{entry.displayed_progress}%</span>
+                  <LivePercent
+                    base={entry.displayed_progress}
+                    seed={entry.player_id}
+                    active={raceActive}
+                    className="row-pct"
+                  />
                   {raceActive && (
                     <button
                       type="button"
