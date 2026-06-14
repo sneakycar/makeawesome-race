@@ -65,28 +65,42 @@ main,
   margin: 0;
 }
 
-/* scrolling ticker */
+/* scrolling ticker — CNN-style badge + crawl */
 .ticker-wrap {
+  display: flex;
+  align-items: stretch;
   border-top: 1px solid #ccc;
   border-bottom: 1px solid #ccc;
   margin-bottom: 10px;
   background: #f0f0f0;
   text-transform: none;
+  min-height: 30px;
 }
 
-.ticker-label {
+.ticker-badge {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: #cc0000;
+  color: #fff;
   font-size: 10px;
-  color: #666;
-  padding: 4px 0 2px;
-  letter-spacing: 0.04em;
-  text-transform: none;
-  font-weight: 500;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.12);
 }
 
 .ticker-viewport {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
-  width: 100%;
-  padding-bottom: 6px;
+  display: flex;
+  align-items: center;
 }
 
 .ticker-track {
@@ -98,6 +112,7 @@ main,
   color: #222;
   text-transform: none;
   will-change: transform;
+  padding-left: 10px;
 }
 
 .ticker-chunk {
@@ -1001,8 +1016,10 @@ body[data-home-theme="night"] .ticker-wrap {
   background: #141414;
 }
 
-body[data-home-theme="night"] .ticker-label {
-  color: #999;
+body[data-home-theme="night"] .ticker-badge {
+  background: #d40000;
+  color: #fff;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.45);
 }
 
 body[data-home-theme="night"] .ticker-track {

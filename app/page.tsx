@@ -104,10 +104,12 @@ function RaceMetaPanel({
 function ScrollingTicker({
   events,
   serverTime,
+  raceNumber,
   fallback,
 }: {
   events: TickerEvent[];
   serverTime: string;
+  raceNumber: number;
   fallback: string;
 }) {
   const now = new Date(serverTime);
@@ -122,7 +124,7 @@ function ScrollingTicker({
 
   return (
     <div className="ticker-wrap" aria-live="polite">
-      <div className="ticker-label">Ticker</div>
+      <div className="ticker-badge">RACE {raceNumber}</div>
       <div className="ticker-viewport">
         <div className="ticker-track">
           <span className="ticker-chunk">{line}</span>
@@ -666,6 +668,7 @@ export default function HomePage() {
         <ScrollingTicker
           events={state.ticker}
           serverTime={state.serverTime}
+          raceNumber={state.race.race_number}
           fallback={
             state.race.status === "active"
               ? "Race in progress — awaiting first broadcast"
