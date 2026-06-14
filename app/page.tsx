@@ -23,7 +23,7 @@ import {
   getRaceProgressPipSurfaceStyle,
 } from "@/lib/race-progress-art";
 import { formatOvrRank } from "@/lib/ovr";
-import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
+import { formatTraitsDisplay, getArchetypeExplainer, getSignatureStatExplainer, getTraitExplainerLines } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
 import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
 import { useRaceWeather } from "@/lib/use-race-weather";
@@ -657,19 +657,27 @@ function PlayerOverlay({
 
             <div className="retro-box">
               <div className="retro-box-title">▶ IDENTITY</div>
-              <div className="retro-identity-text">{getIdentityText(p)}</div>
               <div className="retro-status-grid">
                 <div className="retro-kv retro-kv-wide">
                   <span className="retro-k">ARCHETYPE</span>
                   <span className="retro-v">{p.archetype ?? "UNKNOWN"}</span>
+                  <span className="retro-kv-note">{getArchetypeExplainer(p.archetype)}</span>
                 </div>
                 <div className="retro-kv retro-kv-wide">
                   <span className="retro-k">TRAITS</span>
                   <span className="retro-v">{formatTraitsDisplay(p.traits ?? [])}</span>
+                  <div className="retro-kv-note retro-kv-note-stack">
+                    {getTraitExplainerLines(p.traits ?? []).map((line, i) => (
+                      <span key={`${p.traits?.[i] ?? i}-${line}`}>{line}</span>
+                    ))}
+                  </div>
                 </div>
-                <div className="retro-kv">
+                <div className="retro-kv retro-kv-wide">
                   <span className="retro-k">SIGNATURE</span>
                   <span className="retro-v">{(p.signature_stat ?? "grit").toUpperCase()}</span>
+                  <span className="retro-kv-note">
+                    {getSignatureStatExplainer(p.signature_stat)}
+                  </span>
                 </div>
               </div>
             </div>

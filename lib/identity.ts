@@ -281,6 +281,93 @@ export function formatTraitsDisplay(traits: string[]): string {
   return traits.join(" / ");
 }
 
+/** One-line player-card copy for each trait. */
+export const TRAIT_EXPLAINERS: Record<TraitId, string> = {
+  LOUD: "More chaos swings and post-race pressure.",
+  QUIET: "Less spotlight pressure; slightly harder to grow from support.",
+  STUBBORN: "Less likely to collapse or get injured.",
+  DUSTY: "Slightly more likely to mutate while in holding.",
+  PARANOID: "Feels pressure harder during races.",
+  ELEGANT: "Calmer peaks — smaller max single-tick swings.",
+  UNLUCKY: "Starts with less luck; slightly easier to grow after bad finishes.",
+  LUCKY: "Starts with more luck; slightly harder to grow when already lucky.",
+  SUSPICIOUS: "Fans support a little less often.",
+  FORMAL: "Tighter, less wild scoring swings.",
+  COLD: "Less fan-driven growth; cooler under chaos.",
+  GREEDY: "Wins cost more fatigue later.",
+  TIRED: "More fatigue and injury risk; recovers slower in holding.",
+  WET: "Starts scrappier — more chaos and drag.",
+  HOLLOW: "Less pressure, but support helps a little less.",
+  BRAVE: "Surges late when trailing; slightly injury-prone deep in races.",
+  SMALL: "Minor flavor — tiny random nudges each race.",
+  HUGE: "Minor flavor — tiny random nudges each race.",
+  NERVOUS: "Starts with less nerve; pressure hits harder.",
+  CALM: "Starts with more nerve; chaos and pressure hit softer.",
+  RUDE: "Minor flavor — tiny random nudges each race.",
+  POLITE: "Minor flavor — tiny random nudges each race.",
+  ANCIENT: "More likely to fade with age.",
+  NEW: "Minor flavor — tiny random nudges each race.",
+  SAD: "Minor flavor — tiny random nudges each race.",
+  FAST: "Strong early race; tires more after wins.",
+  SLOW: "Weak start, stronger late race.",
+  SHARP: "Bigger chaos spikes; less likely to collapse.",
+  SOFT: "Less collapse risk; wears down a bit faster.",
+  ROTTEN: "More injuries, decay, and weird mutations.",
+  CLEAN: "Fewer mutations and bad twists.",
+  BROKEN: "More injury-prone; starts a little banged up.",
+  FAITHFUL: "Fan support helps growth more often.",
+  USELESS: "Looks hopeless — support helps a lot when it lands.",
+  FAMOUS: "More pressure when winning; fans notice them more.",
+  FORGOTTEN: "Better after returning from holding; comeback boost.",
+  DANGEROUS: "Wilder scoring and more injury risk.",
+  BORING: "Steady and underestimated — small hidden race bonus.",
+  TENDER: "Minor flavor — tiny random nudges each race.",
+  GROSS: "Minor flavor — tiny random nudges each race.",
+  MAGNETIC: "Small scoring bump — things drift their way.",
+  PALE: "Minor flavor — tiny random nudges each race.",
+  HEAVY: "Minor flavor — tiny random nudges each race.",
+  LIGHT: "Minor flavor — tiny random nudges each race.",
+  ODD: "Random scoring nudge every race — could go either way.",
+  PLAIN: "Minor flavor — tiny random nudges each race.",
+  WILD: "Minor flavor — tiny random nudges each race.",
+  STILL: "Minor flavor — tiny random nudges each race.",
+  HUNGRY: "Wears down faster, but grows more after bad finishes.",
+  SLEEPY: "Slow out of the gate, wakes up late in the race.",
+};
+
+export const SIGNATURE_STAT_EXPLAINERS: Record<SignatureStat, string> = {
+  grit: "Born with extra grit. Fan support grows grit twice as often — watch the starred ability bar.",
+  chaos: "Born with extra chaos. Wilder tick swings; support and mutations favor chaos.",
+  nerve: "Born with extra nerve. Handles pressure better; support favors nerve growth.",
+  luck: "Born with extra luck. More lucky breaks in scoring; support favors luck.",
+  burst: "Born with extra burst. Bigger hot stretches; support favors burst.",
+  drag: "Born with extra drag. More stalls and bleeds, but mutates more often — a weird signature.",
+};
+
+export function getArchetypeExplainer(archetype: string | null | undefined): string {
+  const def = ARCHETYPES[archetype as ArchetypeId];
+  if (!def) return "Core racing personality — shapes scoring, growth, and pressure every race.";
+  return `${def.description} Biases stats and tick behavior over a career.`;
+}
+
+export function getTraitExplainerLines(traits: string[]): string[] {
+  if (!traits.length) return ["No traits — straight baseline behavior."];
+  return traits.map((trait) => {
+    const note =
+      TRAIT_EXPLAINERS[trait as TraitId] ??
+      "Minor flavor — small nudges to behavior over time.";
+    return `${trait} — ${note}`;
+  });
+}
+
+export function getSignatureStatExplainer(stat: string | null | undefined): string {
+  const key = (stat ?? "grit") as SignatureStat;
+  return (
+    SIGNATURE_STAT_EXPLAINERS[key] ??
+    "Born with a boost to this stat. Fan support doubles growth here — starred on the ability bars."
+  );
+}
+
 export function getIdentityText(player: Pick<Player, "archetype" | "traits">): string {
   const def = ARCHETYPES[player.archetype as ArchetypeId];
   const base = def?.description ?? "An unknown racer.";

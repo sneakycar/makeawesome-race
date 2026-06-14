@@ -11,7 +11,13 @@ import {
 } from "@/lib/format";
 import { formatRaceScore } from "@/lib/score";
 import { formatOvrRank } from "@/lib/ovr";
-import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
+import {
+  formatTraitsDisplay,
+  getArchetypeExplainer,
+  getIdentityText,
+  getSignatureStatExplainer,
+  getTraitExplainerLines,
+} from "@/lib/identity";
 
 function abilityLine(label: string, value: number, signature: boolean): string {
   const pips = formatPips(value);
@@ -96,12 +102,15 @@ export default function PlayerPage({
 
           {"\n\n"}ARCHETYPE
           {"\n"}{p.archetype ?? "UNKNOWN"}
+          {"\n"}{getArchetypeExplainer(p.archetype)}
 
           {"\n\n"}TRAITS
           {"\n"}{formatTraitsDisplay(p.traits ?? [])}
+          {getTraitExplainerLines(p.traits ?? []).map((line) => `\n${line}`).join("")}
 
           {"\n\n"}SIGNATURE
           {"\n"}{sig.toUpperCase()}
+          {"\n"}{getSignatureStatExplainer(sig)}
 
           {"\n\n"}{getIdentityText(p)}
 

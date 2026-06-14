@@ -1468,13 +1468,19 @@ body[data-home-theme="night"] .row-mark-slot {
   text-shadow: 1px 1px 0 #000;
 }
 
-.retro-identity-text {
+.retro-kv-note {
   font-size: 6px;
-  line-height: 1.7;
-  color: #ccd6ff;
-  margin-bottom: 8px;
+  line-height: 1.55;
+  color: #88aacc;
   text-transform: none;
   letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+
+.retro-kv-note-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .retro-status-grid,
