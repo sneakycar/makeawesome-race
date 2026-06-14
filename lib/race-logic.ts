@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
-import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap } from "./score";
+import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap, normalizePeakRaceScore } from "./score";
 import { getCombinedRaceTempo, getRaceWeekTempo } from "./race-tempo";
 import { resolveWinnerRaceScore } from "./god-score";
 import { appendRecentDelta } from "./hybrid-live-score";
@@ -715,7 +715,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
 
     updated.push({
       ...entry,
-      progress: newScore,
+      progress: Math.round(newScore),
       displayed_progress: Math.round(newScore),
       last_delta: isInjured ? 0 : tickResult.delta,
       recent_deltas: appendRecentDelta(
@@ -723,7 +723,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         isInjured ? 0 : tickResult.delta
       ),
       event_note: isInjured ? "INJURED" : tickResult.event_note,
-      race_score: newScore,
+      race_score: Math.round(newScore),
       is_injured: isInjured,
       injured_at_tick: injuredAtTick,
       injury_name: injuryName,
@@ -761,20 +761,23 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
 
   for (const entry of ranked) {
     const score = Math.round(Number(entry.race_score));
-    const peakRaceScore = Math.max(Number(entry.peak_race_score ?? 0), score);
+    const peakRaceScore = normalizePeakRaceScore(Number(entry.peak_race_score ?? 0), score);
     entry.peak_race_score = peakRaceScore;
+    entry.race_score = score;
+    entry.progress = score;
+    entry.displayed_progress = score;
 
     await supabase
       .from("race_entries")
       .update({
-        progress: entry.race_score,
-        displayed_progress: entry.displayed_progress,
+        progress: score,
+        displayed_progress: score,
         current_rank: entry.current_rank,
         last_delta: entry.last_delta,
         recent_deltas: entry.recent_deltas ?? [],
         last_rank_change: entry.last_rank_change,
         event_note: entry.event_note,
-        race_score: entry.race_score,
+        race_score: score,
         peak_race_score: peakRaceScore,
         is_injured: entry.is_injured ?? false,
         injured_at_tick: entry.injured_at_tick ?? null,

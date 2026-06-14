@@ -91,7 +91,11 @@ export function formatStoredScore(score: number): string {
   return formatRaceScore(score);
 }
 
-/** @deprecated scores are stored as points, not derived from progress */
-export function progressToScore(_progress: number): number {
-  return 0;
+/** Fix legacy peaks stored at 10× scale after score corruption. */
+export function normalizePeakRaceScore(peak: number, score: number): number {
+  const p = Number(peak ?? 0);
+  if (p > Math.max(300, score * 2.5)) {
+    return Math.max(score, Math.round(p / 10));
+  }
+  return Math.max(score, Math.round(p));
 }
