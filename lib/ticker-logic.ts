@@ -1,5 +1,5 @@
-import { seededInt } from "./seeded-rng";
-import type { Player } from "./types";
+import { seededBool, seededInt } from "./seeded-rng";
+import type { Player, TickerEventFacts } from "./types";
 
 export interface TickerEntrySnapshot {
   player_id: string;
@@ -10,20 +10,61 @@ export interface TickerEntrySnapshot {
   event_note: string | null;
 }
 
-function tickerName(name: string): string {
-  const lower = name.toLowerCase().trim();
-  if (lower.length <= 14) return lower;
-  return lower.split(" ").slice(0, 2).join(" ");
+export type TickerEventType =
+  | "lead_change"
+  | "chaos_surge"
+  | "collapse"
+  | "rank_surge"
+  | "rank_slip"
+  | "big_lap"
+  | "stall"
+  | "underdog"
+  | "rookie_run"
+  | "late_close"
+  | "lead_pressure"
+  | "race_won"
+  | "eliminated";
+
+export interface TickerEventDraft {
+  eventType: TickerEventType;
+  playerId: string;
+  message: string;
+  facts: TickerEventFacts;
+  priority: number;
+}
+
+function onAirName(name: string): string {
+  return name.toUpperCase().trim();
 }
 
 function pickPhrase(seed: string, options: string[]): string {
   return options[seededInt(seed, 0, options.length - 1)];
 }
 
-interface ScoredEvent {
-  priority: number;
-  message: string;
-  playerId: string;
+function shouldBroadcast(seed: string, priority: number): boolean {
+  if (priority >= 88) return true;
+  if (priority >= 72) return seededBool(`${seed}:air`, 0.55);
+  if (priority >= 58) return seededBool(`${seed}:air`, 0.38);
+  return seededBool(`${seed}:air`, 0.22);
+}
+
+function baseFacts(
+  entry: TickerEntrySnapshot,
+  tickNumber: number,
+  percentComplete: number,
+  rankBefore?: number
+): TickerEventFacts {
+  return {
+    tickNumber,
+    percentComplete,
+    playerName: entry.player.name,
+    rankBefore,
+    rankAfter: entry.current_rank,
+    rankChange: rankBefore != null ? rankBefore - entry.current_rank : undefined,
+    progressAfter: Math.round(Number(entry.progress)),
+    lastDelta: Number(entry.last_delta.toFixed(2)),
+    eventNote: entry.event_note,
+  };
 }
 
 export function generateTickTickerEvents(
@@ -32,106 +73,133 @@ export function generateTickTickerEvents(
   percentComplete: number,
   raceId: string,
   tickNumber: number
-): string[] {
+): TickerEventDraft[] {
   const beforeById = new Map(before.map((e) => [e.player_id, e]));
   const afterSorted = [...after].sort((a, b) => a.current_rank - b.current_rank);
   const beforeSorted = [...before].sort((a, b) => a.current_rank - b.current_rank);
 
   const oldLeader = beforeSorted[0];
   const newLeader = afterSorted[0];
-  const candidates: ScoredEvent[] = [];
+  const candidates: TickerEventDraft[] = [];
 
   if (oldLeader && newLeader && oldLeader.player_id !== newLeader.player_id) {
-    const name = tickerName(newLeader.player.name);
-    const msg = pickPhrase(`${raceId}:${tickNumber}:lead`, [
-      `${name} took the lead`,
-      `${name} seized the front`,
-      `${name} is out front now`,
-      `new leader: ${name}`,
-    ]);
-    candidates.push({ priority: 100, message: msg, playerId: newLeader.player_id });
+    const name = onAirName(newLeader.player.name);
+    const prevName = onAirName(oldLeader.player.name);
+    candidates.push({
+      eventType: "lead_change",
+      playerId: newLeader.player_id,
+      priority: 100,
+      message: pickPhrase(`${raceId}:${tickNumber}:lead`, [
+        `OH! ${name} TAKES THE LEAD — ${prevName} DROPPED!`,
+        `LEAD CHANGE! ${name} IS OUT FRONT NOW!`,
+        `${name} SEIZES THE POINT! WHAT A MOVE!`,
+        `NEW LEADER! ${name} AT THE FRONT!`,
+      ]),
+      facts: {
+        ...baseFacts(newLeader, tickNumber, percentComplete, oldLeader.current_rank),
+        previousLeaderName: oldLeader.player.name,
+      },
+    });
   }
 
   for (const entry of after) {
     const prev = beforeById.get(entry.player_id);
     if (!prev) continue;
 
-    const name = tickerName(entry.player.name);
+    const name = onAirName(entry.player.name);
     const rankGain = prev.current_rank - entry.current_rank;
     const rankLoss = entry.current_rank - prev.current_rank;
     const seed = `${raceId}:${entry.player_id}:${tickNumber}`;
+    const facts = baseFacts(entry, tickNumber, percentComplete, prev.current_rank);
 
     if (entry.event_note?.includes("CHAOS SURGE")) {
       candidates.push({
-        priority: 92,
-        message: pickPhrase(`${seed}:chaos`, [
-          `${name} unleashed chaos`,
-          `${name} went wild`,
-          `${name} hit a chaos surge`,
-        ]),
+        eventType: "chaos_surge",
         playerId: entry.player_id,
+        priority: 94,
+        message: pickPhrase(`${seed}:chaos`, [
+          `CHAOS SURGE! ${name} IS UNLEASHED!`,
+          `${name} WENT ABSOLUTELY WILD!`,
+          `OH MY — ${name} HIT A CHAOS BURST!`,
+        ]),
+        facts: { ...facts, eventNote: "CHAOS SURGE" },
       });
     }
 
     if (entry.event_note?.includes("COLLAPSE") || rankLoss >= 3) {
       candidates.push({
-        priority: 88,
-        message: pickPhrase(`${seed}:fade`, [
-          `${name} is fading fast`,
-          `${name} is falling apart`,
-          `${name} is slipping away`,
-        ]),
+        eventType: "collapse",
         playerId: entry.player_id,
+        priority: 90,
+        message: pickPhrase(`${seed}:fade`, [
+          `${name} IS FADING FAST — DOWN ${rankLoss} SPOTS!`,
+          `DISASTER FOR ${name}! ${rankLoss}-SPOT COLLAPSE!`,
+          `${name} IS FALLING APART OUT THERE!`,
+        ]),
+        facts,
       });
     } else if (rankLoss === 2) {
       candidates.push({
-        priority: 72,
-        message: pickPhrase(`${seed}:slip`, [
-          `${name} dropped two spots`,
-          `${name} lost ground`,
-        ]),
+        eventType: "rank_slip",
         playerId: entry.player_id,
+        priority: 70,
+        message: pickPhrase(`${seed}:slip`, [
+          `${name} SLIPPED TWO SPOTS — TROUBLE!`,
+          `TWO-SPOT DROP FOR ${name}!`,
+        ]),
+        facts,
       });
     }
 
     if (rankGain >= 3) {
       candidates.push({
-        priority: 80 + rankGain,
-        message: pickPhrase(`${seed}:surge`, [
-          `${name} surged ${rankGain} spots`,
-          `${name} climbed fast`,
-          `${name} is charging hard`,
-        ]),
+        eventType: "rank_surge",
         playerId: entry.player_id,
+        priority: 82 + Math.min(rankGain, 5),
+        message: pickPhrase(`${seed}:surge`, [
+          `${name} SURGED ${rankGain} SPOTS! INCREDIBLE!`,
+          `WHAT A RUN! ${name} CLIMBED ${rankGain} POSITIONS!`,
+          `${name} IS CHARGING — UP ${rankGain} SPOTS!`,
+        ]),
+        facts,
       });
     } else if (rankGain === 2) {
       candidates.push({
-        priority: 68,
-        message: `${name} moved up two spots`,
+        eventType: "rank_surge",
         playerId: entry.player_id,
+        priority: 68,
+        message: pickPhrase(`${seed}:gain2`, [
+          `${name} MOVED UP TWO — COMEBACK ALERT!`,
+          `TWO-SPOT GAIN FOR ${name}!`,
+        ]),
+        facts,
       });
     }
 
     if (entry.last_delta > 2.6 && rankGain < 2) {
       candidates.push({
-        priority: 58,
-        message: pickPhrase(`${seed}:lap`, [
-          `${name} put in a big lap`,
-          `${name} gained serious ground`,
-        ]),
+        eventType: "big_lap",
         playerId: entry.player_id,
+        priority: 60,
+        message: pickPhrase(`${seed}:lap`, [
+          `${name} WITH A MONSTER LAP — +${entry.last_delta.toFixed(1)}%!`,
+          `BIG LAP FROM ${name}! GROUND GAINED!`,
+        ]),
+        facts,
       });
     }
 
     if (entry.event_note?.includes("STALL") || entry.last_delta < 0.15) {
       if (entry.current_rank <= 4) {
         candidates.push({
-          priority: 52,
-          message: pickPhrase(`${seed}:stall`, [
-            `${name} stalled out`,
-            `${name} hit a wall`,
-          ]),
+          eventType: "stall",
           playerId: entry.player_id,
+          priority: 56,
+          message: pickPhrase(`${seed}:stall`, [
+            `${name} STALLED IN THE TOP FOUR!`,
+            `WALL HIT! ${name} BARELY MOVED!`,
+          ]),
+          facts,
         });
       }
     }
@@ -143,13 +211,15 @@ export function generateTickTickerEvents(
       percentComplete > 40
     ) {
       candidates.push({
-        priority: 76,
-        message: pickPhrase(`${seed}:underdog`, [
-          `${name} shocks the field`,
-          `${name} is in contention`,
-          `winless ${name} is lurking up front`,
-        ]),
+        eventType: "underdog",
         playerId: entry.player_id,
+        priority: 78,
+        message: pickPhrase(`${seed}:underdog`, [
+          `WINLESS ${name} SHOCKS THE FIELD — P${entry.current_rank}!`,
+          `${name} HAS ZERO WINS AND IS IN THE HUNT!`,
+          `UNDERDOG ALERT! ${name} UP TO P${entry.current_rank}!`,
+        ]),
+        facts,
       });
     }
 
@@ -160,9 +230,11 @@ export function generateTickTickerEvents(
       percentComplete < 70
     ) {
       candidates.push({
-        priority: 64,
-        message: `${name} is making a rookie run`,
+        eventType: "rookie_run",
         playerId: entry.player_id,
+        priority: 66,
+        message: `${name} ON A ROOKIE RUN — NOW P${entry.current_rank}!`,
+        facts,
       });
     }
   }
@@ -176,14 +248,16 @@ export function generateTickTickerEvents(
       leaderAfter.player_id === oldLeader?.player_id &&
       leaderAfter.last_delta < 0.6
     ) {
-      const name = tickerName(newLeader.player.name);
+      const name = onAirName(newLeader.player.name);
       candidates.push({
-        priority: 62,
-        message: pickPhrase(`${raceId}:${tickNumber}:tight`, [
-          `${name} is holding on up front`,
-          `${name} clings to the lead`,
-        ]),
+        eventType: "lead_pressure",
         playerId: newLeader.player_id,
+        priority: 64,
+        message: pickPhrase(`${raceId}:${tickNumber}:tight`, [
+          `${name} CLINGING TO THE LEAD — PRESSURE BUILDING!`,
+          `CAN ${name} HOLD ON UP FRONT?!`,
+        ]),
+        facts: baseFacts(leaderAfter, tickNumber, percentComplete, leaderBefore.current_rank),
       });
     }
   }
@@ -194,58 +268,74 @@ export function generateTickTickerEvents(
     if (chaser && leader) {
       const gap = Number(leader.progress) - Number(chaser.progress);
       if (gap < 8 && gap > 0) {
-        const chaserName = tickerName(chaser.player.name);
+        const chaserName = onAirName(chaser.player.name);
+        const leaderName = onAirName(leader.player.name);
         candidates.push({
-          priority: 86,
-          message: pickPhrase(`${raceId}:${tickNumber}:close`, [
-            `${chaserName} is closing in`,
-            `it's tight behind the leader`,
-            `${chaserName} is hunting the front`,
-          ]),
+          eventType: "late_close",
           playerId: chaser.player_id,
+          priority: 88,
+          message: pickPhrase(`${raceId}:${tickNumber}:close`, [
+            `${chaserName} CLOSING ON ${leaderName} — ONLY ${gap.toFixed(1)}% BACK!`,
+            `IT'S TIGHT! ${chaserName} HUNTING THE LEAD!`,
+            `FINAL STRETCH DRAMA — ${chaserName} IS RIGHT THERE!`,
+          ]),
+          facts: {
+            ...baseFacts(chaser, tickNumber, percentComplete, beforeById.get(chaser.player_id)?.current_rank),
+            gapToLeader: Number(gap.toFixed(1)),
+          },
         });
       }
     }
   }
 
-  candidates.sort((a, b) => b.priority - a.priority);
+  const verified = candidates.filter((c) =>
+    shouldBroadcast(`${raceId}:${tickNumber}:${c.eventType}:${c.playerId}`, c.priority)
+  );
 
-  const usedPlayers = new Set<string>();
-  const messages: string[] = [];
+  verified.sort((a, b) => b.priority - a.priority);
 
-  for (const c of candidates) {
-    if (messages.length >= 2) break;
-    if (usedPlayers.has(c.playerId) && c.priority < 90) continue;
-    usedPlayers.add(c.playerId);
-    messages.push(c.message);
-  }
+  if (verified.length === 0) return [];
 
-  if (messages.length === 0 && tickNumber > 0 && percentComplete > 5) {
-    const mid = afterSorted[Math.min(3, afterSorted.length - 1)];
-    if (mid) {
-      const name = tickerName(mid.player.name);
-      messages.push(
-        pickPhrase(`${raceId}:${tickNumber}:quiet`, [
-          `${name} keeps grinding mid-pack`,
-          `the field is holding steady`,
-          `no major moves this tick`,
-        ])
-      );
-    }
-  }
-
-  return messages;
+  return [verified[0]];
 }
 
 export function generateFinalizeTickerEvents(
   winnerName: string,
   lastName: string,
-  raceNumber: number
-): string[] {
-  const winner = tickerName(winnerName);
-  const last = tickerName(lastName);
+  raceNumber: number,
+  winnerId: string,
+  lastId: string
+): TickerEventDraft[] {
+  const winner = onAirName(winnerName);
+  const last = onAirName(lastName);
   return [
-    `${winner} wins race ${raceNumber}`,
-    `${last} sent to holding`,
+    {
+      eventType: "race_won",
+      playerId: winnerId,
+      priority: 100,
+      message: `${winner} WINS RACE ${raceNumber}! CHECKERED FLAG!`,
+      facts: {
+        tickNumber: 48,
+        percentComplete: 100,
+        playerName: winnerName,
+        winnerName,
+        raceNumber,
+        rankAfter: 1,
+      },
+    },
+    {
+      eventType: "eliminated",
+      playerId: lastId,
+      priority: 95,
+      message: `${last} FINISHES LAST — SENT TO HOLDING!`,
+      facts: {
+        tickNumber: 48,
+        percentComplete: 100,
+        playerName: lastName,
+        eliminatedName: lastName,
+        rankAfter: 8,
+        raceNumber,
+      },
+    },
   ];
 }

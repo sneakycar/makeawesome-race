@@ -61,6 +61,7 @@ export interface RaceEntry {
   current_rank: number;
   final_rank: number | null;
   last_delta: number;
+  last_rank_change: number;
   race_score: number;
   condition: number;
   event_note: string | null;
@@ -94,11 +95,31 @@ export interface RaceEntryWithPlayer extends RaceEntry {
   player: Player;
 }
 
+export interface TickerEventFacts {
+  tickNumber: number;
+  percentComplete: number;
+  playerName: string;
+  rankBefore?: number;
+  rankAfter?: number;
+  rankChange?: number;
+  progressAfter?: number;
+  lastDelta?: number;
+  gapToLeader?: number;
+  eventNote?: string | null;
+  previousLeaderName?: string;
+  winnerName?: string;
+  eliminatedName?: string;
+  raceNumber?: number;
+}
+
 export interface TickerEvent {
   id: string;
   race_id: string;
   tick_number: number;
   message: string;
+  event_type: string;
+  player_id: string | null;
+  facts: TickerEventFacts;
   created_at: string;
 }
 
@@ -117,6 +138,7 @@ export interface GameStateResponse {
   ticker: TickerEvent[];
   betweenRaces: boolean;
   nextRaceNumber: number | null;
+  nextRaceStartsAt: string | null;
   devTools: boolean;
 }
 

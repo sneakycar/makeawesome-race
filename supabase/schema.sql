@@ -1,4 +1,4 @@
--- MAKEAWESOME RACE schema
+-- HOLES RACE schema
 
 create extension if not exists "pgcrypto";
 
@@ -64,6 +64,7 @@ create table if not exists race_entries (
   current_rank integer not null,
   final_rank integer,
   last_delta numeric not null default 0,
+  last_rank_change integer not null default 0,
   race_score numeric not null default 0,
   condition integer not null default 0,
   event_note text,
@@ -105,6 +106,9 @@ create table if not exists race_ticker_events (
   race_id uuid not null references races(id) on delete cascade,
   tick_number integer not null default 0,
   message text not null,
+  event_type text not null default 'legacy',
+  player_id uuid references players(id) on delete set null,
+  facts jsonb not null default '{}'::jsonb,
   created_at timestamptz default now()
 );
 

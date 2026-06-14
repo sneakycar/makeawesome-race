@@ -6,6 +6,7 @@ import {
   getActiveRaceOnly,
   getActiveRaceWithEntries,
   getAllTimeTop3,
+  getNextRaceDayBounds,
   initializeGameIfNeeded,
 } from "@/lib/race-logic";
 import { getVisitorSupportForRace } from "@/lib/support-db";
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
       .from("players")
       .select("*")
       .eq("status", "holding")
+      .gte("races", 1)
       .order("name", { ascending: true });
 
     const { data: gameState } = await supabase.from("game_state").select("*").eq("id", 1).single();
@@ -55,6 +57,9 @@ export async function GET(request: Request) {
     const activeRace = await getActiveRaceOnly(supabase);
     const betweenRaces = !activeRace && race.status === "finalized";
     const nextRaceNumber = betweenRaces ? race.race_number + 1 : null;
+    const nextRaceStartsAt = betweenRaces
+      ? getNextRaceDayBounds(new Date(race.ends_at)).startedAt.toISOString()
+      : null;
 
     const body: GameStateResponse = {
       race: { ...race, percent_complete: percentComplete },
@@ -69,6 +74,7 @@ export async function GET(request: Request) {
       ticker,
       betweenRaces,
       nextRaceNumber,
+      nextRaceStartsAt,
       devTools: process.env.NODE_ENV === "development",
     };
 

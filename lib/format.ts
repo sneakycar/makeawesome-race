@@ -9,7 +9,7 @@ export function formatRemainingTime(ms: number): string {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  return `${hours}H ${String(minutes).padStart(2, "0")}M ${String(seconds).padStart(2, "0")}S REMAINING`;
+  return `${hours}h ${minutes}m ${seconds}s`;
 }
 
 export function formatPips(value: number): string {
@@ -51,13 +51,37 @@ export function formatStreak(type: string, count: number): string {
   return "NONE";
 }
 
-export function formatTimeHMS(date: Date): string {
-  return date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
+import { EASTERN_TZ } from "./eastern-time";
+
+export function formatRaceBegan(date: Date): string {
+  const month = new Intl.DateTimeFormat("en-US", {
+    timeZone: EASTERN_TZ,
+    month: "long",
+  })
+    .format(date)
+    .toUpperCase();
+  const day = new Intl.DateTimeFormat("en-US", {
+    timeZone: EASTERN_TZ,
+    day: "numeric",
+  }).format(date);
+  const year = new Intl.DateTimeFormat("en-US", {
+    timeZone: EASTERN_TZ,
+    year: "numeric",
+  }).format(date);
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: EASTERN_TZ,
+    hour: "numeric",
     minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
+    hour12: true,
+  })
+    .format(date)
+    .toUpperCase()
+    .replace(/\s/g, " ");
+  return `${month} ${day}, ${year} (${time} EST)`;
+}
+
+export function formatNextRaceBegin(date: Date): string {
+  return formatRaceBegan(date);
 }
 
 export function slugify(name: string): string {

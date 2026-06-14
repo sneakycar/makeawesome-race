@@ -1,17 +1,46 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { GameStateResponse, Player, PlayerProfileResponse } from "@/lib/types";
+import type { GameStateResponse, Player, PlayerProfileResponse, TickerEvent } from "@/lib/types";
 import {
   formatPips,
   formatProgressBar,
+  formatRaceBegan,
   formatRemainingTime,
+  formatNextRaceBegin,
   formatStreak,
-  formatTimeHMS,
-  formatTickerLine,
+  formatTickerAge,
   ordinal,
   padName,
 } from "@/lib/format";
+
+function ScrollingTicker({
+  events,
+  serverTime,
+}: {
+  events: TickerEvent[];
+  serverTime: string;
+}) {
+  if (!events.length) return null;
+
+  const now = new Date(serverTime);
+  const chunks = events.map(
+    (e) => `${e.message} (${formatTickerAge(e.created_at, now)})`
+  );
+  const line = chunks.join(" · ");
+
+  return (
+    <div className="ticker-wrap" aria-live="polite">
+      <div className="ticker-label">TICKER</div>
+      <div className="ticker-viewport">
+        <div className="ticker-track">
+          <span className="ticker-chunk">{line}</span>
+          <span className="ticker-chunk">{line}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PlayerOverlay({
   slug,
@@ -53,58 +82,74 @@ function PlayerOverlay({
 
   return (
     <div className="overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="overlay-inner" onClick={(e) => e.stopPropagation()}>
+      <div className="overlay-panel" onClick={(e) => e.stopPropagation()}>
         {error && <p className="error">{error}</p>}
         {!profile && !error && <p className="loading">LOADING...</p>}
         {p && (
           <>
-            {p.name}
+            <div className="overlay-panel-name">{p.name}</div>
 
-            {"\n\n"}STATUS: {p.status.toUpperCase()}
-            {"\n"}AGE: {p.age_days} DAYS
-            {profile.currentRank != null && (
-              <>
-                {"\n"}CURRENT RACE: {ordinal(profile.currentRank)}
-              </>
-            )}
-            {profile.currentProgress != null && (
-              <>
-                {"\n"}CURRENT PROGRESS: {profile.currentProgress}%
-              </>
-            )}
+            <div className="overlay-section">
+              <div className="overlay-section-title">STATUS</div>
+              <span className="overlay-stat">STATUS: {p.status.toUpperCase()}</span>
+              <span className="overlay-stat">AGE: {p.age_days} DAYS</span>
+              {profile.currentRank != null && (
+                <span className="overlay-stat">
+                  CURRENT RACE: {ordinal(profile.currentRank)}
+                </span>
+              )}
+              {profile.currentProgress != null && (
+                <span className="overlay-stat">
+                  CURRENT PROGRESS: {profile.currentProgress}%
+                </span>
+              )}
+            </div>
 
-            {"\n\n"}ABILITIES
+            <div className="overlay-section">
+              <div className="overlay-section-title">ABILITIES</div>
+              <span className="overlay-ability">GRIT      {formatPips(p.grit)}</span>
+              <span className="overlay-ability">CHAOS     {formatPips(p.chaos)}</span>
+              <span className="overlay-ability">NERVE     {formatPips(p.nerve)}</span>
+              <span className="overlay-ability">LUCK      {formatPips(p.luck)}</span>
+              <span className="overlay-ability">BURST     {formatPips(p.burst)}</span>
+              <span className="overlay-ability">DRAG      {formatPips(p.drag)}</span>
+            </div>
 
-            {"\n\n"}GRIT      {formatPips(p.grit)}
-            {"\n"}CHAOS     {formatPips(p.chaos)}
-            {"\n"}NERVE     {formatPips(p.nerve)}
-            {"\n"}LUCK      {formatPips(p.luck)}
-            {"\n"}BURST     {formatPips(p.burst)}
-            {"\n"}DRAG      {formatPips(p.drag)}
+            <div className="overlay-section">
+              <div className="overlay-section-title">CAREER</div>
+              <span className="overlay-stat">RACES: {p.races}</span>
+              <span className="overlay-stat">WINS: {p.wins}</span>
+              <span className="overlay-stat">ELIMINATIONS: {p.eliminations}</span>
+              <span className="overlay-stat">RETURNS: {p.returns}</span>
+              <span className="overlay-stat">
+                BEST FINISH: {p.best_finish != null ? ordinal(p.best_finish) : "—"}
+              </span>
+              <span className="overlay-stat">
+                WORST FINISH: {p.worst_finish != null ? ordinal(p.worst_finish) : "—"}
+              </span>
+              <span className="overlay-stat">
+                CURRENT STREAK: {formatStreak(p.current_streak_type, p.current_streak_count)}
+              </span>
+              <span className="overlay-stat">LONGEST WIN STREAK: {p.longest_win_streak}</span>
+              <span className="overlay-stat">TOTAL DAYS IN HOLDING: {p.total_holding_days}</span>
+              <span className="overlay-stat">
+                TOTAL SUPPORT RECEIVED: {p.total_support_received ?? 0}
+              </span>
+            </div>
 
-            {"\n\n"}CAREER
+            <div className="overlay-section">
+              <div className="overlay-section-title">HISTORY</div>
+              {profile.history.length === 0 ? (
+                <span className="overlay-stat">NO HISTORY YET</span>
+              ) : (
+                profile.history.map((h) => (
+                  <span key={h.id} className="overlay-history-item">
+                    DAY {h.day_number} — {h.event_text}
+                  </span>
+                ))
+              )}
+            </div>
 
-            {"\n\n"}RACES: {p.races}
-            {"\n"}WINS: {p.wins}
-            {"\n"}ELIMINATIONS: {p.eliminations}
-            {"\n"}RETURNS: {p.returns}
-            {"\n"}BEST FINISH: {p.best_finish != null ? ordinal(p.best_finish) : "—"}
-            {"\n"}WORST FINISH: {p.worst_finish != null ? ordinal(p.worst_finish) : "—"}
-            {"\n"}CURRENT STREAK: {formatStreak(p.current_streak_type, p.current_streak_count)}
-            {"\n"}LONGEST WIN STREAK: {p.longest_win_streak}
-            {"\n"}TOTAL DAYS IN HOLDING: {p.total_holding_days}
-            {"\n"}TOTAL SUPPORT RECEIVED: {p.total_support_received ?? 0}
-
-            {"\n\n"}HISTORY
-
-            {"\n\n"}
-            {profile.history.length === 0
-              ? "NO HISTORY YET"
-              : profile.history
-                  .map((h) => `DAY ${h.day_number} — ${h.event_text}`)
-                  .join("\n")}
-
-            {"\n\n"}
             <button type="button" className="overlay-close" onClick={onClose}>
               [CLOSE]
             </button>
@@ -115,14 +160,44 @@ function PlayerOverlay({
   );
 }
 
-function formatHolding(players: Player[]): string {
-  if (players.length === 0) return "EMPTY";
+function HoldingSection({ players }: { players: Player[] }) {
+  if (players.length === 0) {
+    return (
+      <p className="holding-empty">
+        Racers who have lost a race appear here and remain in the pool for future races.
+      </p>
+    );
+  }
+
   const shown = players.slice(0, 20);
   const list = shown.map((p) => `${p.name} (AGE ${p.age_days})`).join(", ");
-  if (players.length > 20) {
-    return `${list}, ...AND ${players.length - 20} MORE`;
-  }
-  return list;
+  const text =
+    players.length > 20 ? `${list}, ...AND ${players.length - 20} MORE` : list;
+
+  return <div className="holding-list">{text}</div>;
+}
+
+function AboutSection() {
+  return (
+    <details className="about-details">
+      <summary className="about-summary">ABOUT</summary>
+      <div className="about">
+        <p>
+          HOLES RACE is an eternal automatic daily race between generated names.
+          Every race runs 9:00 AM – 9:00 PM EST. Last place is sent to holding.
+          A new racer or returning loser enters tomorrow. Every racer keeps their
+          history forever.
+        </p>
+        <p>
+          Once per race, visitors may encourage a single racer. Encouragement does
+          not affect the current race. Instead, it creates a small chance for
+          permanent growth after the race is complete. Strong racers improve
+          slowly, while struggling racers benefit more. The race itself remains
+          fully automatic.
+        </p>
+      </div>
+    </details>
+  );
 }
 
 export default function HomePage() {
@@ -213,13 +288,10 @@ export default function HomePage() {
   return (
     <main>
       {state?.ticker && state.ticker.length > 0 && (
-        <div className="ticker" aria-live="polite">
-          <span className="ticker-label">TICKER</span>
-          {formatTickerLine(state.ticker, new Date(state.serverTime))}
-        </div>
+        <ScrollingTicker events={state.ticker} serverTime={state.serverTime} />
       )}
 
-      <h1 className="title">MAKEAWESOME RACE</h1>
+      <h1 className="title">HOLES RACE</h1>
 
       {error && <p className="error">{error}</p>}
       {encourageError && <p className="error">{encourageError}</p>}
@@ -232,7 +304,8 @@ export default function HomePage() {
           {winner && `WINNER: ${winner.player.name}\n`}
           {eliminated && `ELIMINATED: ${eliminated.player.name} → HOLDING\n\n`}
           {state.nextRaceNumber != null &&
-            `NEXT RACE: ${state.nextRaceNumber} BEGINS AT 12:00:00 AM`}
+            state.nextRaceStartsAt != null &&
+            `NEXT RACE: ${state.nextRaceNumber} BEGINS ${formatNextRaceBegin(new Date(state.nextRaceStartsAt))}`}
         </div>
       )}
 
@@ -247,22 +320,30 @@ export default function HomePage() {
               </>
             ) : (
               <>
-                RACE {state.race.race_number}
-                {"\n"}
-                {state.percentComplete}% COMPLETE
-                {"\n"}
-                BEGAN {formatTimeHMS(new Date(state.race.started_at))}
-                {"\n"}
+                {`RACE ${state.race.race_number}\n`}
+                {`BEGAN: ${formatRaceBegan(new Date(state.race.started_at))}\n`}
+                {`PROGRESS: ${state.percentComplete}%\n`}
                 {raceActive
-                  ? formatRemainingTime(state.remainingMs)
+                  ? `TIME REMAINING: ${formatRemainingTime(state.remainingMs)}`
                   : "RACE FINALIZED"}
               </>
             )}
           </div>
 
+          <p className="tap-hint">tap to see player&apos;s stats</p>
+
           {state.entries.map((entry) => {
             const bar = formatProgressBar(entry.displayed_progress);
-            const line = `${entry.current_rank}] ${padName(entry.player.name)} ${bar} ${entry.displayed_progress}%`;
+            const line = `LANE ${entry.lane}] ${padName(entry.player.name)} ${bar} ${entry.displayed_progress}%`;
+            const isLeader = entry.current_rank === 1;
+            const isComeback = entry.last_rank_change >= 2;
+            const rowClasses = [
+              "row-line",
+              isLeader ? "row-leader" : "",
+              isComeback ? "row-comeback" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
             const isSupported = supportedId === entry.player_id;
             const hasSupported = supportedId != null;
 
@@ -278,7 +359,7 @@ export default function HomePage() {
             }
 
             return (
-              <div key={entry.id} className="row-line">
+              <div key={entry.id} className={rowClasses}>
                 <div
                   className="row-main"
                   onClick={() => setSelectedSlug(entry.player.slug)}
@@ -309,6 +390,17 @@ export default function HomePage() {
             );
           })}
 
+          <div className="race-legend">
+            <span className="legend-key legend-leader">
+              <span className="legend-swatch legend-swatch-leader" aria-hidden="true" />
+              LEADER
+            </span>
+            <span className="legend-key legend-comeback">
+              <span className="legend-swatch legend-swatch-comeback" aria-hidden="true" />
+              COMEBACK (+2 SPOTS)
+            </span>
+          </div>
+
           <div className="divider">{"────────────────────────"}</div>
 
           <div className="section-label">ALL-TIME</div>
@@ -316,30 +408,18 @@ export default function HomePage() {
             <div>NO WINS YET</div>
           ) : (
             state.allTime.map((p, i) => (
-              <div key={p.id}>
+              <div key={p.id} className="all-time-row">
                 {i + 1}] {p.name} — {p.wins} WIN{p.wins === 1 ? "" : "S"}
               </div>
             ))
           )}
 
           <div className="section-label">HOLDING</div>
-          <div className="holding-list">{formatHolding(state.holding)}</div>
+          <HoldingSection players={state.holding} />
 
           <div className="divider">{"────────────────────────"}</div>
 
-          <div className="section-label">ABOUT</div>
-          <div className="about">
-            MAKEAWESOME RACE is an eternal automatic daily race between generated names.
-            Every day has 8 racers. Last place is sent to holding. A new racer or returning
-            loser enters tomorrow. Every racer keeps their history forever.
-            {"\n\n"}
-            SUPPORT
-            {"\n\n"}
-            Once per race, visitors may encourage a single racer. Encouragement does not
-            affect the current race. Instead, it creates a small chance for permanent growth
-            after the race is complete. Strong racers improve slowly, while struggling racers
-            benefit more. The race itself remains fully automatic.
-          </div>
+          <AboutSection />
 
           {state.devTools && (
             <div className="dev-tools">

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getNextRaceDayBounds, getRaceDayBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
 import { ordinal, slugify } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
@@ -11,8 +12,19 @@ import {
 } from "./ticker-logic";
 import type { Player, Race, RaceEntry, RaceEntryWithPlayer } from "./types";
 
-export const TICKS_PER_DAY = 96;
-export const EXPECTED_DELTA = 100 / TICKS_PER_DAY;
+export const TICKS_PER_RACE = 48;
+/** @deprecated use TICKS_PER_RACE */
+export const TICKS_PER_DAY = TICKS_PER_RACE;
+export const EXPECTED_DELTA = 100 / TICKS_PER_RACE;
+
+export { getRaceDayBounds, getNextRaceDayBounds, getRaceOneBounds } from "./eastern-time";
+
+export function getTickNumber(startedAt: Date, now: Date = new Date()): number {
+  const elapsedMs = now.getTime() - startedAt.getTime();
+  if (elapsedMs <= 0) return 0;
+  const tickMs = 15 * 60 * 1000;
+  return Math.min(TICKS_PER_RACE - 1, Math.floor(elapsedMs / tickMs));
+}
 
 export interface TickDeltaInput {
   raceId: string;
@@ -29,19 +41,6 @@ export interface TickDeltaResult {
   delta: number;
   eventNote: string | null;
   chaosBurstUsed: boolean;
-}
-
-export function getRaceDayBounds(date: Date = new Date()): { startedAt: Date; endsAt: Date } {
-  const startedAt = new Date(date);
-  startedAt.setHours(0, 0, 0, 0);
-  const endsAt = new Date(date);
-  endsAt.setHours(23, 59, 59, 999);
-  return { startedAt, endsAt };
-}
-
-export function getTickNumber(date: Date = new Date()): number {
-  const minutes = date.getHours() * 60 + date.getMinutes();
-  return Math.min(TICKS_PER_DAY - 1, Math.floor(minutes / 15));
 }
 
 export function calculatePercentComplete(startedAt: Date, endsAt: Date, now: Date = new Date()): number {
@@ -222,15 +221,9 @@ export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<
     return buildPlayerInsert(name, slug, "active", 1, `seed-active-${i}`);
   });
 
-  const holdingPlayers = [];
-  for (let i = 0; i < 20; i++) {
-    const { name, slug } = generateUniqueName(`seed-holding-${i}`, existingSlugs);
-    holdingPlayers.push(buildPlayerInsert(name, slug, "holding", 1, `seed-holding-${i}`));
-  }
-
   const { data: insertedActive, error: activeErr } = await supabase
     .from("players")
-    .insert([...activePlayers, ...holdingPlayers])
+    .insert(activePlayers)
     .select("id, status");
 
   if (activeErr) throw activeErr;
@@ -328,7 +321,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   }
 
   const percentComplete = calculatePercentComplete(startedAt, endsAt, now);
-  const tickNumber = getTickNumber(now);
+  const tickNumber = getTickNumber(startedAt, now);
 
   const { data: entries, error: entriesErr } = await supabase
     .from("race_entries")
@@ -378,7 +371,11 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     };
   });
 
-  const ranked = rankEntries(updated);
+  const ranked = rankEntries(updated).map((entry) => {
+    const prev = beforeSnapshots.find((b) => b.player_id === entry.player_id);
+    const last_rank_change = prev ? prev.current_rank - entry.current_rank : 0;
+    return { ...entry, last_rank_change };
+  });
 
   const afterSnapshots: TickerEntrySnapshot[] = ranked.map((entry) => ({
     player_id: entry.player_id,
@@ -389,14 +386,14 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     event_note: entry.event_note,
   }));
 
-  const tickerMessages = generateTickTickerEvents(
+  const tickerEvents = generateTickTickerEvents(
     beforeSnapshots,
     afterSnapshots,
     percentComplete,
     race.id,
     tickNumber
   );
-  await saveTickerEvents(supabase, race.id, tickNumber, tickerMessages);
+  await saveTickerEvents(supabase, race.id, tickNumber, tickerEvents);
 
   for (const entry of ranked) {
     await supabase
@@ -406,6 +403,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         displayed_progress: entry.displayed_progress,
         current_rank: entry.current_rank,
         last_delta: entry.last_delta,
+        last_rank_change: entry.last_rank_change,
         event_note: entry.event_note,
         race_score: entry.race_score,
         updated_at: new Date().toISOString(),
@@ -433,7 +431,7 @@ export async function finalizeRace(
   if (race.status === "finalized") return;
 
   const now = new Date();
-  const tickNumber = TICKS_PER_DAY - 1;
+  const tickNumber = TICKS_PER_RACE - 1;
 
   const { data: entries, error: entriesErr } = await supabase
     .from("race_entries")
@@ -579,9 +577,11 @@ export async function finalizeRace(
     const finalizeMessages = generateFinalizeTickerEvents(
       (winnerEntry.player as Player).name,
       (lastEntry.player as Player).name,
-      race.race_number
+      race.race_number,
+      winnerEntry.player_id,
+      lastEntry.player_id
     );
-    await saveTickerEvents(supabase, race.id, TICKS_PER_DAY, finalizeMessages);
+    await saveTickerEvents(supabase, race.id, TICKS_PER_RACE, finalizeMessages);
   }
 
   const replacement = await chooseReplacement(supabase, currentDay + 1);
@@ -599,7 +599,7 @@ export async function finalizeRace(
 
   const nextDay = currentDay + 1;
   const nextRaceNumber = race.race_number + 1;
-  const { startedAt, endsAt } = getRaceDayBounds(new Date(now.getTime() + 86400000));
+  const { startedAt, endsAt } = getNextRaceDayBounds(new Date(race.ends_at));
 
   const { data: activePlayers } = await supabase.from("players").select("id").eq("status", "active");
   const rosterIds = (activePlayers || []).map((p) => p.id);
@@ -693,7 +693,11 @@ function seededPickStat(seed: string): keyof Pick<Player, "grit" | "chaos" | "ne
 }
 
 export async function updateHoldingPlayers(supabase: SupabaseClient, currentDay: number): Promise<void> {
-  const { data: holding } = await supabase.from("players").select("*").eq("status", "holding");
+  const { data: holding } = await supabase
+    .from("players")
+    .select("*")
+    .eq("status", "holding")
+    .gte("races", 1);
   if (!holding?.length) return;
 
   for (const player of holding) {
@@ -716,7 +720,11 @@ export async function updateHoldingPlayers(supabase: SupabaseClient, currentDay:
 }
 
 export async function chooseReplacement(supabase: SupabaseClient, nextDay: number): Promise<Player> {
-  const { data: holding } = await supabase.from("players").select("*").eq("status", "holding");
+  const { data: holding } = await supabase
+    .from("players")
+    .select("*")
+    .eq("status", "holding")
+    .gte("races", 1);
 
   if (holding?.length && seededBool(`${nextDay}:replacement`, 0.3)) {
     const idx = seededInt(`${nextDay}:replacement-pick`, 0, holding.length - 1);
@@ -889,7 +897,7 @@ export async function startNextRace(supabase: SupabaseClient): Promise<Race> {
   const nextDay = gameState.current_day + 1;
   const nextRaceNumber = gameState.current_race_number + 1;
   const now = new Date();
-  const { startedAt, endsAt } = getRaceDayBounds(now);
+  const { startedAt, endsAt } = getNextRaceDayBounds(new Date(lastRace.ends_at));
 
   const { data: activePlayers } = await supabase.from("players").select("id").eq("status", "active");
   const rosterIds = (activePlayers || []).map((p) => p.id);
