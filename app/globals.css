@@ -1348,6 +1348,9 @@ body[data-home-theme="night"] .row-mark-slot {
   padding: 10px 8px 12px;
   border-bottom: 3px double #ffd700;
   overflow: hidden;
+}
+
+.retro-header--brand {
   background-color: #b80035;
   background-image: linear-gradient(
     90deg,
@@ -1371,6 +1374,27 @@ body[data-home-theme="night"] .row-mark-slot {
     #880020 100%
   );
   box-shadow: inset 0 -4px 0 #660018;
+}
+
+.retro-header--player-palette {
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  image-rendering: pixelated;
+}
+
+.retro-header--player-palette .retro-header-tag,
+.retro-header--player-palette .retro-ovr-label,
+.retro-header--player-palette .retro-ovr-rank {
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 1px 1px 0 #000;
+}
+
+.retro-header--player-palette .retro-ovr-num,
+.retro-header--player-palette .retro-name {
+  color: #fff;
+  text-shadow:
+    2px 2px 0 #000,
+    -1px -1px 0 rgba(0, 0, 0, 0.65);
 }
 
 .retro-header::after {

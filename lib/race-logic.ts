@@ -59,6 +59,7 @@ import {
 } from "./race-delay";
 import { assignLanesBySkill, getLanePerformanceMultiplier } from "./lanes";
 import { calculatePlayerOvr } from "./ovr";
+import { generatePlayerPalette } from "./player-colors";
 import { syncRaceWeatherEvents } from "./weather-db";
 import {
   applySimTick,
@@ -317,6 +318,7 @@ export function buildPlayerInsert(
     injury_races_remaining: 0,
     total_injuries: 0,
     injury_history: [],
+    palette_colors: generatePlayerPalette(seed),
     seed,
   };
 }

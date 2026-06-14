@@ -31,6 +31,7 @@ import { formatRankDelta, useLiveRankDelta } from "@/lib/use-live-rank-delta";
 import { WEATHER_ART, type RaceWeatherState } from "@/lib/race-weather";
 import { canEncourageVote, vibrateNope } from "@/lib/nope-feedback";
 import { calculateLiveOdds } from "@/lib/live-odds";
+import { getPlayerHeaderStyle, getPlayerPalette } from "@/lib/player-colors";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 
 function RaceDelayOverlay({
@@ -59,7 +60,7 @@ function RaceDelayOverlay({
     >
       <div className="delay-overlay-scanlines" aria-hidden="true" />
       <div className="retro-screen delay-screen">
-        <div className="retro-header">
+        <div className="retro-header retro-header--brand">
           <span className="retro-header-tag">OFFICIAL NOTICE</span>
           <h2 id="delay-title" className="retro-name">
             {delay.title}
@@ -577,7 +578,10 @@ function PlayerOverlay({
         {!profile && !error && <p className="retro-loading">LOADING...</p>}
         {p && (
           <>
-            <div className="retro-header">
+            <div
+              className="retro-header retro-header--player-palette"
+              style={getPlayerHeaderStyle(getPlayerPalette(p))}
+            >
               <span className="retro-header-tag">RACER FILE</span>
               {ovr != null && ovrRank != null && ovrTotal != null && (
                 <div className="retro-ovr">

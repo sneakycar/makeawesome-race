@@ -143,7 +143,7 @@ export function StatsOverlay({ onClose }: { onClose: () => void }) {
         {!stats && !error && <p className="retro-loading">LOADING...</p>}
         {stats && (
           <>
-            <div className="retro-header">
+            <div className="retro-header retro-header--brand">
               <span className="retro-header-tag">DATA TERMINAL</span>
               <h2 id="stats-title" className="retro-name">
                 LEAGUE STATS

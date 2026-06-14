@@ -46,6 +46,7 @@ export interface Player {
   injury_races_remaining: number;
   total_injuries: number;
   injury_history: InjuryRecord[];
+  palette_colors: string[];
   created_at: string;
   updated_at: string;
 }

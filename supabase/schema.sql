@@ -47,6 +47,7 @@ create table if not exists players (
   injury_races_remaining integer not null default 0,
   total_injuries integer not null default 0,
   injury_history jsonb not null default '[]'::jsonb,
+  palette_colors text[] not null default '{}',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
