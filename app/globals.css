@@ -770,9 +770,9 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .score-pip-viewport {
   flex: 1 1 auto;
   min-width: 0;
-  max-width: min(52vw, 220px);
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 5px;
   height: 12px;
   overflow: hidden;
@@ -829,14 +829,25 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .score-pip-track--race {
+  display: grid;
+  width: 100%;
   overflow: hidden;
+  gap: 0;
+  position: relative;
+}
+
+.score-pip-track-fight,
+.score-pip-track-injured {
+  box-shadow:
+    0 0 0 1px #888,
+    0 0 0 2px rgba(0, 0, 0, 0.35);
+  border-radius: 2px;
 }
 
 .score-pip-track--race .score-pip {
-  flex: 0 0 2px;
-  width: 2px;
-  min-width: 2px;
-  max-width: 2px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
   height: 9px;
 }
 
@@ -887,6 +898,10 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 .row-line-leader .row-name {
   animation: leader-name-pulse 3.2s ease-in-out infinite;
+}
+
+.row-line-leader .row-score-pip-num {
+  color: #c9a100;
 }
 
 @keyframes leader-name-pulse {
@@ -1159,6 +1174,35 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   }
 }
 
+.encourage-btn-ready {
+  opacity: 1;
+  background: #fff;
+  border-color: #111;
+  color: #111;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.encourage-btn-cooldown {
+  opacity: 0.42;
+  background: #fff;
+  border-color: #bbb;
+  color: #999;
+  cursor: default;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.encourage-btn-exhausted {
+  opacity: 0.35;
+  background: #fff;
+  border-color: #ccc;
+  color: #aaa;
+  cursor: default;
+  font-size: 14px;
+  font-weight: 400;
+}
+
 .encourage-btn.supported {
   opacity: 0.42;
   background: #fff;
@@ -1220,6 +1264,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .row-head {
   display: flex;
   align-items: baseline;
+  justify-content: flex-start;
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: -3px;
@@ -1293,7 +1338,8 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .row-track {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 6px;
   width: 100%;
   min-width: 0;
   min-height: 28px;
@@ -1304,49 +1350,52 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   width: 1.25rem;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-size: 14px;
+  justify-content: flex-start;
+  font-size: 13px;
   line-height: 1;
   color: #333;
+}
+
+.row-mark-slot-inline {
+  width: auto;
+  min-width: 0;
+}
+
+.row-mark-slot:empty {
+  display: none;
 }
 
 .race-emoji {
   display: inline-block;
   line-height: 1;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 10px;
   filter: grayscale(1);
   -webkit-filter: grayscale(1);
 }
 
 .race-emoji-btn {
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .race-emoji-inline {
-  font-size: 9px;
+  font-size: 8px;
   vertical-align: -1px;
   margin-right: 3px;
 }
 
 .race-emoji-overlay {
-  font-size: 8px;
+  font-size: 7px;
 }
 
 .race-emoji-star {
-  font-size: 8px;
+  font-size: 7px;
   vertical-align: -1px;
 }
 
 .retro-v .race-emoji-inline {
   filter: grayscale(1) brightness(1.1);
   -webkit-filter: grayscale(1) brightness(1.1);
-}
-
-.row-scoreboard-overlay {
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 body[data-home-theme="night"] .race-emoji {
@@ -1459,15 +1508,15 @@ body[data-home-theme="night"] .row-mark-slot {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  background: rgba(0, 0, 0, 0.52);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  border: none;
   border-radius: 2px;
   pointer-events: none;
   z-index: 2;
 }
 
 .row-scoreboard-overlay-emoji {
-  font-size: 8px;
+  font-size: 7px;
   line-height: 1;
 }
 
@@ -1476,7 +1525,7 @@ body[data-home-theme="night"] .row-mark-slot {
   line-height: 1;
   letter-spacing: 0.1em;
   font-weight: 700;
-  color: #fff;
+  color: #555;
   text-transform: uppercase;
 }
 
@@ -1493,15 +1542,15 @@ body[data-home-theme="night"] .row-mark-slot {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  background: rgba(0, 0, 0, 0.52);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  border: none;
   border-radius: 2px;
   pointer-events: none;
   z-index: 2;
 }
 
 .score-pip-overlay-emoji {
-  font-size: 8px;
+  font-size: 7px;
   line-height: 1;
 }
 
@@ -2233,30 +2282,72 @@ body[data-home-theme="night"] .player-sheet-overlay {
   margin: 10px 0;
 }
 
-.player-sheet-ability {
-  margin-bottom: 2px;
+.player-sheet-abilities-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  margin-top: 6px;
 }
 
-.player-sheet-ability .row-head {
-  margin-bottom: 0;
+.player-sheet-ability {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.player-sheet-ability-head {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
+.player-sheet-ability-label {
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.player-sheet-ability-num {
+  margin-left: auto;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #222;
+  flex-shrink: 0;
 }
 
 .player-sheet-ability-pips {
-  flex: 1 1 auto;
+  display: flex;
+  width: 100%;
   min-width: 0;
-  max-width: none;
   height: 10px;
 }
 
-.player-sheet-ability .row-track {
-  min-height: 24px;
+.player-sheet-ability-pips .score-pip {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
-.player-sheet-ability-sig .row-archetype:first-child {
+.player-sheet-ability-sig .player-sheet-ability-label {
   color: #9a3b00;
 }
 
-body[data-home-theme="night"] .player-sheet-ability-sig .row-archetype:first-child {
+body[data-home-theme="night"] .player-sheet-ability-label {
+  color: #888;
+}
+
+body[data-home-theme="night"] .player-sheet-ability-num {
+  color: #ddd;
+}
+
+body[data-home-theme="night"] .player-sheet-ability-sig .player-sheet-ability-label {
   color: #ffd700;
 }
 
@@ -3251,6 +3342,21 @@ body[data-home-theme="night"] .encourage-btn:disabled {
   color: #777;
 }
 
+body[data-home-theme="night"] .encourage-btn-ready {
+  background: #2a2a2a;
+  border-color: #f0f0f0;
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+body[data-home-theme="night"] .encourage-btn-cooldown,
+body[data-home-theme="night"] .encourage-btn-exhausted {
+  opacity: 0.45;
+  background: #1a1a1a;
+  border-color: #666;
+  color: #888;
+}
+
 body[data-home-theme="night"] .encourage-btn.supported {
   opacity: 0.45;
   background: #1a1a1a;
@@ -3313,13 +3419,15 @@ body[data-home-theme="night"] .row-scoreboard-gain {
   color: #5fd99a;
 }
 
-body[data-home-theme="night"] .row-scoreboard-overlay {
-  background: rgba(0, 0, 0, 0.68);
-  border-color: rgba(255, 255, 255, 0.16);
+body[data-home-theme="night"] .score-pip-track-fight,
+body[data-home-theme="night"] .score-pip-track-injured {
+  box-shadow:
+    0 0 0 1px #666,
+    0 0 0 2px rgba(0, 0, 0, 0.65);
 }
 
 body[data-home-theme="night"] .row-scoreboard-overlay-label {
-  color: #f0f0f0;
+  color: #aaa;
 }
 
 body[data-home-theme="night"] .score-pip-on {
@@ -3380,13 +3488,8 @@ body[data-home-theme="night"] .score-pip-empty {
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
 }
 
-body[data-home-theme="night"] .score-pip-overlay {
-  background: rgba(0, 0, 0, 0.68);
-  border-color: rgba(255, 255, 255, 0.16);
-}
-
 body[data-home-theme="night"] .score-pip-overlay-label {
-  color: #f0f0f0;
+  color: #aaa;
 }
 
 body[data-home-theme="night"] .race-legend {
@@ -3482,6 +3585,10 @@ body[data-home-theme="night"] .between-races {
 
 body[data-home-theme="night"] .row-line-leader .row-name {
   animation: leader-name-pulse-night 3.2s ease-in-out infinite;
+}
+
+body[data-home-theme="night"] .row-line-leader .row-score-pip-num {
+  color: #ffd700;
 }
 
 @keyframes leader-name-pulse-night {
@@ -3654,7 +3761,7 @@ body[data-home-theme="night"] .race-weather-lightning {
   }
 
   .row-track {
-    gap: 10px;
+    gap: 8px;
   }
 
   .row-name {
@@ -3808,12 +3915,14 @@ body[data-home-theme="night"] .race-weather-lightning {
     cursor: not-allowed;
   }
 
-  .encourage-btn:not(.encourage-btn-blocked):not(.supported):hover {
+  .encourage-btn:not(.encourage-btn-blocked):not(.encourage-btn-cooldown):not(.encourage-btn-exhausted):hover,
+  .encourage-btn-ready:hover {
     background: #f5f5f5;
     border-color: #111;
   }
 
-  body[data-home-theme="night"] .encourage-btn:not(.encourage-btn-blocked):not(.supported):hover {
+  body[data-home-theme="night"] .encourage-btn:not(.encourage-btn-blocked):not(.encourage-btn-cooldown):not(.encourage-btn-exhausted):hover,
+  body[data-home-theme="night"] .encourage-btn-ready:hover {
     background: #2a2a2a;
     border-color: #f0f0f0;
   }

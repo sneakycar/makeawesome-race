@@ -4,6 +4,7 @@ import { getClientIp, hashIp } from "@/lib/ip-hash";
 import { getActiveRaceWithEntries } from "@/lib/race-logic";
 import { isRaceDelayed } from "@/lib/race-delay";
 import { recordEncouragement } from "@/lib/support-db";
+import { hashVisitorDeviceId, normalizeDeviceId } from "@/lib/visitor-id";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +12,14 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const playerId = String(body.playerId || "").trim();
+    const deviceId = normalizeDeviceId(body.deviceId);
 
     if (!playerId) {
       return NextResponse.json({ error: "playerId required" }, { status: 400 });
+    }
+
+    if (!deviceId) {
+      return NextResponse.json({ error: "deviceId required" }, { status: 400 });
     }
 
     const supabase = createAdminClient();
@@ -28,18 +34,24 @@ export async function POST(request: Request) {
     }
 
     const ipHash = hashIp(getClientIp(request));
+    const deviceHash = hashVisitorDeviceId(deviceId);
     const result = await recordEncouragement(
       supabase,
       active.race.id,
       playerId,
-      ipHash
+      ipHash,
+      deviceHash
     );
 
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 409 });
     }
 
-    return NextResponse.json({ ok: true, supportedPlayerId: playerId });
+    return NextResponse.json({
+      ok: true,
+      encouragement: result.encouragement,
+      liveScoreGranted: result.liveScoreGranted,
+    });
   } catch (err) {
     console.error("POST /api/encourage", err);
     return NextResponse.json(

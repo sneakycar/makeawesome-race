@@ -104,6 +104,7 @@ export interface RaceEntry {
   fight_end_tick: number | null;
   fight_partner_id: string | null;
   fight_frozen_score: number | null;
+  fan_live_bonus?: number;
   created_at: string;
   updated_at: string;
   player?: Player;
@@ -270,6 +271,15 @@ export interface LeagueStatsResponse {
   weatherRecent: LeagueWeatherEvent[];
 }
 
+export interface EncouragementState {
+  supportedPlayerId: string | null;
+  votesUsed: number;
+  votesMax: number;
+  votesRemaining: number;
+  nextVoteAt: string | null;
+  canVote: boolean;
+}
+
 export interface GameStateResponse {
   race: Race;
   entries: RaceEntryWithPlayer[];
@@ -286,9 +296,7 @@ export interface GameStateResponse {
   raceDelay: RaceDelayInfo | null;
   laneStats: LaneWinStat[];
   gameState: GameState;
-  encouragement: {
-    supportedPlayerId: string | null;
-  };
+  encouragement: EncouragementState;
   ticker: TickerEvent[];
   betweenRaces: boolean;
   nextRaceNumber: number | null;

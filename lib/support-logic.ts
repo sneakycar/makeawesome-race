@@ -7,6 +7,10 @@ import {
   recalculateRatingFromPartial,
   type GrowthStat,
 } from "./identity";
+import {
+  DEDICATION_GROWTH_BONUS_CAP,
+  DEDICATION_GROWTH_BONUS_PER_VOTE,
+} from "./support-limits";
 
 export const GROWTH_STATS = ["grit", "chaos", "nerve", "luck", "burst"] as const;
 export type { GrowthStat };
@@ -72,7 +76,12 @@ export function rollGrowthGains(
 
   for (let i = 0; i < supportCount && gains.length < maxGains; i++) {
     const seed = `${raceId}:${playerId}:support:${i}:growth`;
-    if (seededBool(seed, chance)) {
+    const dedicationBonus = Math.min(
+      DEDICATION_GROWTH_BONUS_CAP,
+      Math.max(0, i) * DEDICATION_GROWTH_BONUS_PER_VOTE
+    );
+    const rollChance = Math.min(1, Math.max(0, chance + dedicationBonus));
+    if (seededBool(seed, rollChance)) {
       const stat = pickWeightedGrowthStat(`${seed}:stat`, player);
       const isSignature = stat === player.signature_stat;
       gains.push({

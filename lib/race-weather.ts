@@ -25,42 +25,65 @@ const WEATHER_LABELS: Record<RaceWeatherType, string> = {
 
 const WEATHER_TYPES: RaceWeatherType[] = ["rain", "wind", "storm", "heat", "fog"];
 
-export const WEATHER_CYCLE_MS = 100_000;
-export const WEATHER_PHASE_START = 0.18;
-export const WEATHER_PHASE_END = 0.72;
-export const WEATHER_SHOW_PROB = 0.42;
+const TICKS_PER_RACE = 48;
 
-function weatherForSlot(raceId: string, slot: number): RaceWeatherEventRecord | null {
+/** Chance a sim tick gets weather (~40% of ticks). */
+export const WEATHER_SHOW_PROB = 0.42;
+/** Brief gap after tick boundary before weather rolls in. */
+export const WEATHER_PHASE_START = 0.04;
+/** Weather clears just before the next tick (~88% of tick window). */
+export const WEATHER_PHASE_END = 0.92;
+
+function getRaceTickIntervalMs(startedAt: Date, endsAt: Date): number {
+  return Math.max(1, endsAt.getTime() - startedAt.getTime()) / TICKS_PER_RACE;
+}
+
+function weatherForTickSlot(
+  raceId: string,
+  slot: number,
+  raceStartedAt: Date,
+  tickMs: number
+): RaceWeatherEventRecord | null {
   const seed = `${raceId}:wx:${slot}`;
   if (!seededBool(`${seed}:show`, WEATHER_SHOW_PROB)) return null;
 
   const type = seededPick(`${seed}:type`, WEATHER_TYPES);
-  const slotStart = slot * WEATHER_CYCLE_MS;
+  const slotStartMs = raceStartedAt.getTime() + slot * tickMs;
   return {
     slot,
     type,
     label: WEATHER_LABELS[type],
-    startedAt: new Date(slotStart + WEATHER_PHASE_START * WEATHER_CYCLE_MS),
-    endedAt: new Date(slotStart + WEATHER_PHASE_END * WEATHER_CYCLE_MS),
+    startedAt: new Date(slotStartMs + WEATHER_PHASE_START * tickMs),
+    endedAt: new Date(slotStartMs + WEATHER_PHASE_END * tickMs),
   };
 }
 
-/** All weather bursts overlapping [from, to] for a race (deterministic). */
+/** All weather bursts overlapping [from, to] within a race (deterministic per tick). */
 export function enumerateRaceWeatherEvents(
   raceId: string,
+  raceStartedAt: Date,
+  raceEndsAt: Date,
   from: Date,
   to: Date
 ): RaceWeatherEventRecord[] {
   if (to <= from) return [];
 
-  const fromMs = from.getTime();
-  const toMs = to.getTime();
-  const firstSlot = Math.floor(fromMs / WEATHER_CYCLE_MS);
-  const lastSlot = Math.floor(toMs / WEATHER_CYCLE_MS);
+  const tickMs = getRaceTickIntervalMs(raceStartedAt, raceEndsAt);
+  const raceStartMs = raceStartedAt.getTime();
+  const raceEndMs = raceEndsAt.getTime();
+  const fromMs = Math.max(from.getTime(), raceStartMs);
+  const toMs = Math.min(to.getTime(), raceEndMs);
+  if (toMs <= fromMs) return [];
+
+  const firstSlot = Math.max(0, Math.floor((fromMs - raceStartMs) / tickMs));
+  const lastSlot = Math.min(
+    TICKS_PER_RACE - 1,
+    Math.floor((toMs - raceStartMs) / tickMs)
+  );
   const events: RaceWeatherEventRecord[] = [];
 
   for (let slot = firstSlot; slot <= lastSlot; slot++) {
-    const evt = weatherForSlot(raceId, slot);
+    const evt = weatherForTickSlot(raceId, slot, raceStartedAt, tickMs);
     if (!evt) continue;
 
     const startMs = Math.max(evt.startedAt.getTime(), fromMs);
@@ -77,10 +100,19 @@ export function enumerateRaceWeatherEvents(
   return events;
 }
 
-/** Deterministic race weather — on ~40% of 100s windows for ~45s at a time. */
-export function getRaceWeather(raceId: string, now = new Date()): RaceWeatherState | null {
-  const slot = Math.floor(now.getTime() / WEATHER_CYCLE_MS);
-  const evt = weatherForSlot(raceId, slot);
+/** Deterministic race weather — tied to sim ticks, ~88% of each tick window when active. */
+export function getRaceWeather(
+  raceId: string,
+  raceStartedAt: Date,
+  raceEndsAt: Date,
+  now = new Date()
+): RaceWeatherState | null {
+  if (now < raceStartedAt || now >= raceEndsAt) return null;
+
+  const tickMs = getRaceTickIntervalMs(raceStartedAt, raceEndsAt);
+  const elapsed = now.getTime() - raceStartedAt.getTime();
+  const slot = Math.min(TICKS_PER_RACE - 1, Math.floor(elapsed / tickMs));
+  const evt = weatherForTickSlot(raceId, slot, raceStartedAt, tickMs);
   if (!evt) return null;
   if (now < evt.startedAt || now > evt.endedAt) return null;
   return { type: evt.type, label: evt.label };

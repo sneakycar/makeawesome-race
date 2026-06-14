@@ -34,33 +34,30 @@ function AbilityRow({
   const filled = pipCount20(value);
 
   return (
-    <div className={`row-line player-sheet-ability${signature ? " player-sheet-ability-sig" : ""}`}>
-      <div className="row-head">
-        <span className="row-archetype">{label}</span>
+    <div className={`player-sheet-ability${signature ? " player-sheet-ability-sig" : ""}`}>
+      <div className="player-sheet-ability-head">
+        <span className="player-sheet-ability-label">{label}</span>
         {signature ? (
           <FlatIcon id="star" className="race-emoji race-emoji-star" aria-hidden="true" />
         ) : null}
+        <span className="player-sheet-ability-num">{value}</span>
       </div>
-      <div className="row-track">
-        <span className="row-mark-slot" aria-hidden="true" />
-        <div
-          className={`score-pip-track player-sheet-ability-pips${isNight ? " is-night" : ""}`}
-          aria-label={`${label} ${value} out of 100${signature ? ", signature" : ""}`}
-        >
-          {Array.from({ length: slots }, (_, i) =>
-            i < filled ? (
-              <span
-                key={i}
-                className="score-pip score-pip-on"
-                style={{ background: getScorePipBackground(i, slots, isNight) }}
-                aria-hidden="true"
-              />
-            ) : (
-              <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />
-            )
-          )}
-        </div>
-        <span className="row-score-pip-num">{value}</span>
+      <div
+        className={`score-pip-track player-sheet-ability-pips${isNight ? " is-night" : ""}`}
+        aria-label={`${label} ${value} out of 100${signature ? ", signature" : ""}`}
+      >
+        {Array.from({ length: slots }, (_, i) =>
+          i < filled ? (
+            <span
+              key={i}
+              className="score-pip score-pip-on"
+              style={{ background: getScorePipBackground(i, slots, isNight) }}
+              aria-hidden="true"
+            />
+          ) : (
+            <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />
+          )
+        )}
       </div>
     </div>
   );
@@ -199,6 +196,11 @@ export function PlayerCardOverlay({
             <div className={`row-line${isLeader ? " row-line-leader" : ""}`}>
               <div className="row-head">
                 {lane != null && <span className="row-archetype">L{lane}</span>}
+                {barMark ? (
+                  <span className="row-mark-slot row-mark-slot-inline">
+                    <FlatIcon id={barMark} className="race-emoji" />
+                  </span>
+                ) : null}
                 <h2 id="player-sheet-name" className="row-name">
                   {formatRacerName(p.name)}
                 </h2>
@@ -217,9 +219,6 @@ export function PlayerCardOverlay({
               </div>
               {profile.currentRaceNumber != null && (
                 <div className="row-track">
-                  <span className="row-mark-slot" aria-hidden={!barMark}>
-                    {barMark ? <FlatIcon id={barMark} className="race-emoji" /> : null}
-                  </span>
                   <ScorePipTrack
                     score={pipScore}
                     animatingDelta={animatingDelta}
@@ -282,42 +281,44 @@ export function PlayerCardOverlay({
             <div className="divider">{"────────────────────────"}</div>
 
             <div className="section-label">ABILITIES</div>
-            <AbilityRow
-              label="GRIT"
-              value={p.grit}
-              signature={p.signature_stat === "grit"}
-              isNight={isNight}
-            />
-            <AbilityRow
-              label="CHAOS"
-              value={p.chaos}
-              signature={p.signature_stat === "chaos"}
-              isNight={isNight}
-            />
-            <AbilityRow
-              label="NERVE"
-              value={p.nerve}
-              signature={p.signature_stat === "nerve"}
-              isNight={isNight}
-            />
-            <AbilityRow
-              label="LUCK"
-              value={p.luck}
-              signature={p.signature_stat === "luck"}
-              isNight={isNight}
-            />
-            <AbilityRow
-              label="BURST"
-              value={p.burst}
-              signature={p.signature_stat === "burst"}
-              isNight={isNight}
-            />
-            <AbilityRow
-              label="DRAG"
-              value={p.drag}
-              signature={p.signature_stat === "drag"}
-              isNight={isNight}
-            />
+            <div className="player-sheet-abilities-grid">
+              <AbilityRow
+                label="GRIT"
+                value={p.grit}
+                signature={p.signature_stat === "grit"}
+                isNight={isNight}
+              />
+              <AbilityRow
+                label="CHAOS"
+                value={p.chaos}
+                signature={p.signature_stat === "chaos"}
+                isNight={isNight}
+              />
+              <AbilityRow
+                label="NERVE"
+                value={p.nerve}
+                signature={p.signature_stat === "nerve"}
+                isNight={isNight}
+              />
+              <AbilityRow
+                label="LUCK"
+                value={p.luck}
+                signature={p.signature_stat === "luck"}
+                isNight={isNight}
+              />
+              <AbilityRow
+                label="BURST"
+                value={p.burst}
+                signature={p.signature_stat === "burst"}
+                isNight={isNight}
+              />
+              <AbilityRow
+                label="DRAG"
+                value={p.drag}
+                signature={p.signature_stat === "drag"}
+                isNight={isNight}
+              />
+            </div>
 
             <StatPanel
               title="RECORD"

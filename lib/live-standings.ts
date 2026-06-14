@@ -51,7 +51,7 @@ export function buildLiveScoreMap(
     const live = liveScores?.get(entry.player_id);
     scores.set(
       entry.player_id,
-      getEntryDisplayScore(entry, live?.confirmedScore ?? live?.score)
+      getEntryDisplayScore(entry, live?.score ?? live?.confirmedScore)
     );
   }
   return scores;

@@ -98,6 +98,7 @@ create table if not exists race_entries (
   fight_end_tick integer,
   fight_partner_id uuid references players(id) on delete set null,
   fight_frozen_score numeric,
+  fan_live_bonus numeric not null default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   unique (race_id, player_id),
@@ -117,18 +118,21 @@ create table if not exists player_history (
   created_at timestamptz default now()
 );
 
--- race_supports (encourage system — one per IP hash per race)
+-- race_supports (encourage — up to 6 votes per visitor per race)
 create table if not exists race_supports (
   id uuid primary key default gen_random_uuid(),
   race_id uuid not null references races(id) on delete cascade,
   player_id uuid not null references players(id) on delete cascade,
   ip_hash text not null,
-  created_at timestamptz default now(),
-  unique (race_id, ip_hash)
+  device_hash text not null default '',
+  live_score_granted numeric not null default 0,
+  created_at timestamptz default now()
 );
 
 create index if not exists idx_race_supports_race on race_supports(race_id);
 create index if not exists idx_race_supports_player on race_supports(player_id);
+create index if not exists idx_race_supports_race_ip on race_supports(race_id, ip_hash);
+create index if not exists idx_race_supports_race_device on race_supports(race_id, device_hash);
 
 -- race_ticker_events (narrative feed after each cron tick)
 create table if not exists race_ticker_events (

@@ -4,11 +4,17 @@ import type { LeagueWeatherEvent, Race, RaceWeatherType } from "./types";
 
 export async function syncRaceWeatherEvents(
   supabase: SupabaseClient,
-  race: Pick<Race, "id" | "race_number">,
+  race: Pick<Race, "id" | "race_number" | "started_at" | "ends_at">,
   from: Date,
   to: Date
 ): Promise<number> {
-  const events = enumerateRaceWeatherEvents(race.id, from, to);
+  const events = enumerateRaceWeatherEvents(
+    race.id,
+    new Date(race.started_at),
+    new Date(race.ends_at),
+    from,
+    to
+  );
   if (!events.length) return 0;
 
   const rows = events.map((evt) => ({

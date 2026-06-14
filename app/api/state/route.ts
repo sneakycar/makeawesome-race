@@ -11,7 +11,8 @@ import {
 } from "@/lib/race-logic";
 import { getRaceClock } from "@/lib/race-clock";
 import { getRaceDelayInfo, isRaceDelayed } from "@/lib/race-delay";
-import { getVisitorSupportForRace } from "@/lib/support-db";
+import { getVisitorEncouragementState } from "@/lib/support-db";
+import { hashVisitorDeviceId, normalizeDeviceId } from "@/lib/visitor-id";
 import { getRecentTickerEvents } from "@/lib/ticker-db";
 import { getLaneWinStats } from "@/lib/lane-stats";
 import { getOvrRankings, ovrRankingsToRecord } from "@/lib/ovr";
@@ -76,10 +77,20 @@ export async function GET(request: Request) {
     const { data: gameState } = await supabase.from("game_state").select("*").eq("id", 1).single();
 
     const ipHash = hashIp(getClientIp(request));
-    const supportedPlayerId =
+    const deviceParam = new URL(request.url).searchParams.get("deviceId");
+    const deviceId = normalizeDeviceId(deviceParam);
+    const deviceHash = deviceId ? hashVisitorDeviceId(deviceId) : "";
+    const encouragement =
       race.status === "active"
-        ? await getVisitorSupportForRace(supabase, race.id, ipHash)
-        : null;
+        ? await getVisitorEncouragementState(supabase, race.id, ipHash, deviceHash)
+        : {
+            supportedPlayerId: null,
+            votesUsed: 0,
+            votesMax: 6,
+            votesRemaining: 6,
+            nextVoteAt: null,
+            canVote: false,
+          };
 
     const ticker = await getRecentTickerEvents(supabase, race.id, 12);
 
@@ -106,7 +117,7 @@ export async function GET(request: Request) {
       raceDelay: raceDelay?.active ? raceDelay : null,
       laneStats,
       gameState: gameState!,
-      encouragement: { supportedPlayerId },
+      encouragement,
       ticker,
       betweenRaces,
       nextRaceNumber,

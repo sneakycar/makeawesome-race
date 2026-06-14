@@ -199,8 +199,7 @@ export function calculateLiveOdds(
   entries: RaceEntryWithPlayer[],
   scoresByPlayerId: Map<string, number>,
   ranksByPlayerId: Map<string, number>,
-  ovrByPlayerId: Record<string, OvrRanking>,
-  snapshotKey: string
+  ovrByPlayerId: Record<string, OvrRanking>
 ): LiveOddsLine[] {
   if (entries.length === 0) return [];
 
@@ -245,9 +244,6 @@ export function calculateLiveOdds(
 
   lines.sort((a, b) => b.impliedPct - a.impliedPct || a.rank - b.rank);
   if (lines.length > 0) lines[0].isFavorite = true;
-
-  // Snapshot key only used to stabilize rounding drift within a refresh window.
-  void snapshotKey;
 
   return lines;
 }

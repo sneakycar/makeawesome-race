@@ -4,7 +4,8 @@ import {
   getRaceTickIntervalMs,
   getTickNumber,
 } from "./race-logic";
-import { applySimTick, buildRaceSim, rankSimEntries } from "./race-sim";
+import { getRaceEffectiveNow } from "./race-delay";
+import { applySimTick, applyFanLiveBonusToSim, buildRaceSim, rankSimEntries } from "./race-sim";
 import type { Player, Race, RaceEntryWithPlayer } from "./types";
 
 import { normalizePeakRaceScore } from "./score";
@@ -35,20 +36,21 @@ export async function backfillActiveRaceScores(
   const typedEntries = entries as RaceEntryWithPlayer[];
   const startedAt = new Date(typedRace.started_at);
   const endsAt = new Date(typedRace.ends_at);
-  const tickNumber = getTickNumber(startedAt, endsAt, new Date());
+  const effectiveNow = getRaceEffectiveNow(typedRace, new Date());
+  const tickNumber = getTickNumber(startedAt, endsAt, effectiveNow);
 
   const sim = buildRaceSim(
     typedEntries.map((entry) => ({
       player_id: entry.player_id,
       player: entry.player as Player,
       lane: entry.lane,
-      is_injured: false,
+      is_injured: Boolean(entry.is_injured),
       injured_at_tick: entry.injured_at_tick as number | null,
-      is_fighting: false,
-      fighting_at_tick: null,
-      fight_end_tick: null,
-      fight_frozen_score: null,
-      race_score: 0,
+      is_fighting: Boolean(entry.is_fighting),
+      fighting_at_tick: entry.fighting_at_tick as number | null,
+      fight_end_tick: entry.fight_end_tick as number | null,
+      fight_frozen_score: entry.fight_frozen_score as number | null,
+      race_score: entry.race_score,
     }))
   );
 
@@ -109,9 +111,22 @@ export async function backfillActiveRaceScores(
     }
   }
 
+  applyFanLiveBonusToSim(
+    sim,
+    typedEntries.map((entry) => ({
+      player_id: entry.player_id,
+      fan_live_bonus: entry.fan_live_bonus,
+      is_injured: Boolean(entry.is_injured),
+      is_fighting: Boolean(entry.is_fighting),
+      fighting_at_tick: entry.fighting_at_tick as number | null,
+      fight_end_tick: entry.fight_end_tick as number | null,
+    })),
+    tickNumber
+  );
+
   const ranked = rankSimEntries(sim);
   const now = new Date().toISOString();
-  const percentComplete = calculatePercentComplete(startedAt, endsAt, new Date());
+  const percentComplete = calculatePercentComplete(startedAt, endsAt, effectiveNow);
   const scores: Record<string, number> = {};
 
   for (const simRanked of ranked) {

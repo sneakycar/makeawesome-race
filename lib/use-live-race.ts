@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { getRaceClock } from "./race-clock";
 import { isRaceDelayed } from "./race-delay";
 import {
-  getCronSegmentProgress,
   getRollingTickAnimationState,
   normalizeRecentDeltas,
   type RollingTickAnimationState,
@@ -20,6 +19,32 @@ export interface LiveRaceSnapshot {
   entries: Map<string, LiveEntryState>;
   raceProgress: number;
   segmentProgress: number;
+}
+
+const TICKS_PER_RACE = 48;
+
+/** Progress through the current sim tick window since the last cron write. */
+function getRaceSegmentProgress(
+  startedAt: Date,
+  endsAt: Date,
+  lastTickAt: string | null,
+  now: Date
+): number {
+  const durationMs = Math.max(1, endsAt.getTime() - startedAt.getTime());
+  const tickMs = durationMs / TICKS_PER_RACE;
+  const elapsed = Math.max(0, now.getTime() - startedAt.getTime());
+  const currentTick = Math.min(TICKS_PER_RACE - 1, Math.floor(elapsed / tickMs));
+  const tickStart = startedAt.getTime() + currentTick * tickMs;
+
+  if (!lastTickAt) {
+    return Math.max(0, Math.min(1, (now.getTime() - tickStart) / tickMs));
+  }
+
+  const lastMs = new Date(lastTickAt).getTime();
+  const lastElapsed = Math.max(0, lastMs - startedAt.getTime());
+  const lastTick = Math.min(TICKS_PER_RACE - 1, Math.floor(lastElapsed / tickMs));
+  const windowStart = Math.max(startedAt.getTime() + lastTick * tickMs, lastMs);
+  return Math.max(0, Math.min(1, (now.getTime() - windowStart) / tickMs));
 }
 
 export function useLiveRace(
@@ -57,7 +82,12 @@ export function useLiveRace(
         return;
       }
 
-      const segmentProgress = getCronSegmentProgress(state.gameState.last_tick_at, now);
+      const segmentProgress = getRaceSegmentProgress(
+        startedAt,
+        endsAt,
+        state.gameState.last_tick_at,
+        now
+      );
       const entries = new Map<string, LiveEntryState>();
 
       for (const entry of state.entries) {

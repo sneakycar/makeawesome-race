@@ -22,12 +22,54 @@ export function canEncourageVote(options: {
   raceActive: boolean;
   raceDelayed: boolean;
   encouraging: boolean;
-  supportedPlayerId: string | null;
+  encouragement: {
+    supportedPlayerId: string | null;
+    votesRemaining: number;
+    canVote: boolean;
+  };
+  playerId: string;
+  cooldownReady: boolean;
 }): boolean {
-  return (
-    options.raceActive &&
-    !options.raceDelayed &&
-    !options.encouraging &&
-    options.supportedPlayerId == null
-  );
+  const { encouragement } = options;
+  if (!options.raceActive || options.raceDelayed || options.encouraging) return false;
+  if (encouragement.votesRemaining <= 0) return false;
+  if (!options.cooldownReady) return false;
+  if (
+    encouragement.supportedPlayerId != null &&
+    encouragement.supportedPlayerId !== options.playerId
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export type EncourageButtonPhase = "ready" | "cooldown" | "exhausted" | "hidden" | "blocked";
+
+export function getEncourageButtonPhase(options: {
+  raceActive: boolean;
+  isInjured: boolean;
+  isFighting: boolean;
+  playerId: string;
+  encouragement: {
+    supportedPlayerId: string | null;
+    votesUsed: number;
+    votesMax: number;
+    votesRemaining: number;
+  };
+  cooldownReady: boolean;
+}): EncourageButtonPhase {
+  if (!options.raceActive || options.isInjured || options.isFighting) return "hidden";
+
+  const { encouragement } = options;
+  const isTarget =
+    encouragement.supportedPlayerId == null ||
+    encouragement.supportedPlayerId === options.playerId;
+
+  if (!isTarget) return "blocked";
+
+  if (encouragement.votesRemaining <= 0) return "exhausted";
+
+  if (!options.cooldownReady) return "cooldown";
+
+  return "ready";
 }

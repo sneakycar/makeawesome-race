@@ -53,7 +53,12 @@ export function ScorePipTrack({
       <div
         className={`score-pip-track score-pip-track--race${
           isLeader ? " score-pip-track-leader" : ""
+        }${
+          statusOverlay?.icon === "fight" ? " score-pip-track-fight" : ""
+        }${
+          statusOverlay?.icon === "injured" ? " score-pip-track-injured" : ""
         }`}
+        style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: slots }, (_, i) => {
           if (i < pipBright) {
@@ -83,6 +88,12 @@ export function ScorePipTrack({
           }
           return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
         })}
+        {statusOverlay && (
+          <div className="row-scoreboard-overlay" aria-hidden="true">
+            <FlatIcon id={statusOverlay.icon} className="race-emoji race-emoji-overlay" />
+            <span className="row-scoreboard-overlay-label">{statusOverlay.label}</span>
+          </div>
+        )}
       </div>
       <span className="row-score-pip-num">{formatRaceScore(displayPoints)}</span>
       {animatingDelta !== 0 && (
@@ -95,12 +106,6 @@ export function ScorePipTrack({
           {animatingDelta > 0 ? "+" : ""}
           {formatRaceScore(animatingDelta)}
         </span>
-      )}
-      {statusOverlay && (
-        <div className="row-scoreboard-overlay" aria-hidden="true">
-          <FlatIcon id={statusOverlay.icon} className="race-emoji race-emoji-overlay" />
-          <span className="row-scoreboard-overlay-label">{statusOverlay.label}</span>
-        </div>
       )}
     </div>
   );

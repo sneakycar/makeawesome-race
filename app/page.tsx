@@ -24,7 +24,9 @@ import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
 import { useRaceWeather } from "@/lib/use-race-weather";
 import { formatRankDelta, useLiveRankDelta } from "@/lib/use-live-rank-delta";
 import { RaceWeatherOverlay } from "@/app/components/race-weather-overlay";
-import { canEncourageVote, vibrateNope } from "@/lib/nope-feedback";
+import { canEncourageVote, getEncourageButtonPhase, vibrateNope } from "@/lib/nope-feedback";
+import { getOrCreateDeviceId } from "@/lib/client-device-id";
+import { useEncourageCooldown } from "@/lib/use-encourage-cooldown";
 import { calculateLiveOdds } from "@/lib/live-odds";
 import { buildLiveScoreMap, computeLiveRanks } from "@/lib/live-standings";
 import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
@@ -316,20 +318,26 @@ function LiveOddsBoard({
   const oddsAge = formatTickerAge(oddsAsOf, now);
 
   const lines = useMemo(() => {
-    if (!raceActive || state.race.status !== "active") return [];
+    if (
+      !raceActive ||
+      state.race.status !== "active" ||
+      state.racePhase !== "live" ||
+      !liveRace
+    ) {
+      return [];
+    }
 
-    const scores = buildLiveScoreMap(state.entries, liveRace?.entries);
+    const scores = buildLiveScoreMap(state.entries, liveRace.entries);
     const ranks = computeLiveRanks(state.entries, scores);
 
     return calculateLiveOdds(
       state.race.id,
       state.race.day_number,
-      state.race.percent_complete,
+      liveRace.raceProgress,
       state.entries,
       scores,
       ranks,
-      state.ovrByPlayerId,
-      state.gameState.last_tick_at ?? state.serverTime
+      state.ovrByPlayerId
     );
   }, [state, liveRace, raceActive]);
 
@@ -436,10 +444,14 @@ function AboutSection() {
         <p>
           SUPPORT
           {"\n\n"}
-          Once per race, visitors may give +1 support to a single racer. Support
-          does not affect the current race. After the race ends, support creates
-          a small chance for permanent growth. Strong racers improve slowly,
-          while struggling racers benefit more. The machine remains in charge.
+          Up to six times per race, you can tap +1 for one racer. Each tap adds a
+          tiny bump to today&apos;s score (capped so fans can never buy the race)
+          and rolls for permanent growth after the finish. Strong racers grow
+          slowly; struggling racers get better odds. Age, decay, holding, and
+          injuries still pull everyone back — there is no finish line.
+          {"\n\n"}
+          After each tap the button shows a check until the cooldown clears, then
+          +1 lights up again.
         </p>
         <p>
           INJURIES
@@ -468,7 +480,9 @@ export default function HomePage() {
 
   const fetchState = useCallback(async (): Promise<GameStateResponse | null> => {
     try {
-      const res = await fetch("/api/state", { cache: "no-store" });
+      const deviceId = getOrCreateDeviceId();
+      const qs = deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : "";
+      const res = await fetch(`/api/state${qs}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to load");
@@ -500,13 +514,21 @@ export default function HomePage() {
     loadState();
   }, [loadState]);
 
+  const encouragement = state?.encouragement;
+  const cooldownReady = useEncourageCooldown(encouragement);
+
   const handleEncourageClick = (playerId: string) => {
+    const encouragement = state?.encouragement;
+    if (!encouragement) return;
+
     if (
       canEncourageVote({
         raceActive: state?.race.status === "active",
         raceDelayed: Boolean(state?.raceDelay?.active),
         encouraging,
-        supportedPlayerId: state?.encouragement.supportedPlayerId ?? null,
+        encouragement,
+        playerId,
+        cooldownReady,
       })
     ) {
       handleEncourage(playerId);
@@ -517,14 +539,30 @@ export default function HomePage() {
   };
 
   const handleEncourage = async (playerId: string) => {
-    if (encouraging || state?.encouragement.supportedPlayerId) return;
+    const encouragement = state?.encouragement;
+    if (
+      encouraging ||
+      !encouragement ||
+      !canEncourageVote({
+        raceActive: state?.race.status === "active",
+        raceDelayed: Boolean(state?.raceDelay?.active),
+        encouraging,
+        encouragement,
+        playerId,
+        cooldownReady,
+      })
+    ) {
+      return;
+    }
+
     setEncouraging(true);
     setEncourageError(null);
     try {
+      const deviceId = getOrCreateDeviceId();
       const res = await fetch("/api/encourage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId }),
+        body: JSON.stringify({ playerId, deviceId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -533,14 +571,34 @@ export default function HomePage() {
         setNopeShakeId(playerId);
         return;
       }
-      setState((prev) =>
-        prev
-          ? {
-              ...prev,
-              encouragement: { supportedPlayerId: playerId },
-            }
-          : prev
-      );
+      setState((prev) => {
+        if (!prev) return prev;
+        const granted = Number(data.liveScoreGranted ?? 0);
+        return {
+          ...prev,
+          encouragement: data.encouragement ?? prev.encouragement,
+          entries:
+            granted > 0
+              ? prev.entries.map((e) => {
+                  if (e.player_id !== playerId) return e;
+                  const nextScore = Math.round(Number(e.race_score) + granted);
+                  const recentDeltas = [
+                    ...(e.recent_deltas ?? []),
+                    granted,
+                  ].slice(-3);
+                  return {
+                    ...e,
+                    race_score: nextScore,
+                    progress: nextScore,
+                    displayed_progress: nextScore,
+                    fan_live_bonus: Number(e.fan_live_bonus ?? 0) + granted,
+                    recent_deltas: recentDeltas,
+                    last_delta: granted,
+                  };
+                })
+              : prev.entries,
+        };
+      });
     } catch {
       setEncourageError("Could not encourage");
     } finally {
@@ -548,14 +606,18 @@ export default function HomePage() {
     }
   };
 
-  const supportedId = state?.encouragement.supportedPlayerId ?? null;
   const raceActive = state?.race.status === "active";
   const raceDelayed = Boolean(state?.raceDelay?.active);
   const betweenRaces = state?.betweenRaces ?? false;
   const liveRace = useLiveRace(state, raceActive && !raceDelayed);
   const isNight = useDayNight();
   useHomeDayNightTheme(isNight);
-  const raceWeather = useRaceWeather(state?.race.id, raceActive && !raceDelayed);
+  const raceWeather = useRaceWeather(
+    state?.race.id,
+    state?.race.started_at,
+    state?.race.ends_at,
+    raceActive && !raceDelayed
+  );
   const rankDeltaById = useLiveRankDelta(state, raceActive && !raceDelayed, liveRace);
 
   const liveScoreMap = useMemo(
@@ -696,8 +758,8 @@ export default function HomePage() {
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
             const rank = liveRankMap.get(entry.player_id) ?? entry.current_rank;
-            const pipConfirmedScore =
-              live?.confirmedScore ?? Math.round(Number(entry.race_score));
+            const pipDisplayScore =
+              live?.score ?? Math.round(Number(entry.race_score));
             const pipAnimatingDelta = live?.animatingDelta ?? 0;
             const isInjured = entry.is_injured;
             const isFighting = entry.is_fighting;
@@ -721,13 +783,26 @@ export default function HomePage() {
                     ? "comeback"
                     : null;
             const rankDeltaLabel = formatRankDelta(rankDelta);
-            const isSupported = supportedId === entry.player_id;
-            const canEncourage = canEncourageVote({
-              raceActive,
-              raceDelayed,
-              encouraging,
-              supportedPlayerId: supportedId,
-            });
+            const encouragePhase =
+              encouragement &&
+              getEncourageButtonPhase({
+                raceActive,
+                isInjured,
+                isFighting,
+                playerId: entry.player_id,
+                encouragement,
+                cooldownReady,
+              });
+            const canEncourage =
+              encouragement &&
+              canEncourageVote({
+                raceActive,
+                raceDelayed,
+                encouraging,
+                encouragement,
+                playerId: entry.player_id,
+                cooldownReady,
+              });
 
             return (
               <div key={entry.id} className={`row-line${isLeader ? " row-line-leader" : ""}`}>
@@ -744,6 +819,11 @@ export default function HomePage() {
                 >
                   <div className="row-head">
                     <span className="row-archetype">L{entry.lane}</span>
+                    {barMark ? (
+                      <span className="row-mark-slot row-mark-slot-inline">
+                        <FlatIcon id={barMark} className="race-emoji" />
+                      </span>
+                    ) : null}
                     <span className="row-name">{formatRacerName(entry.player.name)}</span>
                     {rankDeltaLabel && (
                       <span
@@ -759,40 +839,35 @@ export default function HomePage() {
                     )}
                   </div>
                   <div className="row-track">
-                    <span
-                      className="row-mark-slot"
-                      title={
-                        isInjured
-                          ? "Injured"
-                          : isFighting
-                            ? "Fighting"
-                            : isLeader
-                              ? "Race leader"
-                              : isLast
-                                ? "Last place"
-                                : isComeback
-                                  ? `Up ${rankDelta} spots since last update`
-                                  : undefined
-                      }
-                    >
-                      {barMark ? <FlatIcon id={barMark} className="race-emoji" /> : null}
-                    </span>
                     <ScorePipTrack
-                      score={pipConfirmedScore}
+                      score={pipDisplayScore}
                       animatingDelta={pipAnimatingDelta}
                       leaderScore={leaderScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
                       statusOverlay={pipOverlay}
                     />
-                    {raceActive && !isInjured && !isFighting ? (
+                    {raceActive && !isInjured && !isFighting && encouragePhase !== "hidden" ? (
+                      encouragePhase === "blocked" ? (
+                        <span className="encourage-btn-spacer" aria-hidden="true" />
+                      ) : (
                       <button
                         type="button"
-                        className={`encourage-btn${isSupported ? " supported" : ""}${
-                          !canEncourage ? " encourage-btn-blocked" : ""
-                        }${nopeShakeId === entry.player_id ? " encourage-btn-nope" : ""}`}
+                        className={`encourage-btn${
+                          encouragePhase === "ready" ? " encourage-btn-ready" : ""
+                        }${encouragePhase === "cooldown" ? " encourage-btn-cooldown" : ""}${
+                          encouragePhase === "exhausted" ? " encourage-btn-exhausted" : ""
+                        }${!canEncourage ? " encourage-btn-blocked" : ""}${
+                          nopeShakeId === entry.player_id ? " encourage-btn-nope" : ""
+                        }`}
                         aria-disabled={!canEncourage}
-                        aria-label={isSupported ? "Supported" : "Encourage +1"}
+                        aria-label={
+                          encouragePhase === "ready"
+                            ? `Encourage +1 (${encouragement?.votesUsed ?? 0}/${encouragement?.votesMax ?? 6})`
+                            : encouragePhase === "cooldown"
+                              ? "Encourage cooldown — check back soon"
+                              : "All encourages used this race"
+                        }
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEncourageClick(entry.player_id);
@@ -801,12 +876,13 @@ export default function HomePage() {
                           if (nopeShakeId === entry.player_id) setNopeShakeId(null);
                         }}
                       >
-                        {isSupported ? (
-                          <FlatIcon id="check" className="race-emoji race-emoji-btn" />
-                        ) : (
+                        {encouragePhase === "ready" ? (
                           "+1"
+                        ) : (
+                          <FlatIcon id="check" className="race-emoji race-emoji-btn" />
                         )}
                       </button>
+                      )
                     ) : raceActive && (isFighting || isInjured) ? (
                       <span className="encourage-btn-spacer" aria-hidden="true" />
                     ) : null}
@@ -858,7 +934,7 @@ export default function HomePage() {
             </span>
           </div>
 
-          {raceActive && !raceDelayed && (
+          {raceActive && !raceDelayed && liveRace && state.racePhase === "live" && (
             <LiveOddsBoard state={state} liveRace={liveRace} raceActive={raceActive} />
           )}
 

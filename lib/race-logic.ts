@@ -18,6 +18,7 @@ import {
 import {
   generateIdentity,
   buildPlayerStatsFromSeed,
+  type PlayerIdentity,
   getArchetypeRaceModifier,
   getTraitRaceModifier,
   getChaosRangeMultiplier,
@@ -67,6 +68,7 @@ import { generatePlayerPalette } from "./player-colors";
 import { syncRaceWeatherEvents } from "./weather-db";
 import {
   applySimTick,
+  applyFanLiveBonusToSim,
   buildRaceSim,
   replaySimToTick,
   rankSimEntries,
@@ -278,9 +280,10 @@ export function buildPlayerInsert(
   slug: string,
   status: "active" | "holding",
   createdDay: number,
-  seed: string
+  seed: string,
+  identityOverride?: PlayerIdentity
 ) {
-  const identity = generateIdentity(seed);
+  const identity = identityOverride ?? generateIdentity(seed);
   const stats = buildPlayerStatsFromSeed(seed, identity);
   return {
     name: name.toUpperCase(),
@@ -545,6 +548,19 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   );
 
   replaySimToTick(race as Race, sim, tickNumber, startedAt, endsAt, chaosUsed);
+
+  applyFanLiveBonusToSim(
+    sim,
+    entries.map((entry) => ({
+      player_id: entry.player_id,
+      fan_live_bonus: entry.fan_live_bonus,
+      is_injured: Boolean(entry.is_injured),
+      is_fighting: Boolean(entry.is_fighting),
+      fighting_at_tick: entry.fighting_at_tick as number | null,
+      fight_end_tick: entry.fight_end_tick as number | null,
+    })),
+    tickNumber
+  );
 
   const rankedForFight = rankSimEntries(sim);
   if (!entries.some((e) => e.is_fighting)) {
@@ -956,6 +972,19 @@ export async function finalizeRace(
   for (let t = 0; t < TICKS_PER_RACE; t++) {
     applySimTick(race, sim, t, startedAt, endsAt, chaosUsed, { allowNewStalls: t < TICKS_PER_RACE - 1 });
   }
+
+  applyFanLiveBonusToSim(
+    sim,
+    entries.map((entry) => ({
+      player_id: entry.player_id,
+      fan_live_bonus: entry.fan_live_bonus,
+      is_injured: Boolean(entry.is_injured),
+      is_fighting: Boolean(entry.is_fighting),
+      fighting_at_tick: entry.fighting_at_tick as number | null,
+      fight_end_tick: entry.fight_end_tick as number | null,
+    })),
+    TICKS_PER_RACE - 1
+  );
 
   const processed = entries.map((entry) => {
     const simEntry = sim.find((s) => s.player_id === entry.player_id)!;
@@ -1426,6 +1455,17 @@ export async function chooseReplacement(
   return createPlayer(supabase, "active", nextDay);
 }
 
+/** Next brand-new racer (one-time) — jumps the line before random generation resumes. */
+export const QUEUED_ROOKIE = {
+  name: "walhof",
+  slug: "walhof",
+  identity: {
+    archetype: "STAR",
+    traits: ["FAMOUS", "LOUD"],
+    signature_stat: "burst",
+  } satisfies PlayerIdentity,
+} as const;
+
 export async function createPlayer(
   supabase: SupabaseClient,
   status: "active" | "holding",
@@ -1433,9 +1473,22 @@ export async function createPlayer(
 ): Promise<Player> {
   const { data: existing } = await supabase.from("players").select("slug");
   const slugs = new Set((existing || []).map((p) => p.slug));
-  const { name, slug } = generateUniqueName(`new-player-${day}-${Date.now()}`, slugs);
+
+  let name: string;
+  let slug: string;
+  let identityOverride: PlayerIdentity | undefined;
+
+  if (!slugs.has(QUEUED_ROOKIE.slug)) {
+    name = QUEUED_ROOKIE.name;
+    slug = QUEUED_ROOKIE.slug;
+    identityOverride = { ...QUEUED_ROOKIE.identity };
+  } else {
+    ({ name, slug } = generateUniqueName(`new-player-${day}-${Date.now()}`, slugs));
+    identityOverride = undefined;
+  }
+
   const seed = `player-${slug}-${day}`;
-  const insert = buildPlayerInsert(name, slug, status, day, seed);
+  const insert = buildPlayerInsert(name, slug, status, day, seed, identityOverride);
 
   const { data, error } = await supabase.from("players").insert(insert).select("*").single();
   if (error) throw error;

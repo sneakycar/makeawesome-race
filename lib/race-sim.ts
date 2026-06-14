@@ -48,10 +48,7 @@ export function buildRaceSim(
     player_id: entry.player_id,
     player: entry.player,
     lane: entry.lane,
-    score:
-      entry.is_injured || entry.is_fighting
-        ? Number(entry.fight_frozen_score ?? entry.race_score ?? 0)
-        : 0,
+    score: 0,
     is_injured: Boolean(entry.is_injured),
     injured_at_tick: entry.injured_at_tick ?? null,
     is_fighting: Boolean(entry.is_fighting),
@@ -198,6 +195,40 @@ export function applySimTick(
   }
 
   return results;
+}
+
+/** Add cumulative fan encouragement points after sim replay (not part of tick deltas). */
+export function applyFanLiveBonusToSim(
+  sim: RaceSimEntry[],
+  entries: Array<{
+    player_id: string;
+    fan_live_bonus?: number | null;
+    is_injured?: boolean;
+    is_fighting?: boolean;
+    fighting_at_tick?: number | null;
+    fight_end_tick?: number | null;
+  }>,
+  tickNumber: number
+): void {
+  for (const entry of sim) {
+    const source = entries.find((e) => e.player_id === entry.player_id);
+    if (!source) continue;
+
+    const fanBonus = Number(source.fan_live_bonus ?? 0);
+    if (fanBonus <= 0 || source.is_injured) continue;
+
+    if (
+      source.is_fighting &&
+      source.fighting_at_tick != null &&
+      source.fight_end_tick != null &&
+      tickNumber >= source.fighting_at_tick &&
+      tickNumber < source.fight_end_tick
+    ) {
+      continue;
+    }
+
+    entry.score = clampNaturalRaceScore(entry.score + fanBonus);
+  }
 }
 
 export function replaySimToTick(
