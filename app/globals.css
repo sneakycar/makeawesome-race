@@ -139,18 +139,16 @@ main,
 }
 
 .race-progress-track {
-  height: 10px;
+  height: 8px;
   width: 100%;
-  background: #e6e6e6;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  background: #eee;
+  border: 1px solid #999;
   overflow: hidden;
 }
 
 .race-progress-fill {
   height: 100%;
-  background: linear-gradient(180deg, #5eead4 0%, #14b8a6 100%);
-  border-radius: 3px 0 0 3px;
+  background: #111;
   transition: width 0.9s linear;
 }
 
@@ -170,109 +168,124 @@ main,
 
 .encourage-btn {
   flex-shrink: 0;
-  font-size: 9px;
-  line-height: 1.1;
-  letter-spacing: 0.02em;
-  min-width: 44px;
-  min-height: 34px;
-  padding: 5px 6px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #c8c8c8;
-  border-radius: 6px;
-  background: linear-gradient(180deg, #f8f8f8 0%, #e4e4e4 100%);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  color: #222;
-  margin: 1px 0;
+  border: 1px solid #333;
+  border-radius: 0;
+  background: #fff;
+  color: #111;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  margin-top: 1px;
 }
 
 .encourage-btn:active:not(:disabled) {
-  background: linear-gradient(180deg, #ececec 0%, #d8d8d8 100%);
-  box-shadow:
-    0 0 1px rgba(0, 0, 0, 0.12),
-    inset 0 1px 2px rgba(0, 0, 0, 0.08);
-  transform: translateY(1px);
+  background: #f0f0f0;
 }
 
 .encourage-btn:disabled {
-  opacity: 0.45;
-  color: #777;
+  opacity: 0.35;
+  color: #666;
   cursor: default;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .encourage-btn.supported {
-  background: linear-gradient(180deg, #e8faf8 0%, #c5ede8 100%);
-  border-color: #5bbfb3;
-  color: #0a5852;
   opacity: 1;
-  box-shadow:
-    0 1px 3px rgba(10, 88, 82, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  background: #fff;
+  border-color: #333;
+  color: #333;
 }
 
 .row-line {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  padding: 3px 0;
+  padding: 4px 0;
   max-width: 100%;
 }
 
-.progress-track {
+.row-main {
   flex: 1;
-  height: 18px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
-  background: #e6e6e6;
-  border-radius: 3px;
-  overflow: hidden;
-  border: 1px solid #ccc;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.progress-fill {
-  height: 100%;
-  background: #222;
-  border-radius: 2px 0 0 2px;
-  transition: width 0.4s ease;
+.row-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.progress-p1 .progress-fill {
-  background: linear-gradient(180deg, #5eead4 0%, #2dd4bf 55%, #14b8a6 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+.row-name {
+  font-size: 11px;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  color: #111;
+  word-break: break-word;
 }
 
-.progress-p2 .progress-fill {
-  background: linear-gradient(180deg, #e2e8f0 0%, #94a3b8 55%, #64748b 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
-}
-
-.progress-p3 .progress-fill {
-  background: linear-gradient(180deg, #fcd34d 0%, #d97706 55%, #b45309 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
-
-.comeback-tag {
-  display: inline-flex;
+.row-bar-line {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  padding: 1px 4px;
-  font-size: 8px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: 0;
-  color: #9a4d00;
-  background: #fff3e0;
-  border: 1px solid #ffb74d;
-  border-radius: 3px;
+  gap: 8px;
+  min-width: 0;
 }
 
-.comeback-tag-legend {
-  margin-left: 0;
-  font-size: 8px;
+.row-bar {
+  white-space: pre;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.row-bar-default {
+  color: #111;
+}
+
+.row-bar-p1 {
+  color: #0d9488;
+}
+
+.row-bar-p2 {
+  color: #64748b;
+}
+
+.row-bar-p3 {
+  color: #b45309;
+}
+
+.comeback-mark {
+  font-size: 10px;
+  font-weight: 700;
+  color: #b45309;
+  flex-shrink: 0;
+}
+
+.comeback-mark-legend {
+  font-size: 10px;
+}
+
+.row-pct {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 1;
+  color: #333;
+  min-width: 2rem;
+}
+
+.row-main:active {
+  opacity: 0.55;
 }
 
 .race-legend {
@@ -294,67 +307,20 @@ main,
 .legend-swatch {
   width: 10px;
   height: 10px;
-  border-radius: 2px;
   flex-shrink: 0;
+  border: 1px solid #333;
 }
 
 .legend-swatch-p1 {
-  background: linear-gradient(180deg, #5eead4 0%, #14b8a6 100%);
-  border: 1px solid #0a5852;
+  background: #0d9488;
 }
 
 .legend-swatch-p2 {
-  background: linear-gradient(180deg, #e2e8f0 0%, #64748b 100%);
-  border: 1px solid #475569;
+  background: #64748b;
 }
 
 .legend-swatch-p3 {
-  background: linear-gradient(180deg, #fcd34d 0%, #b45309 100%);
-  border: 1px solid #92400e;
-}
-
-.row-main {
-  flex: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 2px 0;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.row-label {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 9rem;
-  min-width: 0;
-}
-
-.row-meta {
-  font-size: 10px;
-  line-height: 1.2;
-  letter-spacing: 0.02em;
-  color: #333;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.row-pct {
-  flex-shrink: 0;
-  font-size: 10px;
-  line-height: 1.2;
-  color: #444;
-  min-width: 2rem;
-  text-align: right;
-}
-
-.row-main:active {
-  opacity: 0.55;
+  background: #b45309;
 }
 
 .about-details {

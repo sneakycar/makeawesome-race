@@ -8,12 +8,12 @@ import {
   formatRemainingTime,
   formatCompactDuration,
   formatNextRaceBegin,
+  formatProgressBar,
   formatPips,
   formatStreak,
   formatTickerAge,
   formatCurrentRaceLabel,
   ordinal,
-  truncateName,
 } from "@/lib/format";
 
 function RaceMetaPanel({
@@ -399,30 +399,19 @@ export default function HomePage() {
             .map((entry) => {
             const rank = entry.current_rank;
             const isComeback = entry.last_rank_change >= 2;
-            const podiumClass =
+            const barClass =
               rank === 1
-                ? "progress-p1"
+                ? "row-bar-p1"
                 : rank === 2
-                  ? "progress-p2"
+                  ? "row-bar-p2"
                   : rank === 3
-                    ? "progress-p3"
-                    : "";
-            const progressClasses = ["progress-track", podiumClass]
-              .filter(Boolean)
-              .join(" ");
+                    ? "row-bar-p3"
+                    : "row-bar-default";
+            const bar = formatProgressBar(entry.displayed_progress, 18);
             const isSupported = supportedId === entry.player_id;
             const hasSupported = supportedId != null;
 
-            let buttonLabel = "[+1]";
-            let buttonDisabled = !raceActive || encouraging;
-
-            if (isSupported) {
-              buttonLabel = "[SUPPORTED]";
-              buttonDisabled = true;
-            } else if (hasSupported) {
-              buttonLabel = "[+1]";
-              buttonDisabled = true;
-            }
+            let buttonDisabled = !raceActive || encouraging || hasSupported;
 
             return (
               <div key={entry.id} className="row-line">
@@ -437,26 +426,23 @@ export default function HomePage() {
                   role="button"
                   tabIndex={0}
                 >
-                  <span className="row-label">
-                    <span className="row-meta">
-                      LANE {entry.lane}] {truncateName(entry.player.name)}
+                  <div className="row-head">
+                    <span className="row-name">
+                      LANE {entry.lane}] {entry.player.name}
                     </span>
                     {isComeback && (
                       <span
-                        className="comeback-tag"
+                        className="comeback-mark"
                         title={`Up ${entry.last_rank_change} spots since last update`}
                       >
                         ↑{entry.last_rank_change}
                       </span>
                     )}
-                  </span>
-                  <div className={progressClasses} aria-hidden="true">
-                    <div
-                      className="progress-fill"
-                      style={{ width: `${entry.displayed_progress}%` }}
-                    />
                   </div>
-                  <span className="row-pct">{entry.displayed_progress}%</span>
+                  <div className="row-bar-line">
+                    <span className={`row-bar ${barClass}`}>{bar}</span>
+                    <span className="row-pct">{entry.displayed_progress}%</span>
+                  </div>
                 </div>
                 {raceActive && (
                   <button
@@ -468,7 +454,7 @@ export default function HomePage() {
                       handleEncourage(entry.player_id);
                     }}
                   >
-                    {buttonLabel}
+                    +1
                   </button>
                 )}
               </div>
@@ -490,7 +476,7 @@ export default function HomePage() {
               3RD
             </span>
             <span className="legend-key">
-              <span className="comeback-tag comeback-tag-legend" aria-hidden="true">
+              <span className="comeback-mark comeback-mark-legend" aria-hidden="true">
                 ↑2
               </span>
               COMEBACK
