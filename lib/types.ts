@@ -164,6 +164,7 @@ export interface TickerEventFacts {
   gapToLeader?: number;
   eventNote?: string | null;
   previousLeaderName?: string;
+  fightPartnerName?: string;
   winnerName?: string;
   eliminatedName?: string;
   raceNumber?: number;
@@ -294,9 +295,14 @@ export interface BadMoneyState {
   canBet: boolean;
 }
 
+export type LastRaceRecapSegment =
+  | { kind: "text"; value: string }
+  | { kind: "name"; value: string };
+
 export interface LastRaceRecap {
   raceNumber: number;
   paragraph: string;
+  segments: LastRaceRecapSegment[];
 }
 
 export interface GameStateResponse {

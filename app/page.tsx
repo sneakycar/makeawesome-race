@@ -1107,7 +1107,17 @@ export default function HomePage() {
             {state.lastRaceRecap && (
               <div className="home-section-block home-section-block-full">
                 <div className="section-label">LAST RACE RECAP</div>
-                <p className="last-race-recap">{state.lastRaceRecap.paragraph}</p>
+                <p className="last-race-recap">
+                  {state.lastRaceRecap.segments.map((segment, i) =>
+                    segment.kind === "name" ? (
+                      <strong key={i} className="last-race-recap-name">
+                        {segment.value}
+                      </strong>
+                    ) : (
+                      <span key={i}>{segment.value}</span>
+                    )
+                  )}
+                </p>
               </div>
             )}
 

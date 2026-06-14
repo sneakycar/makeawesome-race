@@ -5,7 +5,7 @@ import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap, normalizePeakRa
 import { getCombinedRaceTempo, getRaceWeekTempo } from "./race-tempo";
 import { resolveWinnerRaceScore } from "./god-score";
 import { appendRecentDelta } from "./hybrid-live-score";
-import { ordinal, slugify } from "./format";
+import { ordinal, slugify, formatRacerName } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
 import { processRaceSupports } from "./support-db";
 import { processBadMoneyAtFinalize } from "./bad-money-db";
@@ -50,13 +50,10 @@ import {
   getSupportRecoveryBonus,
 } from "./injuries";
 import {
-  calculateFightChance,
   clearEndedFights,
-  fightTraitMultiplier,
   isStillFightingAtRaceEnd,
-  pickFightPair,
-  shouldStartFight,
 } from "./fights";
+import { maybeStartSimFight } from "./race-fight-tick";
 import {
   clearExpiredRaceDelay,
   getRaceEffectiveNow,
@@ -605,63 +602,55 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     tickNumber
   );
 
-  const rankedForFight = rankSimEntries(sim);
-  if (!entries.some((e) => e.is_fighting)) {
-    const eligibleFight = entries
-      .filter((e) => !e.is_injured && !e.is_fighting)
-      .map((e) => ({
-        player_id: e.player_id,
-        current_rank:
-          rankedForFight.find((s) => s.player_id === e.player_id)?.current_rank ??
-          e.current_rank,
-        player: e.player as Player,
-      }));
+  const fightStart = maybeStartSimFight(sim, {
+    raceId: race.id,
+    tickNumber,
+    percentComplete,
+  });
 
-    const fightChance =
-      calculateFightChance({ tickNumber, percentComplete }) *
-      fightTraitMultiplier(eligibleFight.map((e) => e.player));
-    const fightSeed = `${race.id}:${tickNumber}:fight-roll`;
-
-    if (shouldStartFight(fightSeed, fightChance)) {
-      const pick = pickFightPair(race.id, tickNumber, eligibleFight);
-      if (pick) {
-        const applyFightStart = (playerId: string, partnerId: string) => {
-          const entry = entries.find((e) => e.player_id === playerId);
-          const simEntry = sim.find((s) => s.player_id === playerId);
-          if (!entry || !simEntry) return;
-          const frozen = simEntry.score;
-          entry.is_fighting = true;
-          entry.fighting_at_tick = tickNumber;
-          entry.fight_end_tick = tickNumber + pick.durationTicks;
-          entry.fight_partner_id = partnerId;
-          entry.fight_frozen_score = frozen;
-          simEntry.is_fighting = true;
-          simEntry.fighting_at_tick = tickNumber;
-          simEntry.fight_end_tick = tickNumber + pick.durationTicks;
-          simEntry.fight_frozen_score = frozen;
-        };
-        applyFightStart(pick.playerAId, pick.playerBId);
-        applyFightStart(pick.playerBId, pick.playerAId);
-
-        const nameA = (entries.find((e) => e.player_id === pick.playerAId)!.player as Player)
-          .name;
-        const nameB = (entries.find((e) => e.player_id === pick.playerBId)!.player as Player)
-          .name;
-        await saveTickerEvents(supabase, race.id, tickNumber, [
-          {
-            message: `${nameA} and ${nameB} throw down — FIGHT!`,
-            eventType: "fight",
-            playerId: pick.playerAId,
-            facts: {
-              tickNumber,
-              percentComplete,
-              playerName: nameA,
-            },
-            priority: 78,
-          },
-        ]);
-      }
+  if (fightStart) {
+    const { pick, ticker } = fightStart;
+    for (const playerId of [pick.playerAId, pick.playerBId]) {
+      const entry = entries.find((e) => e.player_id === playerId);
+      const simEntry = sim.find((s) => s.player_id === playerId);
+      if (!entry || !simEntry) continue;
+      const partnerId = playerId === pick.playerAId ? pick.playerBId : pick.playerAId;
+      const partner = entries.find((e) => e.player_id === partnerId)!.player as Player;
+      entry.is_fighting = true;
+      entry.fighting_at_tick = tickNumber;
+      entry.fight_end_tick = tickNumber + pick.durationTicks;
+      entry.fight_partner_id = partnerId;
+      entry.fight_frozen_score = simEntry.fight_frozen_score;
     }
+
+    const nameA = formatRacerName(
+      (entries.find((e) => e.player_id === pick.playerAId)!.player as Player).name
+    );
+    const nameB = formatRacerName(
+      (entries.find((e) => e.player_id === pick.playerBId)!.player as Player).name
+    );
+
+    await saveTickerEvents(supabase, race.id, tickNumber, [ticker]);
+    await addHistory(
+      supabase,
+      pick.playerAId,
+      race.id,
+      race.day_number,
+      "fight",
+      `${nameA} vs ${nameB}`,
+      null,
+      null
+    );
+    await addHistory(
+      supabase,
+      pick.playerBId,
+      race.id,
+      race.day_number,
+      "fight",
+      `${nameB} vs ${nameA}`,
+      null,
+      null
+    );
   }
 
   const scoreById = new Map(sim.map((s) => [s.player_id, s.score]));
@@ -1146,7 +1135,14 @@ export async function finalizeRace(
       throw new Error(`finalize race_entries update failed (${entry.id}): ${entryErr.message}`);
     }
 
-    const updates = mutatePlayerAfterRace(player, finish, isWinner, currentDay, top3Ids.has(player.id));
+    const updates = mutatePlayerAfterRace(
+      player,
+      finish,
+      isWinner,
+      isLast,
+      currentDay,
+      top3Ids.has(player.id)
+    );
     updates.highest_race_score = Math.max(Number(player.highest_race_score ?? 0), peakScore);
     updates.highest_career_score = Math.max(Number(player.highest_career_score ?? 0), peakScore);
 
@@ -1373,6 +1369,7 @@ export function mutatePlayerAfterRace(
   player: Player,
   finish: number,
   isWinner: boolean,
+  isLast: boolean,
   currentDay: number,
   isTop3AllTime: boolean
 ): Partial<Player> {
@@ -1396,10 +1393,13 @@ export function mutatePlayerAfterRace(
     updates.current_streak_count = player.current_streak_count;
     updates.fatigue = player.fatigue + 2;
     updates.pressure = player.pressure + 2;
-  } else {
+  } else if (isLast) {
     updates.current_streak_type = "lose";
     updates.current_streak_count =
       player.current_streak_type === "lose" ? player.current_streak_count + 1 : 1;
+  } else {
+    updates.current_streak_type = "none";
+    updates.current_streak_count = 0;
   }
 
   if (finish <= 3 && !isWinner) {

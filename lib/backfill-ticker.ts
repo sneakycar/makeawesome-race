@@ -20,6 +20,7 @@ import {
   type TickerEntrySnapshot,
   type TickerEventDraft,
 } from "./ticker-logic";
+import { maybeStartSimFight } from "./race-fight-tick";
 import type { Player, Race, RaceEntryWithPlayer } from "./types";
 
 interface TickerInsertRow {
@@ -216,6 +217,15 @@ export async function backfillRaceTicker(
       endsAt,
       new Date(startedAt.getTime() + tick * tickMs)
     );
+
+    const fightStart = maybeStartSimFight(sim, {
+      raceId,
+      tickNumber: tick,
+      percentComplete,
+    });
+    if (fightStart) {
+      rows.push(...draftsToRows(raceId, tick, tickTime(tick), [fightStart.ticker]));
+    }
 
     const tickResults = applySimTick(
       typedRace,
