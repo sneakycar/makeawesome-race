@@ -419,6 +419,14 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   height: 10px;
   overflow: hidden;
   position: relative;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.score-pip-viewport-leader {
+  box-shadow:
+    0 0 0 1px #c9a100,
+    0 0 0 2px rgba(0, 0, 0, 0.35);
 }
 
 .score-pip-viewport-paused .score-pip-on,
@@ -440,12 +448,13 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   flex: 1 1 0;
   min-width: 0;
   height: 9px;
+  image-rendering: pixelated;
 }
 
 .score-pip-on {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 0 0 0.5px rgba(0, 0, 0, 0.5);
+    0 0 0 0.5px rgba(0, 0, 0, 0.45);
 }
 
 .score-pip-partial {
@@ -453,9 +462,16 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .score-pip-dim {
-  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 55%, #c4c4c4 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  opacity: 0.55;
+  background-color: #bbb;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.08) 0px,
+    rgba(0, 0, 0, 0.08) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  opacity: 0.5;
 }
 
 .tap-hint {
@@ -1025,9 +1041,9 @@ body[data-home-theme="night"] .row-mark-slot {
 }
 
 .score-pip-empty {
-  background: transparent;
-  opacity: 0.2;
-  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+  background-color: #ddd;
+  opacity: 0.18;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.06);
 }
 
 .row-injured {
@@ -2153,8 +2169,14 @@ body[data-home-theme="night"] .row-scoreboard-overlay-label {
 
 body[data-home-theme="night"] .score-pip-on {
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 0 0 0.5px rgba(255, 255, 255, 0.25);
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 0 0 0.5px rgba(255, 255, 255, 0.18);
+}
+
+body[data-home-theme="night"] .score-pip-viewport-leader {
+  box-shadow:
+    0 0 0 1px #ffd700,
+    0 0 0 2px rgba(0, 0, 0, 0.65);
 }
 
 body[data-home-theme="night"] .race-meta-line-next-soon {
@@ -2162,9 +2184,16 @@ body[data-home-theme="night"] .race-meta-line-next-soon {
 }
 
 body[data-home-theme="night"] .score-pip-dim {
-  background: linear-gradient(180deg, #333 0%, #2a2a2a 55%, #222 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  opacity: 0.45;
+  background-color: #2a2a2a;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  opacity: 0.55;
 }
 
 body[data-home-theme="night"] .row-place-1 {
@@ -2184,8 +2213,9 @@ body[data-home-theme="night"] .row-place-rest {
 }
 
 body[data-home-theme="night"] .score-pip-empty {
-  opacity: 0.15;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  background-color: #111;
+  opacity: 0.35;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
 }
 
 body[data-home-theme="night"] .score-pip-overlay {

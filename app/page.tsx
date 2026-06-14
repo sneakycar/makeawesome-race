@@ -18,7 +18,7 @@ import {
   formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
-import { formatRaceScore, getScorePipBackground, HARD_SCORE_CAP, SCORE_PIP_SLOTS } from "@/lib/score";
+import { formatRaceScore, HARD_SCORE_CAP, SCORE_PIP_SLOTS } from "@/lib/score";
 import {
   getRaceProgressPipSurfaceStyle,
 } from "@/lib/race-progress-art";
@@ -310,11 +310,13 @@ function ScorePipTrack({
       ? Math.max(0, Math.round(confirmedScore - lastDelta + lastDelta * segmentProgress))
       : Math.round(confirmedScore);
   const behind = leader - displayPoints;
-  const colorSpan = Math.max(1, leader);
+  const litSpan = Math.max(1, leader);
 
   return (
     <div
-      className={`score-pip-viewport${statusOverlay ? " score-pip-viewport-paused" : ""}`}
+      className={`score-pip-viewport${isLeader ? " score-pip-viewport-leader" : ""}${
+        statusOverlay ? " score-pip-viewport-paused" : ""
+      }${isNight ? " is-night" : ""}`}
       aria-label={
         statusOverlay
           ? `${statusOverlay.label} — ${displayPoints} points`
@@ -337,9 +339,7 @@ function ScorePipTrack({
               <span
                 key={i}
                 className="score-pip score-pip-on"
-                style={{
-                  background: getScorePipBackground(i, colorSpan, isNight),
-                }}
+                style={getRaceProgressPipSurfaceStyle(i, litSpan, isNight)}
                 aria-hidden="true"
               />
             );
@@ -350,7 +350,7 @@ function ScorePipTrack({
                 key={i}
                 className="score-pip score-pip-on score-pip-partial"
                 style={{
-                  background: getScorePipBackground(i, colorSpan, isNight),
+                  ...getRaceProgressPipSurfaceStyle(i, litSpan, isNight),
                   opacity: Math.max(0.12, partial),
                 }}
                 aria-hidden="true"
