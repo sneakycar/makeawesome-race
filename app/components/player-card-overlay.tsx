@@ -45,13 +45,13 @@ function PlayerScorePips({
         statusOverlay ? " score-pip-viewport-paused" : ""
       }${isNight ? " is-night" : ""}`}
     >
-      <div className="score-pip-track">
+      <div className={`score-pip-track${isLeader ? " score-pip-track-leader" : ""}`}>
         {Array.from({ length: slots }, (_, i) => {
           if (i < pipBright) {
             return (
               <span
                 key={i}
-                className={`score-pip score-pip-on${isLeader ? " score-pip-on-leader" : ""}`}
+                className="score-pip score-pip-on"
                 style={{ background: getScorePipBackground(i, leader, isNight) }}
                 aria-hidden="true"
               />
@@ -61,9 +61,7 @@ function PlayerScorePips({
             return (
               <span
                 key={i}
-                className={`score-pip score-pip-on score-pip-partial${
-                  isLeader ? " score-pip-on-leader" : ""
-                }`}
+                className="score-pip score-pip-on score-pip-partial"
                 style={{
                   background: getScorePipBackground(i, leader, isNight),
                   opacity: Math.max(0.15, pipPartial),

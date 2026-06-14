@@ -44,13 +44,14 @@ export function liveRankDeltaSinceCron(dbRank: number, liveRank: number): number
 
 export function buildLiveScoreMap(
   entries: RaceEntryWithPlayer[],
-  liveScores?: Map<string, { score: number }>
+  liveScores?: Map<string, { score: number; confirmedScore?: number }>
 ): Map<string, number> {
   const scores = new Map<string, number>();
   for (const entry of entries) {
+    const live = liveScores?.get(entry.player_id);
     scores.set(
       entry.player_id,
-      getEntryDisplayScore(entry, liveScores?.get(entry.player_id)?.score)
+      getEntryDisplayScore(entry, live?.confirmedScore ?? live?.score)
     );
   }
   return scores;

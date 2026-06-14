@@ -781,10 +781,11 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   box-sizing: border-box;
 }
 
-.score-pip-on-leader {
+.score-pip-track-leader {
   box-shadow:
     0 0 0 1px #c9a100,
     0 0 0 2px rgba(0, 0, 0, 0.35);
+  border-radius: 2px;
 }
 
 .score-pip-viewport-paused .score-pip-on,
@@ -3290,7 +3291,7 @@ body[data-home-theme="night"] .row-score-pip-delta-loss {
   color: #f87171;
 }
 
-body[data-home-theme="night"] .score-pip-on-leader {
+body[data-home-theme="night"] .score-pip-track-leader {
   box-shadow:
     0 0 0 1px #ffd700,
     0 0 0 2px rgba(0, 0, 0, 0.65);

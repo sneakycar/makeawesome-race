@@ -337,13 +337,13 @@ function ScorePipTrack({
             : `${displayPoints} pts · ${behind} behind lead`
       }
     >
-      <div className="score-pip-track">
+      <div className={`score-pip-track${isLeader ? " score-pip-track-leader" : ""}`}>
         {Array.from({ length: slots }, (_, i) => {
           if (i < pipBright) {
             return (
               <span
                 key={i}
-                className={`score-pip score-pip-on${isLeader ? " score-pip-on-leader" : ""}`}
+                className="score-pip score-pip-on"
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
                 }}
@@ -355,9 +355,7 @@ function ScorePipTrack({
             return (
               <span
                 key={i}
-                className={`score-pip score-pip-on score-pip-partial${
-                  isLeader ? " score-pip-on-leader" : ""
-                }`}
+                className="score-pip score-pip-on score-pip-partial"
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
                   opacity: Math.max(0.15, pipPartial),
@@ -800,7 +798,6 @@ export default function HomePage() {
             const isFighting = entry.is_fighting;
             const rankDelta = rankDeltaById.get(entry.player_id) ?? 0;
             const isComeback = !isInjured && !isFighting && rankDelta >= 2;
-            const displayScore = liveScoreMap.get(entry.player_id) ?? pipConfirmedScore;
             const isLeader = !isInjured && !isFighting && rank === 1;
             const isLast =
               !isInjured && !isFighting && rank === healthyEntryCount;
@@ -876,7 +873,7 @@ export default function HomePage() {
                       {barMark ? <FlatIcon id={barMark} className="race-emoji" /> : null}
                     </span>
                     <ScorePipTrack
-                      score={displayScore}
+                      score={pipConfirmedScore}
                       animatingDelta={pipAnimatingDelta}
                       leaderScore={leaderScorePoints}
                       isLeader={isLeader}
