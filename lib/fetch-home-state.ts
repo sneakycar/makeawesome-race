@@ -16,6 +16,7 @@ import { getVisitorBadMoneyState } from "./bad-money-db";
 import { hashRequestIp, getRequestIp } from "./request-identity";
 import { hashVisitorDeviceId, normalizeDeviceId } from "./visitor-id";
 import { getRecentTickerEvents, getRaceTickLog } from "./ticker-db";
+import { settledValue, withFallback } from "./server-resilience";
 import type { GameStateResponse } from "./types";
 
 const IDLE_ENCOURAGEMENT = {
@@ -37,14 +38,18 @@ export async function fetchHomeState(
   supabase: SupabaseClient,
   request: Request
 ): Promise<GameStateResponse | null> {
-  await initializeGameIfNeeded(supabase);
-  await ensureRaceTickedIfStale(supabase);
+  await withFallback("initializeGameIfNeeded", () => initializeGameIfNeeded(supabase), false);
+  await withFallback("ensureRaceTickedIfStale", () => ensureRaceTickedIfStale(supabase), undefined);
 
   const active = await getActiveRaceWithEntries(supabase);
   if (!active) return null;
 
   let { race, entries } = active;
-  race = await repairActiveRaceSchedule(supabase, race);
+  race = await withFallback(
+    "repairActiveRaceSchedule",
+    () => repairActiveRaceSchedule(supabase, race),
+    race
+  );
   const now = new Date();
   const startedAt = new Date(race.started_at);
   const endsAt = new Date(race.ends_at);
@@ -78,16 +83,16 @@ export async function fetchHomeState(
   const badMoneyIpHash = hashRequestIp(getRequestIp(request));
 
   const [
-    allTime,
-    streaks,
+    allTimeResult,
+    streaksResult,
     gameStateResult,
     holdingResult,
     injuredResult,
-    encouragement,
-    badMoney,
-    ticker,
-    raceLog,
-  ] = await Promise.all([
+    encouragementResult,
+    badMoneyResult,
+    tickerResult,
+    raceLogResult,
+  ] = await Promise.allSettled([
     getAllTimeTop3(supabase),
     getActiveStreaks(supabase),
     supabase.from("game_state").select("*").eq("id", 1).single(),
@@ -112,7 +117,31 @@ export async function fetchHomeState(
     getRaceTickLog(supabase, race.id),
   ]);
 
-  const gameState = gameStateResult.data;
+  const allTime = settledValue(allTimeResult, [], "getAllTimeTop3");
+  const streaks = settledValue(streaksResult, [], "getActiveStreaks");
+  const encouragement = settledValue(encouragementResult, IDLE_ENCOURAGEMENT, "encouragement");
+  const badMoney = settledValue(badMoneyResult, IDLE_BAD_MONEY, "badMoney");
+  const ticker = settledValue(tickerResult, [], "ticker");
+  const raceLog = settledValue(raceLogResult, [], "raceLog");
+
+  const gameStateResultValue =
+    gameStateResult.status === "fulfilled" ? gameStateResult.value : null;
+  const holdingResultValue =
+    holdingResult.status === "fulfilled" ? holdingResult.value : { data: [], error: null };
+  const injuredResultValue =
+    injuredResult.status === "fulfilled" ? injuredResult.value : { data: [], error: null };
+
+  if (gameStateResult.status === "rejected") {
+    console.error("[game_state]", gameStateResult.reason);
+  }
+  if (holdingResult.status === "rejected") {
+    console.error("[holding]", holdingResult.reason);
+  }
+  if (injuredResult.status === "rejected") {
+    console.error("[injured]", injuredResult.reason);
+  }
+
+  const gameState = gameStateResultValue?.data;
   if (!gameState) throw new Error("game_state missing");
 
   const betweenRaces = race.status === "finalized";
@@ -126,8 +155,8 @@ export async function fetchHomeState(
     entries,
     allTime: allTime || [],
     streaks,
-    holding: holdingResult.data || [],
-    injured: injuredResult.data || [],
+    holding: holdingResultValue.data || [],
+    injured: injuredResultValue.data || [],
     serverTime: now.toISOString(),
     remainingMs: clock.remainingMs,
     startsInMs: clock.startsInMs,

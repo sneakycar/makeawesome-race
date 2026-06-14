@@ -157,22 +157,29 @@ export async function repairActiveRaceSchedule(
   const effectiveNow = getRaceEffectiveNow(race, now);
   const percentComplete = calculatePercentComplete(startedAt, expectedEndsAt, effectiveNow);
 
-  const { error } = await supabase
-    .from("races")
-    .update({
-      ends_at: expectedEndsAt.toISOString(),
-      percent_complete: percentComplete,
-      updated_at: now.toISOString(),
-    })
-    .eq("id", race.id);
-
-  if (error) throw error;
-
-  return {
+  const repaired: Race = {
     ...race,
     ends_at: expectedEndsAt.toISOString(),
     percent_complete: percentComplete,
   };
+
+  try {
+    const { error } = await supabase
+      .from("races")
+      .update({
+        ends_at: expectedEndsAt.toISOString(),
+        percent_complete: percentComplete,
+      })
+      .eq("id", race.id);
+
+    if (error) {
+      console.error("[repairActiveRaceSchedule]", error.message);
+    }
+  } catch (err) {
+    console.error("[repairActiveRaceSchedule]", err);
+  }
+
+  return repaired;
 }
 
 export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {

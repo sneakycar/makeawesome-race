@@ -39,6 +39,7 @@ import { BadMoneyModal } from "@/app/components/bad-money-modal";
 import { RacerFactReveal } from "@/app/components/racer-fact-reveal";
 import { ScorePipTrack } from "@/app/components/score-pip-track";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
+import { fetchWithRetry } from "@/lib/server-resilience";
 
 function RaceDelayOverlay({
   delay,
@@ -548,7 +549,7 @@ export default function HomePage() {
     try {
       const deviceId = getOrCreateDeviceId();
       const qs = deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : "";
-      const res = await fetch(`/api/state${qs}`, { cache: "no-store" });
+      const res = await fetchWithRetry(`/api/state${qs}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to load");
@@ -589,6 +590,14 @@ export default function HomePage() {
   useEffect(() => {
     loadState();
   }, [loadState]);
+
+  useEffect(() => {
+    if (!error) return;
+    const id = setInterval(() => {
+      loadState();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [error, loadState]);
 
   const ovrByPlayerId = useMemo(() => {
     if (!state?.entries.length) return {};
