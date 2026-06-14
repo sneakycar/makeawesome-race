@@ -303,6 +303,8 @@ export interface LastRaceRecap {
   raceNumber: number;
   paragraph: string;
   segments: LastRaceRecapSegment[];
+  abilityGainsParagraph?: string;
+  abilityGainsSegments?: LastRaceRecapSegment[];
 }
 
 export interface GameStateResponse {

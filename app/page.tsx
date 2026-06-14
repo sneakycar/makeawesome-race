@@ -1137,6 +1137,19 @@ export default function HomePage() {
                     )
                   )}
                 </p>
+                {state.lastRaceRecap.abilityGainsSegments && (
+                  <p className="last-race-recap last-race-recap-abilities">
+                    {state.lastRaceRecap.abilityGainsSegments.map((segment, i) =>
+                      segment.kind === "name" ? (
+                        <strong key={i} className="last-race-recap-name">
+                          {segment.value}
+                        </strong>
+                      ) : (
+                        <span key={i}>{segment.value}</span>
+                      )
+                    )}
+                  </p>
+                )}
               </div>
             )}
 

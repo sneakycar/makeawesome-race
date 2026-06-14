@@ -1242,6 +1242,24 @@ export async function finalizeRace(
       );
     }
 
+    const abilityStats = ["grit", "chaos", "nerve", "luck", "burst", "drag"] as const;
+    for (const stat of abilityStats) {
+      const before = player[stat] as number;
+      const after = (updates[stat] as number | undefined) ?? before;
+      if (after > before) {
+        await addHistory(
+          supabase,
+          player.id,
+          race.id,
+          currentDay,
+          "mutation",
+          `${stat.toUpperCase()} +${after - before}`,
+          finish,
+          roundRaceScore(Number(entry.race_score))
+        );
+      }
+    }
+
     await supabase.from("players").update({ ...updates, updated_at: now.toISOString() }).eq("id", player.id);
   }
 

@@ -3556,6 +3556,11 @@ body[data-home-theme="night"] .delay-overlay {
   color: inherit;
 }
 
+.last-race-recap-abilities {
+  margin-top: 8px;
+  color: #444;
+}
+
 .home-section-block-full {
   grid-column: 1 / -1;
 }
@@ -3867,6 +3872,10 @@ body[data-home-theme="night"] .all-time-empty {
 
 body[data-home-theme="night"] .last-race-recap {
   color: #e0e0e0;
+}
+
+body[data-home-theme="night"] .last-race-recap-abilities {
+  color: #b8b8b8;
 }
 
 body[data-home-theme="night"] .error {

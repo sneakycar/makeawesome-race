@@ -350,6 +350,97 @@ async function loadFightPairs(
   return dedupeFightPairs(pairs).slice(0, 3);
 }
 
+const ABILITY_GAIN_RE =
+  /(?:SIGNATURE\s+)?(GRIT|CHAOS|NERVE|LUCK|BURST|DRAG)\s+\+(\d+)/i;
+
+interface ParsedAbilityGain {
+  name: string;
+  stat: string;
+  delta: number;
+}
+
+function parseAbilityGainEvent(name: string, eventText: string): ParsedAbilityGain[] {
+  const match = eventText.match(ABILITY_GAIN_RE);
+  if (!match) return [];
+  return [
+    {
+      name: formatRacerName(name),
+      stat: match[1]!.toLowerCase(),
+      delta: Number(match[2]),
+    },
+  ];
+}
+
+async function loadAbilityGains(
+  supabase: SupabaseClient,
+  raceId: string
+): Promise<ParsedAbilityGain[]> {
+  const { data: rows, error } = await supabase
+    .from("player_history")
+    .select("event_text, player:players!player_history_player_id_fkey(name)")
+    .eq("race_id", raceId)
+    .in("event_type", ["growth", "recovery", "bad_money", "mutation"]);
+
+  if (error) throw error;
+  if (!rows?.length) return [];
+
+  const gains: ParsedAbilityGain[] = [];
+  for (const row of rows) {
+    const player = row.player as { name: string } | { name: string }[] | null;
+    const name = Array.isArray(player) ? player[0]?.name : player?.name;
+    if (!name) continue;
+    gains.push(...parseAbilityGainEvent(name, row.event_text ?? ""));
+  }
+
+  return gains;
+}
+
+function formatGainList(gains: { stat: string; delta: number }[]): string {
+  const parts = gains.map((gain) => `${gain.stat} +${gain.delta}`);
+  if (parts.length === 1) return parts[0]!;
+  if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
+  return `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`;
+}
+
+function composeAbilityGainsParagraph(
+  gains: ParsedAbilityGain[]
+): LastRaceRecapSegment[] | null {
+  const byPlayer = new Map<string, Map<string, number>>();
+
+  for (const gain of gains) {
+    if (gain.delta <= 0) continue;
+    const stats = byPlayer.get(gain.name) ?? new Map<string, number>();
+    stats.set(gain.stat, (stats.get(gain.stat) ?? 0) + gain.delta);
+    byPlayer.set(gain.name, stats);
+  }
+
+  if (byPlayer.size === 0) return null;
+
+  const ranked = [...byPlayer.entries()]
+    .map(([name, stats]) => ({
+      name,
+      gains: [...stats.entries()]
+        .map(([stat, delta]) => ({ stat, delta }))
+        .sort((a, b) => b.delta - a.delta || a.stat.localeCompare(b.stat)),
+      total: [...stats.values()].reduce((sum, delta) => sum + delta, 0),
+    }))
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+    .slice(0, 3);
+
+  const segments: LastRaceRecapSegment[] = [text("Coming out of the race, ")];
+
+  ranked.forEach((entry, index) => {
+    if (index > 0) {
+      segments.push(text(index === ranked.length - 1 ? "; and " : "; "));
+    }
+    const line = `${entry.name} picked up ${formatGainList(entry.gains)}`;
+    pushNameSplit(segments, line, entry.name);
+  });
+
+  segments.push(text("."));
+  return segments;
+}
+
 export async function getLastRaceRecap(
   supabase: SupabaseClient
 ): Promise<LastRaceRecap | null> {
@@ -463,9 +554,17 @@ export async function getLastRaceRecap(
     paragraph = segmentsToParagraph(segments);
   }
 
+  const abilityGains = await loadAbilityGains(supabase, race.id);
+  const abilityGainsSegments = composeAbilityGainsParagraph(abilityGains);
+  const abilityGainsParagraph = abilityGainsSegments
+    ? segmentsToParagraph(abilityGainsSegments)
+    : undefined;
+
   return {
     raceNumber: race.race_number,
     paragraph,
     segments,
+    abilityGainsParagraph,
+    abilityGainsSegments: abilityGainsSegments ?? undefined,
   };
 }
