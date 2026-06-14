@@ -201,12 +201,12 @@ export async function getLeagueStats(
 
   const finishCounts = new Map<string, number>();
   for (let rank = 1; rank <= 8; rank++) {
-    finishCounts.set(`P${rank}`, 0);
+    finishCounts.set(`L${rank}`, 0);
   }
   for (const row of finishRows ?? []) {
     const rank = row.final_rank as number;
     if (rank >= 1 && rank <= 8) {
-      const key = `P${rank}`;
+      const key = `L${rank}`;
       finishCounts.set(key, (finishCounts.get(key) ?? 0) + 1);
     }
   }

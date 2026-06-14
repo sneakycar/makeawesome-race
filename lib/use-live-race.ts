@@ -50,7 +50,12 @@ export function useLiveRace(
         return;
       }
 
-      const entries = liveEntriesById(state.race, state.entries, now);
+      const entries = liveEntriesById(
+        state.race,
+        state.entries,
+        now,
+        new Date(state.serverTime)
+      );
       if (!entries) {
         setSnapshot(null);
         return;

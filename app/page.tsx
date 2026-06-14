@@ -18,7 +18,7 @@ import {
   formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
-import { formatRaceScore, getScorePipBackground, scorePipFillCount, SCORE_PIP_SLOTS } from "@/lib/score";
+import { formatRaceScore, getScorePipBackground, SCORE_PIP_SLOTS } from "@/lib/score";
 import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
@@ -93,6 +93,7 @@ function RaceMetaPanel({
   liveRaceProgress,
   nextUpdateMs,
   raceDelay,
+  isNight,
 }: {
   state: GameStateResponse;
   betweenRaces: boolean;
@@ -100,6 +101,7 @@ function RaceMetaPanel({
   liveRaceProgress: number | null;
   nextUpdateMs: number;
   raceDelay: GameStateResponse["raceDelay"];
+  isNight: boolean;
 }) {
   const delayOpts =
     raceDelay?.active && raceDelay.until && raceDelay.frozenPercent != null
@@ -181,12 +183,7 @@ function RaceMetaPanel({
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
         <div className="race-meta-line race-meta-progress-row">
           <span className="race-meta-progress-label">{`${progressDisplay} DONE`}</span>
-          <div className="race-progress-track" aria-hidden="true">
-            <div
-              className="race-progress-fill"
-              style={{ width: `${progressBarWidth}%` }}
-            />
-          </div>
+          <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
         </div>
         <div className="race-meta-gap" aria-hidden="true" />
         <div className="race-meta-line">{timerLine}</div>
@@ -230,25 +227,66 @@ function ScrollingTicker({
   );
 }
 
+function RaceProgressPipBar({
+  percent,
+  isNight,
+}: {
+  percent: number;
+  isNight: boolean;
+}) {
+  const clamped = Math.max(0, Math.min(100, percent));
+  const filled = Math.max(
+    0,
+    Math.min(SCORE_PIP_SLOTS, Math.round((clamped / 100) * SCORE_PIP_SLOTS))
+  );
+
+  return (
+    <div className="race-progress-pip-viewport" aria-hidden="true">
+      <div className="race-progress-pip-pill">
+        <div className="race-progress-pip-track">
+          {Array.from({ length: SCORE_PIP_SLOTS }, (_, i) => {
+            const isOn = i < filled;
+            return (
+              <span
+                key={i}
+                className={`race-progress-pip${isOn ? " race-progress-pip-on" : " race-progress-pip-dim"}`}
+                style={
+                  isOn
+                    ? {
+                        background: getScorePipBackground(
+                          i,
+                          Math.max(1, filled),
+                          isNight
+                        ),
+                      }
+                    : undefined
+                }
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScorePipTrack({
   score,
-  minScore,
   leaderScore,
   isLeader,
   isNight,
   statusOverlay,
 }: {
   score: number;
-  minScore: number;
   leaderScore: number;
   isLeader: boolean;
   isNight: boolean;
   statusOverlay?: { emoji: string; label: string };
 }) {
   const points = Math.max(0, Math.round(score));
-  const min = Math.max(0, Math.round(minScore));
-  const leader = Math.max(min, Math.round(leaderScore));
-  const filled = scorePipFillCount(points, min, leader, SCORE_PIP_SLOTS);
+  const leader = Math.max(1, Math.round(leaderScore));
+  const slots = leader;
+  const bright = Math.max(0, Math.min(points, leader));
   const behind = leader - points;
 
   return (
@@ -269,30 +307,26 @@ function ScorePipTrack({
             : `${points} pts · ${behind} behind lead`
       }
     >
-      <div className="score-pip-pill">
-        <div className="score-pip-track">
-          {Array.from({ length: SCORE_PIP_SLOTS }, (_, i) => {
-            const isOn = i < filled;
+      <div className="score-pip-track">
+        {Array.from({ length: slots }, (_, i) => {
+          if (i < bright) {
             return (
               <span
                 key={i}
-                className={`score-pip${isOn ? " score-pip-on" : " score-pip-dim"}`}
-                style={
-                  isOn
-                    ? {
-                        background: getScorePipBackground(
-                          i,
-                          Math.max(1, filled),
-                          isNight
-                        ),
-                      }
-                    : undefined
-                }
+                className="score-pip score-pip-on"
+                style={{
+                  background: getScorePipBackground(
+                    i,
+                    Math.max(1, bright),
+                    isNight
+                  ),
+                }}
                 aria-hidden="true"
               />
             );
-          })}
-        </div>
+          }
+          return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
+        })}
       </div>
       {statusOverlay && (
         <div className="score-pip-overlay" aria-hidden="true">
@@ -399,6 +433,14 @@ function PlayerOverlay({
     <div className="overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="overlay-scanlines" aria-hidden="true" />
       <div className="retro-screen" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className="retro-dismiss"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          X
+        </button>
         {error && <p className="retro-error">{error}</p>}
         {!profile && !error && <p className="retro-loading">LOADING...</p>}
         {p && (
@@ -798,9 +840,6 @@ export default function HomePage() {
       return Math.round(live?.score ?? Number(e.race_score));
     }) ?? [];
 
-  const minScorePoints = entryScorePoints.length
-    ? Math.min(...entryScorePoints)
-    : 0;
   const leaderScorePoints = entryScorePoints.length
     ? Math.max(...entryScorePoints)
     : 1;
@@ -897,6 +936,7 @@ export default function HomePage() {
             liveRaceProgress={liveRace?.raceProgress ?? null}
             nextUpdateMs={nextUpdateMs}
             raceDelay={state.raceDelay}
+            isNight={isNight}
           />
 
           <p className="tap-hint">click a racer to see stats</p>
@@ -959,7 +999,7 @@ export default function HomePage() {
                   tabIndex={0}
                 >
                   <div className="row-head">
-                    <span className="row-archetype">{entry.lane}]</span>
+                    <span className="row-archetype">L{entry.lane}</span>
                     <span className="row-name">{formatRacerName(entry.player.name)}</span>
                     {rankDeltaLabel && (
                       <span
@@ -995,7 +1035,6 @@ export default function HomePage() {
                     </span>
                     <ScorePipTrack
                       score={scorePoints}
-                      minScore={minScorePoints}
                       leaderScore={leaderScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
@@ -1021,6 +1060,19 @@ export default function HomePage() {
                         {isSupported ? "✓" : "+1"}
                       </button>
                     )}
+                    <span
+                      className={`row-archetype row-place${
+                        rank === 1
+                          ? " row-place-1"
+                          : rank === 2
+                            ? " row-place-2"
+                            : rank === 3
+                              ? " row-place-3"
+                              : " row-place-rest"
+                      }`}
+                    >
+                      {ordinal(rank).toLowerCase()}
+                    </span>
                   </div>
                 </div>
               </div>

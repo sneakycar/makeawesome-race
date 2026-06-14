@@ -129,6 +129,14 @@ export function StatsOverlay({ onClose }: { onClose: () => void }) {
     <div className="overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="stats-title">
       <div className="overlay-scanlines" aria-hidden="true" />
       <div className="retro-screen stats-screen" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className="retro-dismiss"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          X
+        </button>
         {error && <p className="retro-error">{error}</p>}
         {!stats && !error && <p className="retro-loading">LOADING...</p>}
         {stats && (
