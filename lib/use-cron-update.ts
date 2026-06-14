@@ -1,28 +1,124 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  pickTickBurstHeadline,
+  shouldPlayTickBurst,
+} from "./tick-burst-headline";
 import { getMsUntilNextUpdate } from "./race-clock";
+import { vibrateTickBurst } from "./nope-feedback";
+import type { GameStateResponse } from "./types";
 
-const FLICKER_MS = 720;
+export type TickBurstPhase = "rip" | "stamp" | "explode";
+
+export interface TickBurst {
+  phase: TickBurstPhase;
+  headline: string;
+}
+
 const CRON_RETRY_MS = 2500;
+const RIP_MS = 340;
+const STAMP_MS = 1180;
+const EXPLODE_MS = 520;
 
-export function useCronUpdate(onUpdate: () => void | Promise<void>) {
+export interface CronUpdateOptions {
+  getPrevState: () => GameStateResponse | null;
+  onApplyState: (state: GameStateResponse) => void;
+}
+
+export function useCronUpdate(
+  fetchState: () => Promise<GameStateResponse | null>,
+  options: CronUpdateOptions
+) {
   const [nextUpdateMs, setNextUpdateMs] = useState(() => getMsUntilNextUpdate());
-  const [isFlickering, setIsFlickering] = useState(false);
-  const onUpdateRef = useRef(onUpdate);
-  onUpdateRef.current = onUpdate;
+  const [tickBurst, setTickBurst] = useState<TickBurst | null>(null);
+  const fetchStateRef = useRef(fetchState);
+  const optionsRef = useRef(options);
+  const pendingStateRef = useRef<GameStateResponse | null>(null);
+  const burstTimersRef = useRef<number[]>([]);
+  const burstActiveRef = useRef(false);
 
-  const runUpdate = useCallback(async () => {
-    setIsFlickering(true);
-    try {
-      await onUpdateRef.current();
-      window.setTimeout(() => {
-        void onUpdateRef.current();
-      }, CRON_RETRY_MS);
-    } finally {
-      window.setTimeout(() => setIsFlickering(false), FLICKER_MS);
+  fetchStateRef.current = fetchState;
+  optionsRef.current = options;
+
+  const clearBurstTimers = useCallback(() => {
+    for (const id of burstTimersRef.current) {
+      window.clearTimeout(id);
+    }
+    burstTimersRef.current = [];
+  }, []);
+
+  const applyPendingState = useCallback(() => {
+    const pending = pendingStateRef.current;
+    if (pending) {
+      optionsRef.current.onApplyState(pending);
+      pendingStateRef.current = null;
     }
   }, []);
+
+  const finishBurst = useCallback(() => {
+    clearBurstTimers();
+    burstActiveRef.current = false;
+    applyPendingState();
+    setTickBurst(null);
+  }, [applyPendingState, clearBurstTimers]);
+
+  const startBurst = useCallback(
+    (headline: string, next: GameStateResponse) => {
+      clearBurstTimers();
+      pendingStateRef.current = next;
+      burstActiveRef.current = true;
+      vibrateTickBurst();
+      setTickBurst({ phase: "rip", headline });
+
+      burstTimersRef.current.push(
+        window.setTimeout(() => {
+          setTickBurst((current) =>
+            current ? { ...current, phase: "stamp" } : null
+          );
+        }, RIP_MS)
+      );
+
+      burstTimersRef.current.push(
+        window.setTimeout(() => {
+          setTickBurst((current) =>
+            current ? { ...current, phase: "explode" } : null
+          );
+        }, RIP_MS + STAMP_MS)
+      );
+
+      burstTimersRef.current.push(
+        window.setTimeout(() => {
+          finishBurst();
+        }, RIP_MS + STAMP_MS + EXPLODE_MS)
+      );
+    },
+    [clearBurstTimers, finishBurst]
+  );
+
+  const runUpdate = useCallback(async () => {
+    const prev = optionsRef.current.getPrevState();
+    const next = await fetchStateRef.current();
+    if (!next) return;
+
+    if (prev && shouldPlayTickBurst(prev, next)) {
+      startBurst(pickTickBurstHeadline(prev, next), next);
+    } else if (!burstActiveRef.current) {
+      optionsRef.current.onApplyState(next);
+    } else {
+      pendingStateRef.current = next;
+    }
+
+    window.setTimeout(async () => {
+      const retry = await fetchStateRef.current();
+      if (!retry) return;
+      if (burstActiveRef.current) {
+        pendingStateRef.current = retry;
+        return;
+      }
+      optionsRef.current.onApplyState(retry);
+    }, CRON_RETRY_MS);
+  }, [startBurst]);
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -43,8 +139,9 @@ export function useCronUpdate(onUpdate: () => void | Promise<void>) {
     return () => {
       if (timeoutId != null) clearTimeout(timeoutId);
       if (intervalId != null) clearInterval(intervalId);
+      clearBurstTimers();
     };
-  }, [runUpdate]);
+  }, [runUpdate, clearBurstTimers]);
 
-  return { nextUpdateMs, isFlickering };
+  return { nextUpdateMs, tickBurst };
 }

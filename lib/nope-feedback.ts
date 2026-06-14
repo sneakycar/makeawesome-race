@@ -8,6 +8,16 @@ export function vibrateNope(): void {
   }
 }
 
+/** Hard triple hit when the 15m pack rips. */
+export function vibrateTickBurst(): void {
+  if (typeof navigator === "undefined" || !navigator.vibrate) return;
+  try {
+    navigator.vibrate([18, 28, 42, 28, 64]);
+  } catch {
+    // iOS / restricted contexts may reject vibrate
+  }
+}
+
 export function canEncourageVote(options: {
   raceActive: boolean;
   raceDelayed: boolean;

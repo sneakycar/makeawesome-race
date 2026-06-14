@@ -1,29 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRaceClock, type RaceClock } from "@/lib/race-clock";
 import { useCronUpdate } from "@/lib/use-cron-update";
-import type { GameStateResponse, Player, PlayerProfileResponse, TickerEvent } from "@/lib/types";
+import { TickBurstOverlay } from "@/app/components/tick-burst-overlay";
+import type { GameStateResponse, Player, TickerEvent } from "@/lib/types";
 import Link from "next/link";
 import {
   formatRaceBegan,
   formatRemainingTime,
   formatCompactDuration,
   formatNextRaceBegin,
-  pipCount20,
   formatStreak,
-  formatTickerAge,
-  formatCurrentRaceLabel,
   formatRacerName,
   formatTickerForDisplay,
+  formatTickerAge,
   ordinal,
 } from "@/lib/format";
 import { formatRaceScore, getScorePipBackground, HARD_SCORE_CAP, SCORE_PIP_SLOTS } from "@/lib/score";
-import {
-  getRaceProgressPipSurfaceStyle,
-} from "@/lib/race-progress-art";
-import { formatOvrRank } from "@/lib/ovr";
-import { formatTraitsDisplay, getArchetypeExplainer, getSignatureStatExplainer, getTraitExplainerLines } from "@/lib/identity";
+import { getRaceProgressPipSurfaceStyle } from "@/lib/race-progress-art";
 import { useLiveRace } from "@/lib/use-live-race";
 import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
 import { useRaceWeather } from "@/lib/use-race-weather";
@@ -31,7 +26,7 @@ import { formatRankDelta, useLiveRankDelta } from "@/lib/use-live-rank-delta";
 import { WEATHER_ART, type RaceWeatherState } from "@/lib/race-weather";
 import { canEncourageVote, vibrateNope } from "@/lib/nope-feedback";
 import { calculateLiveOdds } from "@/lib/live-odds";
-import { getPlayerHeaderStyle, getPlayerPalette } from "@/lib/player-colors";
+import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 
 function RaceDelayOverlay({
@@ -488,314 +483,6 @@ function RaceWeatherOverlay({ weather }: { weather: RaceWeatherState }) {
   );
 }
 
-function RetroStatBar({
-  label,
-  value,
-  signature,
-}: {
-  label: string;
-  value: number;
-  signature?: boolean;
-}) {
-  const filled = pipCount20(value);
-  return (
-    <div className={`retro-stat-row${signature ? " retro-stat-row-signature" : ""}`}>
-      <span className="retro-stat-label">{label}</span>
-      <div className="retro-pip-track" aria-label={`${label} ${value} out of 100${signature ? ", signature ability" : ""}`}>
-        {Array.from({ length: 20 }, (_, i) => (
-          <span
-            key={i}
-            className={i < filled ? "retro-pip retro-pip-on" : "retro-pip retro-pip-off"}
-          />
-        ))}
-      </div>
-      <span className="retro-stat-num">{value}</span>
-    </div>
-  );
-}
-
-function PlayerOverlay({
-  slug,
-  liveScore,
-  ovrInfo,
-  onClose,
-}: {
-  slug: string;
-  liveScore?: number;
-  ovrInfo?: { ovr: number; rank: number; total: number };
-  onClose: () => void;
-}) {
-  const [profile, setProfile] = useState<PlayerProfileResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/player/${slug}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled) {
-          if (data.error) setError(data.error);
-          else setProfile(data);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError("Failed to load player");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "x" || e.key === "X") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  const p = profile?.player;
-  const ovr = ovrInfo?.ovr ?? profile?.ovr;
-  const ovrRank = ovrInfo?.rank ?? profile?.ovrRank;
-  const ovrTotal = ovrInfo?.total ?? profile?.ovrTotal;
-  const scoreDisplay =
-    liveScore != null
-      ? formatRaceScore(liveScore)
-      : profile?.currentScore != null
-        ? formatRaceScore(profile.currentScore)
-        : null;
-
-  return (
-    <div className="overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="overlay-scanlines" aria-hidden="true" />
-      <div className="retro-screen" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="retro-dismiss"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          X
-        </button>
-        {error && <p className="retro-error">{error}</p>}
-        {!profile && !error && <p className="retro-loading">LOADING...</p>}
-        {p && (
-          <>
-            <div
-              className="retro-header retro-header--player-palette"
-              style={getPlayerHeaderStyle(getPlayerPalette(p))}
-            >
-              <span className="retro-header-tag">RACER FILE</span>
-              {ovr != null && ovrRank != null && ovrTotal != null && (
-                <div className="retro-ovr">
-                  <span className="retro-ovr-num">{ovr}</span>
-                  <span className="retro-ovr-label">OVR</span>
-                  <span className="retro-ovr-rank">
-                    {formatOvrRank({ ovr, rank: ovrRank, total: ovrTotal })}
-                  </span>
-                </div>
-              )}
-              <h2 className="retro-name">{p.name}</h2>
-              <span className="retro-header-badge">{p.status}</span>
-            </div>
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ STATUS</div>
-              <div className="retro-status-grid">
-                {profile.raceInjury?.is_injured && (
-                  <>
-                    <div className="retro-kv retro-kv-wide">
-                      <span className="retro-k">RACE STATUS</span>
-                      <span className="retro-v retro-v-icon">
-                        <FlatIcon id="injured" className="race-emoji race-emoji-inline" />
-                        INJURED
-                      </span>
-                    </div>
-                    {profile.raceInjury.injury_name && (
-                      <div className="retro-kv retro-kv-wide">
-                        <span className="retro-k">INJURY</span>
-                        <span className="retro-v">{profile.raceInjury.injury_name}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-                {p.status === "injured" && (
-                  <>
-                    <div className="retro-kv retro-kv-wide">
-                      <span className="retro-k">STATUS</span>
-                      <span className="retro-v">INJURED</span>
-                    </div>
-                    {p.current_injury_name && (
-                      <div className="retro-kv retro-kv-wide">
-                        <span className="retro-k">INJURY</span>
-                        <span className="retro-v">{p.current_injury_name}</span>
-                      </div>
-                    )}
-                    <div className="retro-kv">
-                      <span className="retro-k">OUT</span>
-                      <span className="retro-v">{p.injury_races_remaining} RACES REMAINING</span>
-                    </div>
-                    <div className="retro-kv">
-                      <span className="retro-k">RETURN</span>
-                      <span className="retro-v">HOLDING</span>
-                    </div>
-                  </>
-                )}
-                <div className="retro-kv">
-                  <span className="retro-k">AGE</span>
-                  <span className="retro-v">{p.age_days} DAYS</span>
-                </div>
-                {profile.currentRaceNumber != null && (
-                  <div className="retro-kv">
-                    <span className="retro-k">RACE</span>
-                    <span className="retro-v">
-                      {formatCurrentRaceLabel(profile.currentRaceNumber, profile.currentRank)}
-                    </span>
-                  </div>
-                )}
-                {scoreDisplay != null && (
-                  <div className="retro-kv retro-kv-wide">
-                    <span className="retro-k">SCORE</span>
-                    <span className="retro-v retro-score">{scoreDisplay}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ IDENTITY</div>
-              <div className="retro-status-grid">
-                <div className="retro-kv retro-kv-wide">
-                  <span className="retro-k">ARCHETYPE</span>
-                  <span className="retro-v">{p.archetype ?? "UNKNOWN"}</span>
-                  <span className="retro-kv-note">{getArchetypeExplainer(p.archetype)}</span>
-                </div>
-                <div className="retro-kv retro-kv-wide">
-                  <span className="retro-k">TRAITS</span>
-                  <span className="retro-v">{formatTraitsDisplay(p.traits ?? [])}</span>
-                  <div className="retro-kv-note retro-kv-note-stack">
-                    {getTraitExplainerLines(p.traits ?? []).map((line, i) => (
-                      <span key={`${p.traits?.[i] ?? i}-${line}`}>{line}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="retro-kv retro-kv-wide">
-                  <span className="retro-k">SIGNATURE</span>
-                  <span className="retro-v">{(p.signature_stat ?? "grit").toUpperCase()}</span>
-                  <span className="retro-kv-note">
-                    {getSignatureStatExplainer(p.signature_stat)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ STATS</div>
-              <div className="retro-status-grid">
-                <div className="retro-kv">
-                  <span className="retro-k">HIGH RACE</span>
-                  <span className="retro-v">{formatRaceScore(p.highest_race_score ?? 0)}</span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">HIGH CAREER</span>
-                  <span className="retro-v">{formatRaceScore(p.highest_career_score ?? 0)}</span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">COMEBACK</span>
-                  <span className="retro-v">
-                    {p.biggest_comeback > 0 ? `+${p.biggest_comeback} SPOTS` : "—"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ ABILITIES</div>
-              <RetroStatBar label="GRIT" value={p.grit} signature={p.signature_stat === "grit"} />
-              <RetroStatBar label="CHAOS" value={p.chaos} signature={p.signature_stat === "chaos"} />
-              <RetroStatBar label="NERVE" value={p.nerve} signature={p.signature_stat === "nerve"} />
-              <RetroStatBar label="LUCK" value={p.luck} signature={p.signature_stat === "luck"} />
-              <RetroStatBar label="BURST" value={p.burst} signature={p.signature_stat === "burst"} />
-              <RetroStatBar label="DRAG" value={p.drag} signature={p.signature_stat === "drag"} />
-            </div>
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ CAREER</div>
-              <div className="retro-career-grid">
-                <div className="retro-kv">
-                  <span className="retro-k">RACES</span>
-                  <span className="retro-v">{p.races}</span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">WINS</span>
-                  <span className="retro-v">{p.wins}</span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">OUTS</span>
-                  <span className="retro-v">{p.eliminations}</span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">RETURNS</span>
-                  <span className="retro-v">{p.returns}</span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">BEST</span>
-                  <span className="retro-v">
-                    {p.best_finish != null ? ordinal(p.best_finish) : "—"}
-                  </span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">WORST</span>
-                  <span className="retro-v">
-                    {p.worst_finish != null ? ordinal(p.worst_finish) : "—"}
-                  </span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">STREAK</span>
-                  <span className="retro-v">
-                    {formatStreak(p.current_streak_type, p.current_streak_count)}
-                  </span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">WIN STK</span>
-                  <span className="retro-v">{p.longest_win_streak}</span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">HOLDING</span>
-                  <span className="retro-v">{p.total_holding_days}D</span>
-                </div>
-                <div className="retro-kv">
-                  <span className="retro-k">SUPPORT</span>
-                  <span className="retro-v">{p.total_support_received ?? 0}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ GAME LOG</div>
-              <div className="retro-log">
-                {profile.history.length === 0 ? (
-                  <div className="retro-log-line retro-log-empty">— NO ENTRIES —</div>
-                ) : (
-                  profile.history.map((h) => (
-                    <div key={h.id} className="retro-log-line">
-                      ► DAY {h.day_number} · {h.event_text}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <button type="button" className="retro-close" onClick={onClose}>
-              ◄ PRESS [X] TO CLOSE ►
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function StreakSection({ streaks }: { streaks: GameStateResponse["streaks"] }) {
   if (streaks.length === 0) {
     return <p className="streak-empty">No active streaks yet</p>;
@@ -902,23 +589,37 @@ export default function HomePage() {
   const [encouraging, setEncouraging] = useState(false);
   const [devBusy, setDevBusy] = useState(false);
   const [devError, setDevError] = useState<string | null>(null);
+  const stateRef = useRef<GameStateResponse | null>(null);
 
-  const loadState = useCallback(async () => {
+  const fetchState = useCallback(async (): Promise<GameStateResponse | null> => {
     try {
       const res = await fetch("/api/state", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to load");
-        return;
+        return null;
       }
       setError(null);
-      setState(data);
+      return data as GameStateResponse;
     } catch {
       setError("Failed to load game state");
+      return null;
     }
   }, []);
 
-  const { nextUpdateMs, isFlickering } = useCronUpdate(loadState);
+  const loadState = useCallback(async () => {
+    const data = await fetchState();
+    if (data) setState(data);
+  }, [fetchState]);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const { nextUpdateMs, tickBurst } = useCronUpdate(fetchState, {
+    getPrevState: () => stateRef.current,
+    onApplyState: setState,
+  });
 
   useEffect(() => {
     loadState();
@@ -1031,9 +732,18 @@ export default function HomePage() {
 
   return (
     <main data-theme={isNight ? "night" : "day"}>
+      {tickBurst && (
+        <TickBurstOverlay
+          phase={tickBurst.phase}
+          headline={tickBurst.headline}
+          isNight={isNight}
+        />
+      )}
       <div
-        className={`race-update-shell${isFlickering ? " is-flickering" : ""}`}
-        aria-busy={isFlickering}
+        className={`race-update-shell${tickBurst ? " is-tick-bursting" : ""}${
+          tickBurst?.phase === "explode" ? " is-tick-burst-reveal" : ""
+        }`}
+        aria-busy={Boolean(tickBurst)}
       >
       <div className="home-content">
       {state && (
@@ -1338,7 +1048,7 @@ export default function HomePage() {
       {state?.raceDelay?.active && <RaceDelayOverlay delay={state.raceDelay} />}
 
       {selectedSlug && (
-        <PlayerOverlay
+        <PlayerCardOverlay
           slug={selectedSlug}
           liveScore={selectedLiveScore}
           ovrInfo={
@@ -1346,6 +1056,7 @@ export default function HomePage() {
               ? state?.ovrByPlayerId[selectedEntry.player_id]
               : undefined
           }
+          isNight={isNight}
           onClose={() => setSelectedSlug(null)}
         />
       )}

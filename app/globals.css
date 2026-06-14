@@ -187,6 +187,331 @@ main,
   position: relative;
 }
 
+.race-update-shell.is-tick-bursting {
+  pointer-events: none;
+}
+
+.race-update-shell.is-tick-bursting:not(.is-tick-burst-reveal) .home-content {
+  visibility: hidden;
+}
+
+.race-update-shell.is-tick-burst-reveal .home-content {
+  animation: tick-burst-reveal-game 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes tick-burst-reveal-game {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+    filter: brightness(1.8) blur(2px);
+  }
+  35% {
+    opacity: 1;
+    filter: brightness(1.15) blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: none;
+  }
+}
+
+/* 15m pack-rip broadcast overlay */
+.tick-burst {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.tick-burst-rip {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+}
+
+.tick-burst--rip .tick-burst-rip {
+  animation: tick-burst-rip-flash 340ms steps(8, end) both;
+}
+
+@keyframes tick-burst-rip-flash {
+  0% {
+    opacity: 0;
+    background: #fff;
+  }
+  10% {
+    opacity: 0.95;
+    background: #fff;
+  }
+  22% {
+    opacity: 0.05;
+    background: #111;
+  }
+  34% {
+    opacity: 0.88;
+    background: #ffe8e8;
+  }
+  46% {
+    opacity: 0.08;
+    background: #111;
+  }
+  58% {
+    opacity: 0.92;
+    background: #fff;
+  }
+  70% {
+    opacity: 0.12;
+    background: #c0392b;
+  }
+  82% {
+    opacity: 0.78;
+    background: #fff;
+  }
+  100% {
+    opacity: 0;
+    background: #111;
+  }
+}
+
+.tick-burst-vignette {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse 85% 70% at 50% 50%,
+    rgba(0, 0, 0, 0.08) 0%,
+    rgba(0, 0, 0, 0.72) 100%
+  );
+}
+
+.tick-burst--stamp .tick-burst-vignette,
+.tick-burst--explode .tick-burst-vignette {
+  opacity: 1;
+  transition: opacity 120ms ease-out;
+}
+
+.tick-burst-stamp {
+  position: relative;
+  z-index: 2;
+  max-width: min(92vw, 420px);
+  padding: 0 16px;
+  text-align: center;
+}
+
+.tick-burst-kicker {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #c0392b;
+  opacity: 0;
+}
+
+.tick-burst-headline {
+  margin: 0;
+  font-size: clamp(22px, 6.4vw, 34px);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+  color: #111;
+  text-wrap: balance;
+  opacity: 0;
+  transform: scale(1.55) translateY(8px);
+  filter: blur(3px);
+}
+
+.tick-burst--stamp .tick-burst-kicker {
+  animation: tick-burst-kicker-in 180ms ease-out 40ms both;
+}
+
+.tick-burst--stamp .tick-burst-headline {
+  animation: tick-burst-headline-stamp 420ms cubic-bezier(0.12, 1.35, 0.24, 1) 60ms both;
+}
+
+@keyframes tick-burst-kicker-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tick-burst-headline-stamp {
+  0% {
+    opacity: 0;
+    transform: scale(1.55) translateY(8px);
+    filter: blur(3px);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.97) translateY(0);
+    filter: blur(0);
+  }
+  72% {
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: none;
+  }
+}
+
+.tick-burst--explode .tick-burst-kicker {
+  opacity: 1;
+  animation: tick-burst-kicker-out 520ms ease-in both;
+}
+
+.tick-burst--explode .tick-burst-headline {
+  opacity: 1;
+  animation: tick-burst-headline-explode 520ms cubic-bezier(0.55, 0, 1, 0.45) both;
+}
+
+.tick-burst--explode .tick-burst-vignette {
+  animation: tick-burst-vignette-out 520ms ease-in both;
+}
+
+@keyframes tick-burst-headline-explode {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: none;
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.06);
+    filter: brightness(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+    filter: blur(6px) brightness(2);
+  }
+}
+
+@keyframes tick-burst-kicker-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes tick-burst-vignette-out {
+  to {
+    opacity: 0;
+  }
+}
+
+body[data-home-theme="night"] .tick-burst--rip .tick-burst-rip {
+  animation: tick-burst-rip-flash-night 340ms steps(8, end) both;
+}
+
+@keyframes tick-burst-rip-flash-night {
+  0% {
+    opacity: 0;
+    background: #fff;
+  }
+  10% {
+    opacity: 0.9;
+    background: #fff;
+  }
+  22% {
+    opacity: 0.04;
+    background: #000;
+  }
+  34% {
+    opacity: 0.82;
+    background: #ffd700;
+  }
+  46% {
+    opacity: 0.06;
+    background: #000;
+  }
+  58% {
+    opacity: 0.88;
+    background: #fff;
+  }
+  70% {
+    opacity: 0.1;
+    background: #c0392b;
+  }
+  82% {
+    opacity: 0.72;
+    background: #eee;
+  }
+  100% {
+    opacity: 0;
+    background: #000;
+  }
+}
+
+body[data-home-theme="night"] .tick-burst-vignette {
+  background: radial-gradient(
+    ellipse 85% 70% at 50% 50%,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0.92) 100%
+  );
+}
+
+body[data-home-theme="night"] .tick-burst-kicker {
+  color: #ffd700;
+}
+
+body[data-home-theme="night"] .tick-burst-headline {
+  color: #f5f5f5;
+}
+
+body[data-home-theme="night"] .race-update-shell.is-tick-burst-reveal .home-content {
+  animation: tick-burst-reveal-game-night 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes tick-burst-reveal-game-night {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+    filter: brightness(1.6) blur(2px);
+  }
+  35% {
+    opacity: 1;
+    filter: brightness(1.08) blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tick-burst--rip .tick-burst-rip,
+  body[data-home-theme="night"] .tick-burst--rip .tick-burst-rip {
+    animation-duration: 120ms;
+    animation-timing-function: ease-out;
+  }
+
+  .tick-burst-headline,
+  .tick-burst-kicker,
+  .tick-burst-vignette,
+  .race-update-shell.is-tick-burst-reveal .home-content {
+    animation-duration: 160ms !important;
+  }
+
+  .tick-burst-headline {
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
 .race-update-shell.is-flickering {
   animation: race-update-flicker 720ms steps(6, end);
 }
@@ -732,7 +1057,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
@@ -765,6 +1090,8 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   align-items: baseline;
   gap: 8px;
   flex-wrap: wrap;
+  margin-bottom: -3px;
+  line-height: 1;
 }
 
 .row-lane {
@@ -814,7 +1141,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 .row-name {
   font-size: 13px;
-  line-height: 1.2;
+  line-height: 1;
   letter-spacing: 0.01em;
   color: #111;
   word-break: break-word;
@@ -1685,6 +2012,425 @@ body[data-home-theme="night"] .row-mark-slot {
 @keyframes retro-blink {
   50% {
     opacity: 0.65;
+  }
+}
+
+/* player card — same world as race page */
+
+.overlay--racer {
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.48);
+  align-items: flex-start;
+}
+
+.overlay--racer[data-theme="night"] {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.racer-card {
+  position: relative;
+  z-index: 102;
+  width: 100%;
+  max-width: 420px;
+  margin: 8px auto 16px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #111;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  text-transform: none;
+  overflow: hidden;
+}
+
+.overlay--racer[data-theme="night"] .racer-card {
+  color: #f0f0f0;
+  background: #111;
+  border-color: #333;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 16px 48px rgba(0, 0, 0, 0.55);
+}
+
+.racer-card-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.racer-card-close:active {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.overlay--racer[data-theme="night"] .racer-card-close {
+  border-color: #666;
+  background: rgba(26, 26, 26, 0.92);
+  color: #f0f0f0;
+}
+
+.racer-card-message {
+  margin: 0;
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+.racer-card-message--error {
+  color: #b00020;
+  font-style: normal;
+}
+
+.overlay--racer[data-theme="night"] .racer-card-message {
+  color: #aaa;
+}
+
+.racer-card-header {
+  position: relative;
+  isolation: isolate;
+  margin: 0;
+  padding: 14px 12px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.22);
+  image-rendering: pixelated;
+}
+
+.racer-card-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.1) 0px,
+    rgba(0, 0, 0, 0.1) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+}
+
+.racer-card-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.racer-card-kicker {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.racer-card-head-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.racer-card-name {
+  margin: 0;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+  word-break: break-word;
+}
+
+.racer-card-ovr {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.racer-card-ovr-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.racer-card-ovr-label,
+.racer-card-ovr-rank {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.racer-card-head-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.racer-card-archetype {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.racer-card-status {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.racer-card-status--active {
+  border-color: rgba(74, 222, 128, 0.85);
+  color: #dcfce7;
+}
+
+.racer-card-status--injured {
+  border-color: rgba(248, 113, 113, 0.85);
+  color: #fee2e2;
+}
+
+.racer-card-body {
+  padding: 12px 12px 0;
+}
+
+.racer-card-panel {
+  margin-bottom: 12px;
+  padding: 10px 10px 8px;
+  border: 1px dashed #bbb;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.overlay--racer[data-theme="night"] .racer-card-panel {
+  border-color: #444;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.racer-card-panel-title {
+  margin: 0 0 8px;
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.overlay--racer[data-theme="night"] .racer-card-panel-title {
+  color: #888;
+}
+
+.racer-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+
+.racer-card-grid--career {
+  gap: 6px 12px;
+}
+
+.racer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.racer-field-wide {
+  grid-column: 1 / -1;
+}
+
+.racer-field-k {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888;
+}
+
+.racer-field-v {
+  font-size: 12px;
+  line-height: 1.35;
+  color: #111;
+  word-break: break-word;
+}
+
+.overlay--racer[data-theme="night"] .racer-field-v {
+  color: #f0f0f0;
+}
+
+.racer-field-note {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #555;
+  font-style: italic;
+}
+
+.overlay--racer[data-theme="night"] .racer-field-note {
+  color: #aaa;
+}
+
+.racer-inline-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: lowercase;
+}
+
+.racer-ability-row {
+  margin-bottom: 10px;
+}
+
+.racer-ability-row:last-child {
+  margin-bottom: 0;
+}
+
+.racer-ability-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.racer-ability-label {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888;
+}
+
+.racer-ability-row.is-signature .racer-ability-label {
+  color: #9a3b00;
+  font-weight: 700;
+}
+
+.overlay--racer[data-theme="night"] .racer-ability-row.is-signature .racer-ability-label {
+  color: #ffd700;
+}
+
+.racer-ability-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.racer-ability-pips {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 10px;
+}
+
+.racer-ability-num {
+  flex-shrink: 0;
+  min-width: 1.5rem;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: #111;
+}
+
+.overlay--racer[data-theme="night"] .racer-ability-num {
+  color: #f0f0f0;
+}
+
+.racer-card-log {
+  max-height: 108px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.racer-card-log-line {
+  margin: 0 0 6px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #444;
+  word-break: break-word;
+}
+
+.racer-card-log-line:last-child {
+  margin-bottom: 0;
+}
+
+.overlay--racer[data-theme="night"] .racer-card-log-line {
+  color: #bbb;
+}
+
+.racer-card-log-empty {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #888;
+  font-style: italic;
+}
+
+.racer-card-footer {
+  margin: 0;
+  padding: 10px 12px 14px;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: center;
+  color: #888;
+  font-style: italic;
+}
+
+.overlay--racer[data-theme="night"] .racer-card-footer {
+  color: #666;
+}
+
+@media (min-width: 720px) {
+  .racer-card {
+    max-width: 480px;
+  }
+
+  .racer-card-name {
+    font-size: 18px;
+  }
+
+  .racer-card-panel-title {
+    font-size: 10px;
+  }
+
+  .racer-field-v {
+    font-size: 13px;
   }
 }
 

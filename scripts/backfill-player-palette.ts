@@ -9,7 +9,7 @@ import { generatePlayerPalette } from "../lib/player-colors";
 
 async function main() {
   const supabase = createAdminClient();
-  console.log("[backfill-player-palette] starting...");
+  console.log("[backfill-player-palette] regenerating all team palettes...");
 
   const { data: players, error } = await supabase
     .from("players")
@@ -24,8 +24,6 @@ async function main() {
 
   let updated = 0;
   for (const player of players) {
-    if (player.palette_colors?.length >= 2) continue;
-
     const palette = generatePlayerPalette(player.seed);
     const { error: updateErr } = await supabase
       .from("players")
@@ -37,7 +35,10 @@ async function main() {
 
     if (updateErr) throw updateErr;
     updated += 1;
-    console.log(`  ${player.name} → ${palette.join(" ")}`);
+    const before = (player.palette_colors ?? []).join(" ") || "(none)";
+    console.log(`  ${player.name}`);
+    console.log(`    was: ${before}`);
+    console.log(`    now: ${palette.join(" ")}`);
   }
 
   console.log(`[backfill-player-palette] updated ${updated} players`);
