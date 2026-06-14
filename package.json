@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "tick-race": "tsx scripts/tick-race.ts",
+    "ensure-race-tick": "tsx scripts/ensure-race-tick.ts",
+    "tick-loop": "tsx scripts/tick-loop.ts --duration-minutes=350",
     "backfill-race-schedule": "tsx scripts/backfill-race-schedule.ts",
     "backfill-race-2-start": "tsx scripts/backfill-race-2-start.ts",
     "audit-scoring": "tsx scripts/audit-scoring.ts",

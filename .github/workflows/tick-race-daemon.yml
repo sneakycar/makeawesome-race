@@ -1,0 +1,46 @@
+# Reliable 15-minute race ticks — GitHub's shared schedule queue often delays
+# cron by hours, so this job sleeps in-process and ticks every 15m, then chains itself.
+
+name: Tick Race Daemon
+
+on:
+  schedule:
+    # Safety restart every 6h if the chain ever breaks
+    - cron: "5 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: race-tick-daemon
+  cancel-in-progress: false
+
+jobs:
+  daemon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: 15-minute tick loop (~5h50m)
+        run: npm run tick-loop
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TICK_LOOP_DURATION_MINUTES: "350"
+
+      - name: Chain next daemon session
+        if: always()
+        run: gh workflow run tick-race-daemon.yml --ref master
+        env:
+          GH_TOKEN: ${{ github.token }}

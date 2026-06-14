@@ -1,16 +1,25 @@
-name: Tick Race
+# Watchdog — runs every 5m and ticks only if the last tick is stale (>14m).
+# Catches gaps if the long-running daemon is delayed or restarting.
+
+name: Tick Race Watchdog
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: race-tick-watchdog
+  cancel-in-progress: false
+
 jobs:
-  tick:
+  ensure-tick:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -21,7 +30,7 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run tick-race
+      - run: npm run ensure-race-tick
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
