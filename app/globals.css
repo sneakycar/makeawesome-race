@@ -69,13 +69,16 @@ main,
   border-bottom: 1px solid #ccc;
   margin-bottom: 10px;
   background: #f0f0f0;
+  text-transform: none;
 }
 
 .ticker-label {
   font-size: 10px;
   color: #666;
   padding: 4px 0 2px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-weight: 500;
 }
 
 .ticker-viewport {
@@ -89,8 +92,9 @@ main,
   white-space: nowrap;
   animation: ticker-scroll 45s linear infinite;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: #222;
+  text-transform: none;
   will-change: transform;
 }
 
@@ -202,52 +206,55 @@ main,
 
 .row-line {
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 10px;
-  padding: 5px 0;
+  padding: 6px 0;
   max-width: 100%;
 }
 
-.row-labels {
-  flex-shrink: 0;
+.row-main {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 1px;
-  cursor: pointer;
+  gap: 4px;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
-.row-lane {
-  font-size: 10px;
-  line-height: 1.2;
-  letter-spacing: 0.04em;
-  color: #555;
-}
-
-.row-name-row {
+.row-head {
   display: flex;
   align-items: baseline;
+  gap: 8px;
   flex-wrap: wrap;
-  gap: 5px;
+}
+
+.row-lane {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: #999;
+  text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .row-name {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.2;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   color: #111;
   word-break: break-word;
+  text-transform: lowercase;
+  font-weight: 600;
 }
 
 .row-track {
-  flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   min-width: 0;
-  min-height: 100%;
 }
 
 .row-bar-cell {
@@ -293,6 +300,10 @@ main,
 }
 
 .row-labels:active {
+  opacity: 0.55;
+}
+
+.row-main:active {
   opacity: 0.55;
 }
 

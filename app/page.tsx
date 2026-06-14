@@ -12,6 +12,8 @@ import {
   formatStreak,
   formatTickerAge,
   formatCurrentRaceLabel,
+  formatRacerName,
+  formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
 import { formatLivePercent } from "@/lib/live-progress";
@@ -110,13 +112,16 @@ function ScrollingTicker({
   const now = new Date(serverTime);
   const line = events.length
     ? events
-        .map((e) => `${e.message} (${formatTickerAge(e.created_at, now)})`)
+        .map(
+          (e) =>
+            `${formatTickerForDisplay(e.message)} (${formatTickerAge(e.created_at, now)})`
+        )
         .join(" · ")
-    : fallback;
+    : formatTickerForDisplay(fallback);
 
   return (
     <div className="ticker-wrap" aria-live="polite">
-      <div className="ticker-label">TICKER</div>
+      <div className="ticker-label">Ticker</div>
       <div className="ticker-viewport">
         <div className="ticker-track">
           <span className="ticker-chunk">{line}</span>
@@ -380,8 +385,8 @@ export default function HomePage() {
           serverTime={state.serverTime}
           fallback={
             state.race.status === "active"
-              ? "RACE IN PROGRESS — AWAITING FIRST BROADCAST"
-              : "AWAITING RACE UPDATES"
+              ? "Race in progress — awaiting first broadcast"
+              : "Awaiting race updates"
           }
         />
       )}
@@ -436,7 +441,7 @@ export default function HomePage() {
             return (
               <div key={entry.id} className="row-line">
                 <div
-                  className="row-labels"
+                  className="row-main"
                   onClick={() => setSelectedSlug(entry.player.slug)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -446,47 +451,47 @@ export default function HomePage() {
                   role="button"
                   tabIndex={0}
                 >
-                  <div className="row-lane">LANE {entry.lane}]</div>
-                  <div className="row-name-row">
-                    <span className="row-name">{entry.player.name}</span>
+                  <div className="row-head">
+                    <span className="row-lane">Lane {entry.lane}</span>
+                    <span className="row-name">{formatRacerName(entry.player.name)}</span>
                   </div>
-                </div>
-                <div className="row-track">
-                  <div className="row-bar-cell">
-                    <span className="row-bar">
-                      <span className="row-bar-fill">{"█".repeat(filled)}</span>
-                      <span className="row-bar-empty">{"░".repeat(18 - filled)}</span>
-                    </span>
-                    {barMark && (
-                      <span
-                        className="row-bar-mark"
-                        title={
-                          isLeader
-                            ? "Race leader"
-                            : isLast
-                              ? "Last place"
-                              : `Up ${entry.last_rank_change} spots since last update`
-                        }
-                      >
-                        {barMark}
+                  <div className="row-track">
+                    <div className="row-bar-cell">
+                      <span className="row-bar">
+                        <span className="row-bar-fill">{"█".repeat(filled)}</span>
+                        <span className="row-bar-empty">{"░".repeat(18 - filled)}</span>
                       </span>
-                    )}
+                      {barMark && (
+                        <span
+                          className="row-bar-mark"
+                          title={
+                            isLeader
+                              ? "Race leader"
+                              : isLast
+                                ? "Last place"
+                                : `Up ${entry.last_rank_change} spots since last update`
+                          }
+                        >
+                          {barMark}
+                        </span>
+                      )}
+                    </div>
+                    <span className="row-pct">{formatLivePercent(progress)}%</span>
                   </div>
-                  <span className="row-pct">{formatLivePercent(progress)}%</span>
-                  {raceActive && (
-                    <button
-                      type="button"
-                      className={`encourage-btn${isSupported ? " supported" : ""}`}
-                      disabled={buttonDisabled}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEncourage(entry.player_id);
-                      }}
-                    >
-                      +1
-                    </button>
-                  )}
                 </div>
+                {raceActive && (
+                  <button
+                    type="button"
+                    className={`encourage-btn${isSupported ? " supported" : ""}`}
+                    disabled={buttonDisabled}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEncourage(entry.player_id);
+                    }}
+                  >
+                    +1
+                  </button>
+                )}
               </div>
             );
           })}

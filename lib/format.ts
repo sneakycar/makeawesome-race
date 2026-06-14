@@ -1,3 +1,12 @@
+export function formatRacerName(name: string): string {
+  return name.toLowerCase().trim();
+}
+
+export function formatTickerForDisplay(message: string): string {
+  const lower = message.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
 export function formatProgressBar(percent: number, width = 14): string {
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
   const filled = Math.round((clamped / 100) * width);
