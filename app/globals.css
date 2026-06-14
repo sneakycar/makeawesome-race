@@ -324,10 +324,13 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .encourage-btn.supported {
-  opacity: 1;
+  opacity: 0.42;
   background: #fff;
-  border-color: #333;
-  color: #333;
+  border-color: #bbb;
+  color: #999;
+  cursor: default;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .row-line {
@@ -1076,9 +1079,10 @@ body[data-home-theme="night"] .encourage-btn:disabled {
 }
 
 body[data-home-theme="night"] .encourage-btn.supported {
+  opacity: 0.45;
   background: #1a1a1a;
-  border-color: #ccc;
-  color: #ccc;
+  border-color: #666;
+  color: #888;
 }
 
 body[data-home-theme="night"] .row-ovr,

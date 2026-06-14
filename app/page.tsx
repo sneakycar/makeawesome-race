@@ -825,12 +825,13 @@ export default function HomePage() {
                         type="button"
                         className={`encourage-btn${isSupported ? " supported" : ""}`}
                         disabled={buttonDisabled}
+                        aria-label={isSupported ? "Supported" : "Encourage +1"}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEncourage(entry.player_id);
                         }}
                       >
-                        +1
+                        {isSupported ? "✓" : "+1"}
                       </button>
                     )}
                   </div>
