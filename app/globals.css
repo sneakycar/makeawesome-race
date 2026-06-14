@@ -382,9 +382,9 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .row-archetype {
-  font-size: 7px;
+  font-size: 8px;
   line-height: 1;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: #aaa;
   text-transform: uppercase;
   flex-shrink: 0;
