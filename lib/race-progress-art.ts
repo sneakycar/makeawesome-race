@@ -47,20 +47,20 @@ export const RACE_PROGRESS_PILL_STOPS_NIGHT = [
   "#dcdcdc",
 ] as const;
 
-/** White → black hard steps for the race % pill (day — inverted so empty reads dark). */
+/** Dark gray → black fill steps for the race % pill (day). */
 export const RACE_PROGRESS_PILL_STOPS_DAY = [
-  "#f0f0f0",
-  "#dcdcdc",
-  "#c8c8c8",
-  "#b4b4b4",
-  "#a0a0a0",
-  "#8c8c8c",
-  "#787878",
-  "#646464",
-  "#505050",
-  "#3c3c3c",
-  "#282828",
-  "#0a0a0a",
+  "#666666",
+  "#5a5a5a",
+  "#4e4e4e",
+  "#424242",
+  "#363636",
+  "#2a2a2a",
+  "#222222",
+  "#1a1a1a",
+  "#141414",
+  "#101010",
+  "#0c0c0c",
+  "#080808",
 ] as const;
 
 function bitmapGradient(stops: readonly string[]): string {

@@ -83,10 +83,11 @@ function traitBookieRead(trait: string): number {
 
 function sketchyRoundLine(american: number): number {
   const abs = Math.abs(american);
-  if (abs >= 800) return Math.round(abs / 100) * 100;
-  if (abs >= 300) return Math.round(abs / 50) * 50;
-  if (abs >= 120) return Math.round(abs / 10) * 10;
-  return Math.round(abs / 5) * 5;
+  if (abs >= 2500) return Math.round(abs / 250) * 250;
+  if (abs >= 1000) return Math.round(abs / 100) * 100;
+  if (abs >= 400) return Math.round(abs / 50) * 50;
+  if (abs >= 150) return Math.round(abs / 25) * 25;
+  return Math.round(abs / 10) * 10;
 }
 
 function formatAmerican(probability: number): string {
@@ -113,12 +114,12 @@ function bookiePower(
   const player = entry.player;
   let power = 0;
 
-  // Book trusts position more than points — use live rank/score when provided.
-  power += (9 - liveRank) * 3.1;
-  power += liveScore * 0.028;
+  // Book trusts position — but not enough to nuke the board.
+  power += (9 - liveRank) * 1.85;
+  power += liveScore * 0.034;
 
   const gap = leaderScore - liveScore;
-  power -= gap * 0.045;
+  power -= gap * 0.062;
 
   if (ovr) {
     power += (ovr.ovr - 52) * 0.11;
@@ -166,18 +167,62 @@ function bookiePower(
   if (player.archetype === "COMEBACKER" && liveRank >= 6) power += 1.8;
   if (player.archetype === "DOOMED" && percentComplete > 55) power -= 2.5;
 
-  // Late race — book clings to pre-race chalk.
-  if (percentComplete > 65 && liveRank > 3) {
-    power -= (percentComplete - 65) * 0.06;
+  // Leader bonus scales with margin — small early leads stay bettable.
+  if (liveRank === 1) {
+    const margin = Math.max(0, leaderScore - liveScore);
+    power += Math.min(2.4, margin * 0.22);
+    if (percentComplete > 45) power += Math.min(1.6, (percentComplete - 45) * 0.025);
   }
-  if (percentComplete > 50 && liveRank === 1) {
-    power += 1.2;
+
+  // Late race — book clings to pre-race chalk, but only deep in the race.
+  if (percentComplete > 72 && liveRank > 3) {
+    power -= (percentComplete - 72) * 0.05;
   }
 
   // Seeded drift so lines move without being oracle-accurate.
   power += seededRange(`${raceId}:${dayNumber}:${player.id}:book`, -2.8, 2.8);
 
   return power;
+}
+
+function scoreRankPrior(
+  liveRank: number,
+  liveScore: number,
+  leaderScore: number,
+  fieldSize: number
+): number {
+  const rankFactor = Math.pow((fieldSize - liveRank + 1) / fieldSize, 1.35);
+  const scoreFactor = liveScore / Math.max(leaderScore, liveScore, 1);
+  return rankFactor * 0.58 + scoreFactor * 0.42;
+}
+
+function softmaxTemperature(percentComplete: number, fieldSize: number): number {
+  // Hotter early / larger fields — stops one leader from eating 100% of the book.
+  const earlyBoost = (1 - percentComplete / 100) * 4.5;
+  const fieldBoost = Math.max(0, fieldSize - 6) * 0.35;
+  return 8.5 + earlyBoost + fieldBoost;
+}
+
+function capFavoriteShare(implied: number[], favoriteIdx: number, percentComplete: number): number[] {
+  const maxShare = Math.min(0.9, 0.42 + percentComplete * 0.0045);
+  if (implied[favoriteIdx]! <= maxShare) return implied;
+
+  const capped = [...implied];
+  const excess = capped[favoriteIdx]! - maxShare;
+  capped[favoriteIdx] = maxShare;
+
+  const restIdx = capped.map((_, i) => i).filter((i) => i !== favoriteIdx);
+  const restSum = restIdx.reduce((sum, i) => sum + capped[i]!, 0);
+  if (restSum <= 0) {
+    const each = (1 - maxShare) / restIdx.length;
+    for (const i of restIdx) capped[i] = each;
+    return capped;
+  }
+
+  for (const i of restIdx) {
+    capped[i] = capped[i]! + excess * (capped[i]! / restSum);
+  }
+  return capped;
 }
 
 function applyBookieJuice(fair: number[]): number[] {
@@ -222,15 +267,29 @@ export function calculateLiveOdds(
     );
   });
 
-  const temperature = 1.52;
+  const temperature = softmaxTemperature(percentComplete, entries.length);
   const maxPower = Math.max(...powers);
   const expPowers = powers.map((p) => Math.exp((p - maxPower) / temperature));
-  const fairSum = expPowers.reduce((a, b) => a + b, 0);
-  const fair = expPowers.map((e) => e / fairSum);
+  const modelSum = expPowers.reduce((a, b) => a + b, 0);
+  const modelFair = expPowers.map((e) => e / modelSum);
+
+  const priors = entries.map((entry) => {
+    const liveScore = scoresByPlayerId.get(entry.player_id) ?? Number(entry.race_score);
+    const liveRank = ranksByPlayerId.get(entry.player_id) ?? entry.current_rank;
+    return scoreRankPrior(liveRank, liveScore, leaderScore, entries.length);
+  });
+  const priorSum = priors.reduce((a, b) => a + b, 0);
+  const priorFair = priors.map((p) => p / priorSum);
+
+  const priorWeight = 0.38 + (1 - percentComplete / 100) * 0.12;
+  const fair = modelFair.map((p, i) => p * (1 - priorWeight) + priorFair[i]! * priorWeight);
 
   const juiced = applyBookieJuice(fair);
   const juicedSum = juiced.reduce((a, b) => a + b, 0);
-  const implied = juiced.map((p) => p / juicedSum);
+  let implied = juiced.map((p) => p / juicedSum);
+
+  const favoriteIdx = implied.indexOf(Math.max(...implied));
+  implied = capFavoriteShare(implied, favoriteIdx, percentComplete);
 
   const lines = entries.map((entry, i) => ({
     playerId: entry.player_id,

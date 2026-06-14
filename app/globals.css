@@ -118,7 +118,7 @@ main,
 .ticker-track {
   display: inline-flex;
   white-space: nowrap;
-  animation: ticker-scroll 28s linear infinite;
+  animation: ticker-scroll 32s linear infinite;
   font-size: 12px;
   font-weight: 500;
   color: #222;
@@ -654,7 +654,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .race-meta-line:first-child {
-  margin-bottom: 5px;
+  margin-bottom: 3px;
 }
 
 .race-meta-line:last-child {
@@ -738,13 +738,13 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   height: auto;
   box-sizing: border-box;
   border-radius: 999px;
-  border: 2px solid #2a2a2a;
-  background: #141414;
+  border: 2px solid #c8c8c8;
+  background: #f2f2f2;
   padding: 5pt;
   box-shadow:
-    inset 0 0 0 1px #000,
-    inset 0 2px 0 rgba(255, 255, 255, 0.12),
-    0 1px 0 rgba(255, 255, 255, 0.35);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.08);
   overflow: hidden;
   image-rendering: pixelated;
 }
@@ -777,45 +777,22 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .race-progress-pip-dim {
-  background-color: #222;
+  background-color: #dddddd;
   background-image:
     repeating-linear-gradient(
       -45deg,
-      #2a2a2a 0px,
-      #2a2a2a 1px,
-      #1a1a1a 1px,
-      #1a1a1a 2px
+      #e4e4e4 0px,
+      #e4e4e4 1px,
+      #d6d6d6 1px,
+      #d6d6d6 2px
     );
-  opacity: 0.85;
-}
-
-/* Daytime: dark empty track so early race reads as mostly remaining, not nearly done. */
-.race-progress-pip-pill:not(.is-night) {
-  border-color: #333;
-  background: #1a1a1a;
-  box-shadow:
-    inset 0 0 0 1px #0a0a0a,
-    inset 0 2px 0 rgba(255, 255, 255, 0.06),
-    0 1px 0 rgba(0, 0, 0, 0.12);
-}
-
-.race-progress-pip-pill:not(.is-night) .race-progress-pip-dim {
-  background-color: #161616;
-  background-image:
-    repeating-linear-gradient(
-      -45deg,
-      #222 0px,
-      #222 1px,
-      #121212 1px,
-      #121212 2px
-    );
-  opacity: 1;
+  opacity: 0.95;
 }
 
 .race-progress-pip-pill:not(.is-night) .race-progress-pip-on {
   box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.45),
-    inset -1px 0 0 rgba(0, 0, 0, 0.15);
+    inset 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset -1px 0 0 rgba(0, 0, 0, 0.25);
 }
 
 .race-progress-pip-bezel {
@@ -846,6 +823,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
       #141414 1px,
       #141414 2px
     );
+  opacity: 1;
 }
 
 .race-progress-wrap.is-night .race-progress-marker-label {
@@ -963,7 +941,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .tap-hint {
-  margin: -5px 0 10px;
+  margin: -5px 0 20px;
   font-size: 9px;
   color: #555;
   opacity: 0.72;
@@ -4065,7 +4043,7 @@ body[data-home-theme="night"] .race-weather-lightning {
 
   .tap-hint {
     font-size: 10px;
-    margin: -5px 0 10px;
+    margin: -5px 0 20px;
     opacity: 0.72;
   }
 
