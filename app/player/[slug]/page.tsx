@@ -51,9 +51,10 @@ export default function PlayerPage({
 
           {"\n\n"}STATUS: {p.status.toUpperCase()}
           {"\n"}AGE: {p.age_days} DAYS
-          {profile!.currentRank != null && (
+          {profile!.currentRaceNumber != null && (
             <>
-              {"\n"}CURRENT RACE: {formatCurrentRaceLabel(p.races, profile!.currentRank!)}
+              {"\n"}CURRENT RACE:{" "}
+              {formatCurrentRaceLabel(profile!.currentRaceNumber, profile!.currentRank)}
             </>
           )}
           {profile!.currentProgress != null && (

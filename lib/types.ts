@@ -147,6 +147,7 @@ export interface GameStateResponse {
 export interface PlayerProfileResponse {
   player: Player;
   history: PlayerHistory[];
+  currentRaceNumber: number | null;
   currentRank: number | null;
   currentProgress: number | null;
 }

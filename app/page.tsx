@@ -167,9 +167,10 @@ function PlayerOverlay({
               <div className="overlay-section-title">STATUS</div>
               <span className="overlay-stat">STATUS: {p.status.toUpperCase()}</span>
               <span className="overlay-stat">AGE: {p.age_days} DAYS</span>
-              {profile.currentRank != null && (
+              {profile.currentRaceNumber != null && (
                 <span className="overlay-stat">
-                  CURRENT RACE: {formatCurrentRaceLabel(p.races, profile.currentRank)}
+                  CURRENT RACE:{" "}
+                  {formatCurrentRaceLabel(profile.currentRaceNumber, profile.currentRank)}
                 </span>
               )}
               {profile.currentProgress != null && (

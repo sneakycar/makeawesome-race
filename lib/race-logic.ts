@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getNextRaceDayBounds, getRaceDayBounds } from "./eastern-time";
+import { getNextRaceDayBounds, getRaceDayBounds, getRaceOneBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
 import { ordinal, slugify } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
@@ -212,7 +212,7 @@ export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<
   const { data: existing } = await supabase.from("game_state").select("id").eq("id", 1).maybeSingle();
   if (existing) return false;
 
-  const { startedAt, endsAt } = getRaceDayBounds();
+  const { startedAt, endsAt } = getRaceOneBounds();
   const existingSlugs = new Set<string>();
 
   const activePlayers = SEED_ACTIVE_NAMES.map((name, i) => {
@@ -1031,10 +1031,7 @@ export async function resetToFirstRace(supabase: SupabaseClient): Promise<Race> 
     if (resetErr) throw resetErr;
   }
 
-  let { startedAt, endsAt } = getRaceDayBounds(now);
-  if (now >= endsAt) {
-    ({ startedAt, endsAt } = getNextRaceDayBounds(now));
-  }
+  const { startedAt, endsAt } = getRaceOneBounds();
 
   const race = await createRace(supabase, 1, 1, rosterIds, startedAt, endsAt);
   const percentComplete = calculatePercentComplete(startedAt, endsAt, now);

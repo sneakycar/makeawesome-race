@@ -94,14 +94,11 @@ export function formatNextRaceBegin(date: Date): string {
   return formatRaceBegan(date);
 }
 
-export function formatCurrentRaceLabel(races: number, rank: number | null): string {
+export function formatCurrentRaceLabel(raceNumber: number, rank: number | null): string {
   if (rank == null) {
-    return races === 0 ? "FIRST RACE" : "—";
+    return `RACE ${raceNumber}`;
   }
-  if (races === 0) {
-    return `FIRST RACE (${ordinal(rank)})`;
-  }
-  return ordinal(rank);
+  return `RACE ${raceNumber} (${ordinal(rank)})`;
 }
 
 export function slugify(name: string): string {

@@ -31,11 +31,13 @@ export async function GET(
       .order("day_number", { ascending: false })
       .limit(20);
 
+    let currentRaceNumber: number | null = null;
     let currentRank: number | null = null;
     let currentProgress: number | null = null;
 
     const active = await getActiveRaceWithEntries(supabase);
     if (active) {
+      currentRaceNumber = active.race.race_number;
       const entry = active.entries.find((e) => e.player_id === player.id);
       if (entry) {
         currentRank = entry.current_rank;
@@ -46,6 +48,7 @@ export async function GET(
     const body: PlayerProfileResponse = {
       player,
       history: history || [],
+      currentRaceNumber,
       currentRank,
       currentProgress,
     };
