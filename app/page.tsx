@@ -807,6 +807,11 @@ export default function HomePage() {
 
   return (
     <main data-theme={isNight ? "night" : "day"}>
+      {raceWeather && raceActive && !raceDelayed && (
+        <div className="race-weather-fullscreen" aria-hidden="true">
+          <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
+        </div>
+      )}
       {tickBurst && (
         <TickBurstOverlay
           phase={tickBurst.phase}
@@ -868,9 +873,6 @@ export default function HomePage() {
         <>
           <div className="race-meta-weather-zone">
             <div className="race-meta-shell">
-              {raceWeather && raceActive && !raceDelayed && (
-                <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
-              )}
               <RaceMetaPanel
                 state={state}
                 betweenRaces={betweenRaces}
@@ -891,9 +893,6 @@ export default function HomePage() {
           </div>
 
           <div className={`race-standings-wrap${raceDelayed ? " race-standings-frozen" : ""}`}>
-            {raceWeather && raceActive && !raceDelayed && (
-              <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
-            )}
             <div className="race-standings" key={state.serverTime}>
           {[...state.entries]
             .sort((a, b) => a.lane - b.lane)

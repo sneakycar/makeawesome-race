@@ -202,7 +202,6 @@ main,
 
 .race-meta-shell {
   position: relative;
-  overflow: hidden;
   border-radius: 2px;
 }
 
@@ -218,6 +217,21 @@ main,
 
 .race-update-shell {
   position: relative;
+  z-index: 2;
+}
+
+.race-weather-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.race-weather-fullscreen .race-weather {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
 }
 
 .race-update-shell.is-tick-bursting {
@@ -715,17 +729,18 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .race-progress-pip-viewport {
   width: 100%;
   min-width: 0;
-  height: 16px;
+  height: auto;
 }
 
 .race-progress-pip-pill {
   position: relative;
   width: 100%;
-  height: 100%;
+  height: auto;
+  box-sizing: border-box;
   border-radius: 999px;
   border: 2px solid #2a2a2a;
   background: #141414;
-  padding: 2px 4px;
+  padding: 5pt;
   box-shadow:
     inset 0 0 0 1px #000,
     inset 0 2px 0 rgba(255, 255, 255, 0.12),
@@ -740,8 +755,8 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   align-items: stretch;
   gap: 0;
   width: 100%;
-  height: 100%;
-  padding: 0 1px;
+  height: 12px;
+  padding: 0;
   overflow: hidden;
 }
 
@@ -968,8 +983,6 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   position: relative;
   margin-bottom: 10px;
   margin-top: -5px;
-  overflow: hidden;
-  border-radius: 2px;
 }
 
 .row-line-leader .row-name {
@@ -4056,8 +4069,8 @@ body[data-home-theme="night"] .race-weather-lightning {
     opacity: 0.72;
   }
 
-  .race-progress-pip-viewport {
-    height: 18px;
+  .race-progress-pip-track {
+    height: 14px;
   }
 
   .row-score-readout {
