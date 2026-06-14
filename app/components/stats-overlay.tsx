@@ -208,7 +208,7 @@ export function StatsOverlay({ onClose }: { onClose: () => void }) {
                         {bestLane?.lane === lane.lane ? (
                           <>
                             {" "}
-                            <FlatIcon id="star" className="flat-icon flat-icon-star" />
+                            <FlatIcon id="star" className="race-emoji race-emoji-star" />
                           </>
                         ) : null}
                       </>

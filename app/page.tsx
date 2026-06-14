@@ -387,7 +387,7 @@ function ScorePipTrack({
       )}
       {statusOverlay && (
         <div className="row-scoreboard-overlay" aria-hidden="true">
-          <FlatIcon id={statusOverlay.icon} className="flat-icon flat-icon-overlay" />
+          <FlatIcon id={statusOverlay.icon} className="race-emoji race-emoji-overlay" />
           <span className="row-scoreboard-overlay-label">{statusOverlay.label}</span>
         </div>
       )}
@@ -600,7 +600,7 @@ function PlayerOverlay({
                     <div className="retro-kv retro-kv-wide">
                       <span className="retro-k">RACE STATUS</span>
                       <span className="retro-v retro-v-icon">
-                        <FlatIcon id="injured" className="flat-icon flat-icon-inline" />
+                        <FlatIcon id="injured" className="race-emoji race-emoji-inline" />
                         INJURED
                       </span>
                     </div>
@@ -1165,7 +1165,7 @@ export default function HomePage() {
                                   : undefined
                       }
                     >
-                      {barMark ? <FlatIcon id={barMark} className="flat-icon" /> : null}
+                      {barMark ? <FlatIcon id={barMark} className="race-emoji" /> : null}
                     </span>
                     <ScorePipTrack
                       score={live?.score ?? pipConfirmedScore}
@@ -1193,7 +1193,7 @@ export default function HomePage() {
                         }}
                       >
                         {isSupported ? (
-                          <FlatIcon id="check" className="flat-icon flat-icon-btn" />
+                          <FlatIcon id="check" className="race-emoji race-emoji-btn" />
                         ) : (
                           "+1"
                         )}
@@ -1223,25 +1223,25 @@ export default function HomePage() {
           <div className="race-legend">
             <span className="legend-key">
               <span className="row-mark-slot" aria-hidden="true">
-                <FlatIcon id="lead" className="flat-icon" />
+                <FlatIcon id="lead" className="race-emoji" />
               </span>
               LEAD
             </span>
             <span className="legend-key">
               <span className="row-mark-slot" aria-hidden="true">
-                <FlatIcon id="comeback" className="flat-icon" />
+                <FlatIcon id="comeback" className="race-emoji" />
               </span>
               COMEBACK
             </span>
             <span className="legend-key">
               <span className="row-mark-slot" aria-hidden="true">
-                <FlatIcon id="last" className="flat-icon" />
+                <FlatIcon id="last" className="race-emoji" />
               </span>
               LAST
             </span>
             <span className="legend-key">
               <span className="row-mark-slot" aria-hidden="true">
-                <FlatIcon id="fight" className="flat-icon" />
+                <FlatIcon id="fight" className="race-emoji" />
               </span>
               FIGHT
             </span>

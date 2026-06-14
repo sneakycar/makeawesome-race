@@ -843,41 +843,37 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   color: #333;
 }
 
-.flat-icon {
-  display: block;
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-.flat-icon-btn {
-  width: 12px;
-  height: 12px;
-}
-
-.flat-icon-inline {
+.race-emoji {
   display: inline-block;
-  width: 10px;
-  height: 10px;
+  line-height: 1;
+  flex-shrink: 0;
+  font-size: 12px;
+  filter: grayscale(1);
+  -webkit-filter: grayscale(1);
+}
+
+.race-emoji-btn {
+  font-size: 12px;
+}
+
+.race-emoji-inline {
+  font-size: 10px;
   vertical-align: -1px;
   margin-right: 3px;
 }
 
-.flat-icon-overlay {
-  width: 10px;
-  height: 10px;
+.race-emoji-overlay {
+  font-size: 9px;
 }
 
-.flat-icon-star {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
+.race-emoji-star {
+  font-size: 9px;
   vertical-align: -1px;
-  color: #ffd700;
 }
 
-.retro-v .flat-icon-inline {
-  color: #00ff88;
+.retro-v .race-emoji-inline {
+  filter: grayscale(1) brightness(1.1);
+  -webkit-filter: grayscale(1) brightness(1.1);
 }
 
 .row-scoreboard-overlay {
@@ -886,19 +882,16 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   gap: 4px;
 }
 
-body[data-home-theme="night"] .flat-icon {
-  color: #ddd;
-}
-
-body[data-home-theme="night"] .flat-icon-star {
-  color: #ffd700;
+body[data-home-theme="night"] .race-emoji {
+  filter: grayscale(1) brightness(0.92);
+  -webkit-filter: grayscale(1) brightness(0.92);
 }
 
 body[data-home-theme="night"] .row-mark-slot {
   color: #ddd;
 }
 
-.encourage-btn .flat-icon-btn {
+.encourage-btn .race-emoji-btn {
   color: inherit;
 }
 
