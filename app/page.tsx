@@ -27,7 +27,7 @@ import { RaceWeatherOverlay } from "@/app/components/race-weather-overlay";
 import { canEncourageVote, getEncourageButtonPhase, vibrateNope } from "@/lib/nope-feedback";
 import { getOrCreateDeviceId } from "@/lib/client-device-id";
 import { useEncourageCooldown } from "@/lib/use-encourage-cooldown";
-import { calculateLiveOdds, buildBadMoneyOpacityMap } from "@/lib/live-odds";
+import { calculateLiveOdds } from "@/lib/live-odds";
 import { buildLiveScoreMap, computeLiveRanks } from "@/lib/live-standings";
 import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
 import { BadMoneyModal } from "@/app/components/bad-money-modal";
@@ -720,11 +720,6 @@ export default function HomePage() {
     );
   }, [state, raceActive, raceDelayed, liveRace, liveScoreMap, liveRankMap]);
 
-  const badMoneyOpacityMap = useMemo(
-    () => buildBadMoneyOpacityMap(liveOddsLines),
-    [liveOddsLines]
-  );
-
   const entryScorePoints =
     state?.entries.map((e) => liveScoreMap.get(e.player_id) ?? 0) ?? [];
 
@@ -1012,15 +1007,6 @@ export default function HomePage() {
                               ? " bad-money-btn-blocked"
                               : ""
                           }`}
-                          style={
-                            state.badMoney.canBet && !state.badMoney.hasBet
-                              ? {
-                                  opacity:
-                                    badMoneyOpacityMap.get(entry.player_id) ??
-                                    0.45,
-                                }
-                              : undefined
-                          }
                           disabled={
                             betting ||
                             !state.badMoney.canBet ||

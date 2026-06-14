@@ -1,14 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
-import { buildPipHeightUnits } from "@/lib/pip-heights";
 import {
   formatLiveRaceScore,
-  getScorePipBackground,
+  getScoreTrackFillGradient,
   HARD_SCORE_CAP,
   roundRaceScore,
-  SCORE_TRACK_SLOTS,
 } from "@/lib/score";
 
 export function ScorePipTrack({
@@ -18,9 +15,6 @@ export function ScorePipTrack({
   isLeader,
   isNight,
   statusOverlay,
-  playerId,
-  raceId,
-  recentDeltas,
 }: {
   score: number;
   animatingDelta: number;
@@ -32,33 +26,10 @@ export function ScorePipTrack({
   raceId?: string;
   recentDeltas?: number[];
 }) {
-  const slots = SCORE_TRACK_SLOTS;
   const livePoints = roundRaceScore(Math.max(0, Math.min(HARD_SCORE_CAP, score)));
-  const pipBright = Math.floor(livePoints);
-  const pipPartial = livePoints - pipBright;
   const leader = roundRaceScore(Math.max(0, leaderScore));
   const behind = roundRaceScore(leader - livePoints);
-  const colorSpan = slots;
-
-  const deltaKey = recentDeltas?.map(Number).join(",") ?? "";
-
-  const pipHeights = useMemo(() => {
-    if (!playerId || !raceId) return null;
-    return buildPipHeightUnits(
-      playerId,
-      raceId,
-      slots,
-      pipBright,
-      recentDeltas ?? []
-    );
-  }, [playerId, raceId, slots, pipBright, deltaKey]);
-
-  const pipHeightClass = (index: number, lit: boolean) => {
-    if (!lit || !pipHeights) return " score-pip-h1";
-    return pipHeights[index] >= 2 ? " score-pip-h2" : " score-pip-h1";
-  };
-
-  const fillPercent = Math.min(100, (livePoints / slots) * 100);
+  const fillPercent = Math.min(100, (livePoints / HARD_SCORE_CAP) * 100);
   const showOutline =
     fillPercent > 0 &&
     (isLeader ||
@@ -96,38 +67,15 @@ export function ScorePipTrack({
         className={`score-pip-track score-pip-track--race${
           statusOverlay ? " score-pip-track-paused" : ""
         }`}
-        style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
       >
-        {Array.from({ length: slots }, (_, i) => {
-          if (i < pipBright) {
-            return (
-              <span
-                key={i}
-                className={`score-pip score-pip-on${pipHeightClass(i, true)}`}
-                style={{
-                  background: getScorePipBackground(i, colorSpan, isNight),
-                }}
-                aria-hidden="true"
-              />
-            );
-          }
-          if (i === pipBright && pipPartial > 0.001) {
-            return (
-              <span
-                key={i}
-                className={`score-pip score-pip-on score-pip-partial${pipHeightClass(i, true)}`}
-                style={{
-                  background: getScorePipBackground(i, colorSpan, isNight),
-                  opacity: Math.max(0.15, pipPartial),
-                }}
-                aria-hidden="true"
-              />
-            );
-          }
-          return (
-            <span key={i} className="score-pip score-pip-empty score-pip-h1" aria-hidden="true" />
-          );
-        })}
+        <div
+          className="score-pip-fill"
+          style={{
+            width: `${fillPercent}%`,
+            background: getScoreTrackFillGradient(livePoints, isNight),
+          }}
+          aria-hidden="true"
+        />
         {showOutline && (
           <div
             className={`score-pip-track-outline${outlineClass}`}

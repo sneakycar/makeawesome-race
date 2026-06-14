@@ -799,7 +799,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   align-items: center;
   justify-content: flex-start;
   gap: 5px;
-  height: 19px;
+  height: 14px;
   overflow: hidden;
   position: relative;
   border-radius: 2px;
@@ -867,46 +867,36 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   flex: 1 1 auto;
   display: flex;
   flex-wrap: nowrap;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 0;
   min-width: 0;
-  height: 15px;
-  padding: 1px 0;
+  height: 12px;
+  padding: 0;
 }
 
 .score-pip-track--race {
-  display: grid;
-  width: 100%;
-  overflow: hidden;
-  gap: 0;
   position: relative;
-  align-items: end;
-}
-
-.score-pip-track-fight,
-.score-pip-track-injured {
-  /* legacy — outline now on .score-pip-track-outline-* */
-}
-
-.score-pip-track--race .score-pip {
   width: 100%;
-  min-width: 0;
-  max-width: none;
-  align-self: end;
-}
-
-.score-pip-track--race .score-pip-h1 {
   height: 12px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 55%, #c4c4c4 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-.score-pip-track--race .score-pip-h2 {
-  height: 13px;
+body[data-home-theme="night"] .score-pip-track--race {
+  background: linear-gradient(180deg, #333 0%, #2a2a2a 55%, #222 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.score-pip-track--race .score-pip-empty {
-  opacity: 0;
-  background: transparent;
-  box-shadow: none;
+.score-pip-fill {
+  height: 100%;
+  min-width: 0;
+  border-radius: 1px 0 0 1px;
+}
+
+.score-pip-viewport-paused .score-pip-track-paused .score-pip-fill {
+  opacity: 0.45;
 }
 
 .score-pip-viewport-paused .score-pip-track-paused .score-pip-on,

@@ -247,19 +247,3 @@ export function calculateLiveOdds(
 
   return lines;
 }
-
-/** Dim $ for underdogs, full strength for chalk — maps playerId → 0.22–1. */
-export function buildBadMoneyOpacityMap(lines: LiveOddsLine[]): Map<string, number> {
-  const map = new Map<string, number>();
-  if (lines.length === 0) return map;
-
-  const min = Math.min(...lines.map((l) => l.impliedPct));
-  const max = Math.max(...lines.map((l) => l.impliedPct));
-
-  for (const line of lines) {
-    const t = max > min ? (line.impliedPct - min) / (max - min) : 1;
-    map.set(line.playerId, 0.22 + t * 0.78);
-  }
-
-  return map;
-}
