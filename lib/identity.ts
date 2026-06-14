@@ -344,20 +344,37 @@ export const SIGNATURE_STAT_EXPLAINERS: Record<SignatureStat, string> = {
   drag: "Born with extra drag. More stalls and bleeds, but mutates more often — a weird signature.",
 };
 
+/** Short player-card copy for each ability stat. */
+export const STAT_ABILITY_EXPLAINERS: Record<SignatureStat, string> = {
+  grit: "Stamina and resilience — less collapse, less fatigue wear.",
+  chaos: "Wild scoring swings — bigger ups and downs each tick.",
+  nerve: "Pressure handling — calmer when winning or trailing.",
+  luck: "Lucky breaks — more positive random nudges in scoring.",
+  burst: "Hot stretches — stronger surge ticks when it fires.",
+  drag: "Weight and stalls — more bleed ticks; high drag hurts OVR.",
+};
+
 export function getArchetypeExplainer(archetype: string | null | undefined): string {
   const def = ARCHETYPES[archetype as ArchetypeId];
   if (!def) return "Core racing personality — shapes scoring, growth, and pressure every race.";
   return `${def.description} Biases stats and tick behavior over a career.`;
 }
 
+export function getTraitExplainer(trait: string): string {
+  return (
+    TRAIT_EXPLAINERS[trait as TraitId] ??
+    "Minor flavor — small nudges to behavior over time."
+  );
+}
+
 export function getTraitExplainerLines(traits: string[]): string[] {
   if (!traits.length) return ["No traits — straight baseline behavior."];
-  return traits.map((trait) => {
-    const note =
-      TRAIT_EXPLAINERS[trait as TraitId] ??
-      "Minor flavor — small nudges to behavior over time.";
-    return `${trait} — ${note}`;
-  });
+  return traits.map((trait) => `${trait} — ${getTraitExplainer(trait)}`);
+}
+
+export function getStatAbilityExplainer(stat: string | null | undefined): string {
+  const key = (stat ?? "grit") as SignatureStat;
+  return STAT_ABILITY_EXPLAINERS[key] ?? STAT_ABILITY_EXPLAINERS.grit;
 }
 
 export function getSignatureStatExplainer(stat: string | null | undefined): string {

@@ -1,5 +1,6 @@
 import { seededInt, seededPick, seededRandom } from "./seeded-rng";
 import { slugify } from "./format";
+import { generateGender, type PlayerGender } from "./player-gender";
 
 /** Starter roster — eight fixed racers for race 1. */
 export const SEED_ACTIVE_NAMES = [
@@ -242,22 +243,26 @@ export function generateName(seed: string): string {
   return buildPatternName(`${seed}:${pattern}`, pattern);
 }
 
-export function generateUniqueName(seed: string, existingSlugs: Set<string>): { name: string; slug: string } {
+export function generateUniqueName(
+  seed: string,
+  existingSlugs: Set<string>
+): { name: string; slug: string; gender: PlayerGender } {
   for (let attempt = 0; attempt < 200; attempt++) {
-    const name = generateName(`${seed}:${attempt}`).toUpperCase().replace(/\s+/g, " ").trim();
+    const attemptSeed = `${seed}:${attempt}`;
+    const name = generateName(attemptSeed).toUpperCase().replace(/\s+/g, " ").trim();
     let slug = slugify(name);
     if (existingSlugs.has(slug)) {
       slug = `${slug}-${attempt}`;
     }
     if (!existingSlugs.has(slug)) {
       existingSlugs.add(slug);
-      return { name, slug };
+      return { name, slug, gender: generateGender(attemptSeed) };
     }
   }
   const fallback = `RACER ${seededInt(`${seed}:fb`, 1000, 9999)}`;
   const slug = slugify(fallback);
   existingSlugs.add(slug);
-  return { name: fallback, slug };
+  return { name: fallback, slug, gender: generateGender(`${seed}:fb`) };
 }
 
 /** Estimated unique combinations across all tiered patterns. */

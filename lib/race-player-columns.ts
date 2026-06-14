@@ -21,6 +21,7 @@ export const RACE_PLAYER_SELECT = [
   "pressure",
   "bad_money_total",
   "palette_colors",
+  "gender",
 ].join(", ");
 
 export const RACE_ENTRY_PLAYER_SELECT = `*, player:players!race_entries_player_id_fkey(${RACE_PLAYER_SELECT})`;

@@ -1,3 +1,5 @@
+import type { PlayerGender } from "./player-gender";
+
 export type PlayerStatus = "active" | "holding" | "injured" | "retired";
 export type RaceStatus = "active" | "finalized";
 export type StreakType = "win" | "lose" | "none";
@@ -53,6 +55,7 @@ export interface Player {
   total_injuries: number;
   injury_history: InjuryRecord[];
   palette_colors: string[];
+  gender: PlayerGender | null;
   created_at: string;
   updated_at: string;
 }

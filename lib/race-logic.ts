@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
+import { resolvePlayerGender, type PlayerGender } from "./player-gender";
 import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap, normalizePeakRaceScore, roundRaceScore } from "./score";
 import { getCombinedRaceTempo, getRaceWeekTempo } from "./race-tempo";
 import { resolveWinnerRaceScore } from "./god-score";
@@ -294,7 +295,8 @@ export function buildPlayerInsert(
   status: "active" | "holding",
   createdDay: number,
   seed: string,
-  identityOverride?: PlayerIdentity
+  identityOverride?: PlayerIdentity,
+  genderOverride?: PlayerGender
 ) {
   const identity = identityOverride ?? generateIdentity(seed);
   const stats = buildPlayerStatsFromSeed(seed, identity);
@@ -347,6 +349,7 @@ export function buildPlayerInsert(
     total_injuries: 0,
     injury_history: [],
     palette_colors: generatePlayerPalette(seed),
+    gender: genderOverride ?? resolvePlayerGender(slug, seed),
     seed,
   };
 }
@@ -1576,18 +1579,23 @@ export async function createPlayer(
   let name: string;
   let slug: string;
   let identityOverride: PlayerIdentity | undefined;
+  let gender: PlayerGender | undefined;
 
   if (!slugs.has(QUEUED_ROOKIE.slug)) {
     name = QUEUED_ROOKIE.name;
     slug = QUEUED_ROOKIE.slug;
     identityOverride = { ...QUEUED_ROOKIE.identity };
+    gender = resolvePlayerGender(slug, `player-${slug}-${day}`);
   } else {
-    ({ name, slug } = generateUniqueName(`new-player-${day}-${Date.now()}`, slugs));
+    const generated = generateUniqueName(`new-player-${day}-${Date.now()}`, slugs);
+    name = generated.name;
+    slug = generated.slug;
+    gender = generated.gender;
     identityOverride = undefined;
   }
 
   const seed = `player-${slug}-${day}`;
-  const insert = buildPlayerInsert(name, slug, status, day, seed, identityOverride);
+  const insert = buildPlayerInsert(name, slug, status, day, seed, identityOverride, gender);
 
   const { data, error } = await supabase.from("players").insert(insert).select("*").single();
   if (error) throw error;

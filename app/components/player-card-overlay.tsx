@@ -11,29 +11,34 @@ import {
 } from "@/lib/format";
 import {
   getArchetypeExplainer,
-  getSignatureStatExplainer,
-  getTraitExplainerLines,
+  getStatAbilityExplainer,
+  getTraitExplainer,
 } from "@/lib/identity";
 import { formatOvrRank } from "@/lib/ovr";
 import { getPlayerHeaderStyle, getPlayerPalette } from "@/lib/player-colors";
 import { formatRankDelta } from "@/lib/use-live-rank-delta";
-import { formatRaceScore, getScorePipBackground } from "@/lib/score";
+import { formatRaceScore } from "@/lib/score";
+import { abilityStatKey, getAbilityPipFill } from "@/lib/ability-pips";
 import { getBadMoneyFlavorLine } from "@/lib/bad-money";
+import { formatPlayerGender } from "@/lib/player-gender";
 import type { PlayerProfileResponse } from "@/lib/types";
 
 function AbilityRow({
   label,
   value,
+  description,
   signature,
   isNight,
 }: {
   label: string;
   value: number;
+  description: string;
   signature?: boolean;
   isNight: boolean;
 }) {
   const slots = 20;
   const filled = pipCount20(value);
+  const statKey = abilityStatKey(label);
 
   return (
     <div className={`player-sheet-ability${signature ? " player-sheet-ability-sig" : ""}`}>
@@ -45,22 +50,23 @@ function AbilityRow({
         <span className="player-sheet-ability-num">{value}</span>
       </div>
       <div
-        className={`score-pip-track player-sheet-ability-pips${isNight ? " is-night" : ""}`}
+        className={`ability-pip-track ability-pip-track--${statKey}${signature ? " ability-pip-track--sig" : ""}${isNight ? " is-night" : ""}`}
         aria-label={`${label} ${value} out of 100${signature ? ", signature" : ""}`}
       >
         {Array.from({ length: slots }, (_, i) =>
           i < filled ? (
             <span
               key={i}
-              className="score-pip score-pip-on"
-              style={{ background: getScorePipBackground(i, slots, isNight) }}
+              className="ability-pip ability-pip-on"
+              style={{ backgroundColor: getAbilityPipFill(statKey, i, slots, signature) }}
               aria-hidden="true"
             />
           ) : (
-            <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />
+            <span key={i} className="ability-pip ability-pip-off" aria-hidden="true" />
           )
         )}
       </div>
+      <p className="player-sheet-ability-desc">{description}</p>
     </div>
   );
 }
@@ -172,7 +178,14 @@ export function PlayerCardOverlay({
     : isFighting
       ? { icon: "fight" as const, label: "FIGHT" }
       : undefined;
-  const traitNotes = getTraitExplainerLines(p?.traits ?? []);
+  const traits = p?.traits ?? [];
+  const signatureStat = (p?.signature_stat ?? "grit") as
+    | "grit"
+    | "chaos"
+    | "nerve"
+    | "luck"
+    | "burst"
+    | "drag";
 
   return (
     <div
@@ -217,7 +230,9 @@ export function PlayerCardOverlay({
             <div className={`row-line${isLeader ? " row-line-leader" : ""}`}>
               <div className="row-head">
                 {lane != null && <span className="row-archetype">L{lane}</span>}
-                {rank != null && <span className="row-rank-pos">{rank}]</span>}
+                {profile.currentRaceNumber != null && (
+                  <span className="row-archetype">CURRENT RACE</span>
+                )}
                 {barMark ? (
                   <span className="row-mark-slot row-mark-slot-inline">
                     <FlatIcon id={barMark} className="race-emoji" />
@@ -273,29 +288,28 @@ export function PlayerCardOverlay({
             <div className="divider">{"────────────────────────"}</div>
 
             <div className="section-label">IDENTITY</div>
-            <div className="row-head player-sheet-tags">
-              {(p.traits ?? []).map((trait) => (
-                <span key={trait} className="row-archetype">
-                  {trait}
-                </span>
-              ))}
-              <span className="row-archetype player-sheet-sig">
-                SIG {(p.signature_stat ?? "grit").toUpperCase()}
-                <FlatIcon id="star" className="race-emoji race-emoji-inline" aria-hidden="true" />
-              </span>
-              <span className="row-archetype">{p.status}</span>
-            </div>
+            <p className="player-sheet-identity-line">
+              <span className="player-sheet-identity-k">GENDER:</span>{" "}
+              {formatPlayerGender(p.gender)}
+            </p>
+            <p className="player-sheet-identity-line">
+              <span className="player-sheet-identity-k">TRAITS:</span>{" "}
+              {traits.length > 0 ? traits.join(" ") : "—"}
+            </p>
+            <p className="player-sheet-identity-line">
+              <span className="player-sheet-identity-k">SIGNATURE:</span>{" "}
+              {signatureStat.toUpperCase()}{" "}
+              <FlatIcon id="star" className="race-emoji race-emoji-inline" aria-hidden="true" /> (
+              {p.status})
+            </p>
             <p className="player-sheet-meta player-sheet-identity-block">
               {getArchetypeExplainer(p.archetype)}
             </p>
-            {traitNotes.map((line) => (
-              <p key={line} className="player-sheet-meta player-sheet-identity-block">
-                {line}
+            {traits.map((trait) => (
+              <p key={trait} className="player-sheet-meta player-sheet-identity-block">
+                <span className="player-sheet-identity-k">{trait}</span> {getTraitExplainer(trait)}
               </p>
             ))}
-            <p className="player-sheet-meta player-sheet-identity-block">
-              {getSignatureStatExplainer(p.signature_stat)}
-            </p>
 
             <div className="divider">{"────────────────────────"}</div>
 
@@ -304,36 +318,42 @@ export function PlayerCardOverlay({
               <AbilityRow
                 label="GRIT"
                 value={p.grit}
+                description={getStatAbilityExplainer("grit")}
                 signature={p.signature_stat === "grit"}
                 isNight={isNight}
               />
               <AbilityRow
                 label="CHAOS"
                 value={p.chaos}
+                description={getStatAbilityExplainer("chaos")}
                 signature={p.signature_stat === "chaos"}
                 isNight={isNight}
               />
               <AbilityRow
                 label="NERVE"
                 value={p.nerve}
+                description={getStatAbilityExplainer("nerve")}
                 signature={p.signature_stat === "nerve"}
                 isNight={isNight}
               />
               <AbilityRow
                 label="LUCK"
                 value={p.luck}
+                description={getStatAbilityExplainer("luck")}
                 signature={p.signature_stat === "luck"}
                 isNight={isNight}
               />
               <AbilityRow
                 label="BURST"
                 value={p.burst}
+                description={getStatAbilityExplainer("burst")}
                 signature={p.signature_stat === "burst"}
                 isNight={isNight}
               />
               <AbilityRow
                 label="DRAG"
                 value={p.drag}
+                description={getStatAbilityExplainer("drag")}
                 signature={p.signature_stat === "drag"}
                 isNight={isNight}
               />
@@ -410,7 +430,7 @@ export function PlayerCardOverlay({
               />
             )}
 
-            <div className="section-label">GAME LOG</div>
+            <div className="section-label">RACE LOG</div>
             {profile.history.length === 0 ? (
               <p className="tap-hint">no entries yet</p>
             ) : (
@@ -421,7 +441,7 @@ export function PlayerCardOverlay({
               ))
             )}
 
-            <p className="tap-hint player-sheet-foot">tap outside or press x to close</p>
+            <p className="tap-hint player-sheet-foot">CLOSE</p>
           </>
         )}
       </div>

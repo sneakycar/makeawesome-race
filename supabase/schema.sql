@@ -54,6 +54,7 @@ create table if not exists players (
   total_injuries integer not null default 0,
   injury_history jsonb not null default '[]'::jsonb,
   palette_colors text[] not null default '{}',
+  gender text check (gender in ('M', 'F')),
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
