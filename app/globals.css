@@ -1161,6 +1161,78 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   }
 }
 
+/* racer fact reveal — inspection slip overlay */
+
+.factReveal {
+  position: fixed;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%) translateY(8px) scale(0.98);
+  width: min(320px, calc(100vw - 32px));
+  background: rgba(0, 0, 0, 0.94);
+  color: #e8e2d0;
+  border: 1px solid #e8e2d0;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  z-index: 50;
+  opacity: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  text-align: left;
+  white-space: pre-wrap;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.factRevealVisible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.factRevealExiting {
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px) scale(0.98);
+}
+
+.factRevealTitle {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.factRevealName {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.factRevealText {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.92;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .factReveal {
+    transition: opacity 80ms ease;
+    transform: translateX(-50%);
+  }
+
+  .factRevealVisible {
+    transform: translateX(-50%);
+  }
+
+  .factRevealExiting {
+    transform: translateX(-50%);
+  }
+}
+
 .encourage-btn {
   flex-shrink: 0;
   width: 28px;

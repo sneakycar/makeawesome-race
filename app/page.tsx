@@ -31,6 +31,7 @@ import { calculateLiveOdds } from "@/lib/live-odds";
 import { buildLiveScoreMap, computeLiveRanks } from "@/lib/live-standings";
 import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
 import { BadMoneyModal } from "@/app/components/bad-money-modal";
+import { RacerFactReveal } from "@/app/components/racer-fact-reveal";
 import { ScorePipTrack } from "@/app/components/score-pip-track";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 
@@ -471,6 +472,12 @@ function AboutSection() {
           disturb a racer&apos;s current race and can rarely affect long-term growth or
           regression. The effect is tiny, capped, and unreliable. The machine remains
           in charge.
+        </p>
+        <p>
+          RACER FACTS
+          {"\n\n"}
+          Sometimes the machine reveals small facts about racers while you watch. These
+          facts do not require action. They are just observations.
         </p>
       </div>
     </details>
@@ -1145,6 +1152,16 @@ export default function HomePage() {
       </div>
 
       {state?.raceDelay?.active && <RaceDelayOverlay delay={state.raceDelay} />}
+
+      {state && raceActive && !betweenRaces && !raceDelayed && (
+        <RacerFactReveal
+          activeEntries={state.entries}
+          raceId={state.race.id}
+          dayNumber={state.gameState.current_day}
+          raceActive={raceActive}
+          blocked={Boolean(selectedSlug || badMoneyModal || tickBurst)}
+        />
+      )}
 
       {badMoneyModal && (
         <BadMoneyModal
