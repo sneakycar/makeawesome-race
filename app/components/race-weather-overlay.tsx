@@ -179,6 +179,15 @@ const WEATHER_ICONS: Record<RaceWeatherType, string> = {
   fog: "🌫",
 };
 
+export function RaceWeatherBadge({ weather }: { weather: RaceWeatherState }) {
+  return (
+    <div className="race-weather-badge" aria-label={`Weather: ${weather.label}`}>
+      <span className="race-weather-badge-icon">{WEATHER_ICONS[weather.type]}</span>
+      <span>{weather.label}</span>
+    </div>
+  );
+}
+
 export function RaceWeatherOverlay({
   weather,
   isNight,
@@ -203,10 +212,6 @@ export function RaceWeatherOverlay({
       )}
       {weather.type === "heat" && <div className="race-weather-heat-wave" />}
       {weather.type === "storm" && <div className="race-weather-lightning" />}
-      <div className="race-weather-badge">
-        <span className="race-weather-badge-icon">{WEATHER_ICONS[weather.type]}</span>
-        <span>{weather.label}</span>
-      </div>
     </div>
   );
 }

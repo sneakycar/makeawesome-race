@@ -23,7 +23,10 @@ import { useLiveRace } from "@/lib/use-live-race";
 import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
 import { useRaceWeather } from "@/lib/use-race-weather";
 import { formatRankDelta, useLiveRankDelta } from "@/lib/use-live-rank-delta";
-import { RaceWeatherOverlay } from "@/app/components/race-weather-overlay";
+import {
+  RaceWeatherBadge,
+  RaceWeatherOverlay,
+} from "@/app/components/race-weather-overlay";
 import { canEncourageVote, getEncourageButtonPhase, vibrateNope } from "@/lib/nope-feedback";
 import { getOrCreateDeviceId } from "@/lib/client-device-id";
 import { useEncourageCooldown } from "@/lib/use-encourage-cooldown";
@@ -102,6 +105,7 @@ function RaceMetaPanel({
   nextUpdateMs,
   raceDelay,
   isNight,
+  weatherBadge,
 }: {
   state: GameStateResponse;
   betweenRaces: boolean;
@@ -110,6 +114,7 @@ function RaceMetaPanel({
   nextUpdateMs: number;
   raceDelay: GameStateResponse["raceDelay"];
   isNight: boolean;
+  weatherBadge?: React.ReactNode;
 }) {
   const delayOpts =
     raceDelay?.active && raceDelay.until && raceDelay.frozenPercent != null
@@ -183,7 +188,10 @@ function RaceMetaPanel({
       <div className="race-meta">
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
         <div className="race-meta-line race-meta-progress-row">
-          <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
+          <div className="race-meta-progress-section">
+            <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
+            {weatherBadge}
+          </div>
         </div>
         <div className="race-meta-gap" aria-hidden="true" />
         <div className="race-meta-line">{timerLine}</div>
@@ -859,23 +867,33 @@ export default function HomePage() {
       {state && (
         <>
           <div className="race-meta-weather-zone">
-            {raceWeather && raceActive && !raceDelayed && (
-              <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
-            )}
-            <RaceMetaPanel
-              state={state}
-              betweenRaces={betweenRaces}
-              raceActive={raceActive}
-              liveRaceProgress={liveRace?.raceProgress ?? null}
-              nextUpdateMs={nextUpdateMs}
-              raceDelay={state.raceDelay}
-              isNight={isNight}
-            />
+            <div className="race-meta-shell">
+              {raceWeather && raceActive && !raceDelayed && (
+                <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
+              )}
+              <RaceMetaPanel
+                state={state}
+                betweenRaces={betweenRaces}
+                raceActive={raceActive}
+                liveRaceProgress={liveRace?.raceProgress ?? null}
+                nextUpdateMs={nextUpdateMs}
+                raceDelay={state.raceDelay}
+                isNight={isNight}
+                weatherBadge={
+                  raceWeather && raceActive && !raceDelayed ? (
+                    <RaceWeatherBadge weather={raceWeather} />
+                  ) : undefined
+                }
+              />
+            </div>
 
             <p className="tap-hint">click a racer to see stats</p>
           </div>
 
           <div className={`race-standings-wrap${raceDelayed ? " race-standings-frozen" : ""}`}>
+            {raceWeather && raceActive && !raceDelayed && (
+              <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
+            )}
             <div className="race-standings" key={state.serverTime}>
           {[...state.entries]
             .sort((a, b) => a.lane - b.lane)

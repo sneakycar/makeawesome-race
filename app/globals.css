@@ -198,11 +198,19 @@ main,
 .race-meta-weather-zone {
   position: relative;
   margin-bottom: 10px;
+}
+
+.race-meta-shell {
+  position: relative;
   overflow: hidden;
   border-radius: 2px;
 }
 
-.race-meta-weather-zone .race-meta-block,
+.race-meta-shell .race-meta-block {
+  position: relative;
+  z-index: 2;
+}
+
 .race-meta-weather-zone .tap-hint {
   position: relative;
   z-index: 2;
@@ -654,6 +662,18 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   width: 100%;
 }
 
+.race-meta-progress-section {
+  position: relative;
+  width: 100%;
+}
+
+.race-meta-progress-section .race-weather-badge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+}
+
 .race-progress-wrap {
   position: relative;
   width: 100%;
@@ -922,9 +942,9 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .score-pip-dim {
-  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 55%, #c4c4c4 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  opacity: 0.55;
+  background: #e8e8e8;
+  box-shadow: none;
+  opacity: 0.28;
 }
 
 .tap-hint {
@@ -948,6 +968,8 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   position: relative;
   margin-bottom: 10px;
   margin-top: -5px;
+  overflow: hidden;
+  border-radius: 2px;
 }
 
 .row-line-leader .row-name {
@@ -1128,10 +1150,6 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .race-weather-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 4;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1856,9 +1874,9 @@ body[data-home-theme="night"] .row-mark-slot {
 }
 
 .score-pip-empty {
-  background-color: #ddd;
-  opacity: 0.18;
-  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+  background-color: #e8e8e8;
+  opacity: 0.28;
+  box-shadow: none;
 }
 
 .row-injured {
