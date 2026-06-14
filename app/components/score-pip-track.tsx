@@ -2,10 +2,9 @@
 
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 import {
-  formatLiveRaceScore,
+  formatRaceScore,
   getScorePipBackground,
   HARD_SCORE_CAP,
-  roundRaceScore,
   SCORE_TRACK_SLOTS,
 } from "@/lib/score";
 
@@ -28,26 +27,13 @@ export function ScorePipTrack({
   recentDeltas?: number[];
 }) {
   const slots = SCORE_TRACK_SLOTS;
-  const livePoints = roundRaceScore(Math.max(0, Math.min(HARD_SCORE_CAP, score)));
+  const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, score));
   const pipBright = Math.floor(livePoints);
   const pipPartial = livePoints - pipBright;
-  const leader = roundRaceScore(Math.max(0, leaderScore));
-  const behind = roundRaceScore(leader - livePoints);
+  const displayPoints = Math.round(livePoints);
+  const leader = Math.max(0, Math.round(leaderScore));
+  const behind = leader - displayPoints;
   const colorSpan = slots;
-
-  const fillPercent = Math.min(100, (livePoints / slots) * 100);
-  const showOutline =
-    fillPercent > 0 &&
-    (isLeader ||
-      statusOverlay?.icon === "fight" ||
-      statusOverlay?.icon === "injured");
-  const outlineClass = isLeader
-    ? " score-pip-track-outline-leader"
-    : statusOverlay?.icon === "fight"
-      ? " score-pip-track-outline-fight"
-      : statusOverlay?.icon === "injured"
-        ? " score-pip-track-outline-injured"
-        : "";
 
   return (
     <div
@@ -56,23 +42,28 @@ export function ScorePipTrack({
       }${isNight ? " is-night" : ""}`}
       aria-label={
         statusOverlay
-          ? `${statusOverlay.label} — ${formatLiveRaceScore(livePoints)} points`
+          ? `${statusOverlay.label} — ${displayPoints} points`
           : isLeader
-            ? `${formatLiveRaceScore(livePoints)} points, race leader`
-            : `${formatLiveRaceScore(livePoints)} points, ${formatLiveRaceScore(behind)} behind leader`
+            ? `${displayPoints} points, race leader`
+            : `${displayPoints} points, ${behind} behind leader`
       }
       title={
         statusOverlay
-          ? `${statusOverlay.label} — ${formatLiveRaceScore(livePoints)} pts`
+          ? `${statusOverlay.label} — ${displayPoints} pts`
           : isLeader
-            ? `${formatLiveRaceScore(livePoints)} points`
-            : `${formatLiveRaceScore(livePoints)} pts · ${formatLiveRaceScore(behind)} behind lead`
+            ? `${displayPoints} points`
+            : `${displayPoints} pts · ${behind} behind lead`
       }
     >
       <div
         className={`score-pip-track score-pip-track--race${
-          statusOverlay ? " score-pip-track-paused" : ""
+          isLeader ? " score-pip-track-leader" : ""
+        }${
+          statusOverlay?.icon === "fight" ? " score-pip-track-fight" : ""
+        }${
+          statusOverlay?.icon === "injured" ? " score-pip-track-injured" : ""
         }`}
+        style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: slots }, (_, i) => {
           if (i < pipBright) {
@@ -100,29 +91,16 @@ export function ScorePipTrack({
               />
             );
           }
-          return (
-            <span key={i} className="score-pip score-pip-empty" aria-hidden="true" />
-          );
+          return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
         })}
-        {showOutline && (
-          <div
-            className={`score-pip-track-outline${outlineClass}`}
-            style={{ width: `${fillPercent}%` }}
-            aria-hidden="true"
-          />
-        )}
         {statusOverlay && (
-          <div
-            className="row-scoreboard-overlay"
-            style={{ width: `${fillPercent}%` }}
-            aria-hidden="true"
-          >
+          <div className="row-scoreboard-overlay" aria-hidden="true">
             <FlatIcon id={statusOverlay.icon} className="race-emoji race-emoji-overlay" />
             <span className="row-scoreboard-overlay-label">{statusOverlay.label}</span>
           </div>
         )}
       </div>
-      <span className="row-score-pip-num">{formatLiveRaceScore(livePoints)}</span>
+      <span className="row-score-pip-num">{formatRaceScore(displayPoints)}</span>
       {animatingDelta !== 0 && (
         <span
           className={`row-score-pip-delta${
@@ -131,7 +109,7 @@ export function ScorePipTrack({
           aria-hidden="true"
         >
           {animatingDelta > 0 ? "+" : ""}
-          {formatLiveRaceScore(animatingDelta)}
+          {formatRaceScore(animatingDelta)}
         </span>
       )}
     </div>

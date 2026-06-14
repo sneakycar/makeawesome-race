@@ -799,7 +799,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   align-items: center;
   justify-content: flex-start;
   gap: 5px;
-  height: 14px;
+  height: 12px;
   overflow: hidden;
   position: relative;
   border-radius: 2px;
@@ -807,35 +807,14 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .score-pip-track-leader {
-  /* legacy — outline now on .score-pip-track-outline-leader */
-}
-
-.score-pip-track-outline {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  pointer-events: none;
-  z-index: 3;
-  border-radius: 2px;
-  box-sizing: border-box;
-}
-
-.score-pip-track-outline-leader {
   box-shadow:
     0 0 0 1px #c9a100,
     0 0 0 2px rgba(0, 0, 0, 0.35);
-}
-
-.score-pip-track-outline-fight,
-.score-pip-track-outline-injured {
-  box-shadow:
-    0 0 0 1px #888,
-    0 0 0 2px rgba(0, 0, 0, 0.35);
+  border-radius: 2px;
 }
 
 .score-pip-viewport-paused .score-pip-on,
-.score-pip-viewport-paused .score-pip-partial {
+.score-pip-viewport-paused .score-pip-dim {
   opacity: 0.45;
 }
 
@@ -875,27 +854,26 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .score-pip-track--race {
-  position: relative;
+  display: grid;
+  width: 100%;
   overflow: hidden;
+  gap: 0;
+  position: relative;
+}
+
+.score-pip-track-fight,
+.score-pip-track-injured {
+  box-shadow:
+    0 0 0 1px #888,
+    0 0 0 2px rgba(0, 0, 0, 0.35);
+  border-radius: 2px;
 }
 
 .score-pip-track--race .score-pip {
-  flex: 0 0 2px;
-  width: 2px;
-  min-width: 2px;
-  max-width: 2px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
   height: 9px;
-}
-
-.score-pip-track--race .score-pip-empty {
-  opacity: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.score-pip-viewport-paused .score-pip-track-paused .score-pip-on,
-.score-pip-viewport-paused .score-pip-track-paused .score-pip-partial {
-  opacity: 0.45;
 }
 
 .score-pip {
@@ -1751,9 +1729,7 @@ body[data-home-theme="night"] .row-mark-slot {
 
 .row-scoreboard-overlay {
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1931,6 +1907,12 @@ body[data-home-theme="night"] .row-mark-slot {
   letter-spacing: 0.02em;
 }
 
+.live-odds-row-fav .live-odds-name,
+.live-odds-row-fav .live-odds-american {
+  font-weight: 700;
+  color: #111;
+}
+
 .live-odds-name {
   min-width: 0;
   overflow: hidden;
@@ -1944,6 +1926,10 @@ body[data-home-theme="night"] .row-mark-slot {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   color: #333;
+}
+
+.live-odds-row-fav .live-odds-american {
+  color: #9a3b00;
 }
 
 .lane-stat-list {
@@ -3681,14 +3667,8 @@ body[data-home-theme="night"] .row-scoreboard-gain {
   color: #5fd99a;
 }
 
-body[data-home-theme="night"] .score-pip-track-outline-leader {
-  box-shadow:
-    0 0 0 1px #ffd700,
-    0 0 0 2px rgba(0, 0, 0, 0.65);
-}
-
-body[data-home-theme="night"] .score-pip-track-outline-fight,
-body[data-home-theme="night"] .score-pip-track-outline-injured {
+body[data-home-theme="night"] .score-pip-track-fight,
+body[data-home-theme="night"] .score-pip-track-injured {
   box-shadow:
     0 0 0 1px #666,
     0 0 0 2px rgba(0, 0, 0, 0.65);
@@ -3714,6 +3694,12 @@ body[data-home-theme="night"] .row-score-pip-delta {
 
 body[data-home-theme="night"] .row-score-pip-delta-loss {
   color: #f87171;
+}
+
+body[data-home-theme="night"] .score-pip-track-leader {
+  box-shadow:
+    0 0 0 1px #ffd700,
+    0 0 0 2px rgba(0, 0, 0, 0.65);
 }
 
 body[data-home-theme="night"] .score-pip-track-leader {
@@ -3781,6 +3767,11 @@ body[data-home-theme="night"] .live-odds-name {
 
 body[data-home-theme="night"] .live-odds-american {
   color: #ddd;
+}
+
+body[data-home-theme="night"] .live-odds-row-fav .live-odds-name,
+body[data-home-theme="night"] .live-odds-row-fav .live-odds-american {
+  color: #ffd700;
 }
 
 body[data-home-theme="night"] .lane-stat-row {

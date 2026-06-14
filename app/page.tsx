@@ -317,7 +317,10 @@ function LiveOddsBoard({
       </div>
       <div className="live-odds-list">
         {lines.map((line) => (
-          <div key={line.playerId} className="live-odds-row">
+          <div
+            key={line.playerId}
+            className={`live-odds-row${line.isFavorite ? " live-odds-row-fav" : ""}`}
+          >
             <span className="live-odds-name">{formatRacerName(line.name)}</span>
             <span className="live-odds-american">{line.american}</span>
           </div>
