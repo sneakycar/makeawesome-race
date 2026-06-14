@@ -97,6 +97,11 @@ export interface RaceEntry {
   injury_severity: string | null;
   injury_note: string | null;
   injury_races_missed: number | null;
+  is_fighting: boolean;
+  fighting_at_tick: number | null;
+  fight_end_tick: number | null;
+  fight_partner_id: string | null;
+  fight_frozen_score: number | null;
   created_at: string;
   updated_at: string;
   player?: Player;
@@ -184,6 +189,82 @@ export interface LaneWinStat {
   starts: number;
   winPct: number;
   performanceBonus: number;
+}
+
+export interface LeagueStatBar {
+  key: string;
+  label: string;
+  average: number;
+  max: number;
+  leaderName: string;
+  leaderValue: number;
+  color: string;
+}
+
+export interface LeagueCountBar {
+  label: string;
+  value: number;
+  pct: number;
+}
+
+export interface LeagueHeadlineTile {
+  label: string;
+  value: number;
+  accent: string;
+}
+
+export interface LeagueRecord {
+  label: string;
+  name: string;
+  value: string;
+}
+
+export interface LeagueWinRateRow {
+  name: string;
+  wins: number;
+  races: number;
+  winPct: number;
+}
+
+export interface LeagueLaneBar extends LaneWinStat {
+  barPct: number;
+}
+
+export type RaceWeatherType = "rain" | "wind" | "storm" | "heat" | "fog";
+
+export interface LeagueWeatherEvent {
+  id: string;
+  raceNumber: number;
+  type: RaceWeatherType;
+  label: string;
+  startedAt: string;
+  endedAt: string;
+  durationSec: number;
+}
+
+export interface LeagueStatsResponse {
+  generatedAt: string;
+  headline: {
+    totalPlayers: number;
+    racesFinalized: number;
+    currentRace: number;
+    currentDay: number;
+  };
+  tiles: LeagueHeadlineTile[];
+  rosterMix: LeagueCountBar[];
+  archetypes: LeagueCountBar[];
+  traits: LeagueCountBar[];
+  abilityAverages: LeagueStatBar[];
+  careerTotals: LeagueCountBar[];
+  records: LeagueRecord[];
+  winRateChart: LeagueWinRateRow[];
+  ovrBuckets: LeagueCountBar[];
+  laneWinRates: LeagueLaneBar[];
+  finishDistribution: LeagueCountBar[];
+  tickerEvents: LeagueCountBar[];
+  weatherTotal: number;
+  weatherByType: LeagueCountBar[];
+  weatherRecent: LeagueWeatherEvent[];
 }
 
 export interface GameStateResponse {

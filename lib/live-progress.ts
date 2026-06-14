@@ -77,6 +77,10 @@ export function simulateLiveEntries(
       lane: entry.lane,
       is_injured: entry.is_injured,
       injured_at_tick: entry.injured_at_tick,
+      is_fighting: entry.is_fighting,
+      fighting_at_tick: entry.fighting_at_tick,
+      fight_end_tick: entry.fight_end_tick,
+      fight_frozen_score: entry.fight_frozen_score,
       race_score: entry.race_score,
     }))
   );
@@ -100,7 +104,14 @@ export function simulateLiveEntries(
     );
     for (const entry of sim) {
       const result = tickResults.find((r) => r.player_id === entry.player_id);
-      if (!result || result.event_note === "STALLED" || result.event_note === "INJURED") continue;
+      if (
+        !result ||
+        result.event_note === "STALLED" ||
+        result.event_note === "INJURED" ||
+        result.event_note === "FIGHT"
+      ) {
+        continue;
+      }
       entry.score = Math.max(0, entry.score + result.delta * subTick);
     }
   }

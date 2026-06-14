@@ -14,6 +14,10 @@ export interface RaceSimEntry {
   score: number;
   is_injured: boolean;
   injured_at_tick: number | null;
+  is_fighting: boolean;
+  fighting_at_tick: number | null;
+  fight_end_tick: number | null;
+  fight_frozen_score: number | null;
   stall_ticks_remaining: number;
   restart_pending: boolean;
 }
@@ -32,6 +36,10 @@ export function buildRaceSim(
     lane: number;
     is_injured?: boolean;
     injured_at_tick?: number | null;
+    is_fighting?: boolean;
+    fighting_at_tick?: number | null;
+    fight_end_tick?: number | null;
+    fight_frozen_score?: number | null;
     race_score?: number;
   }>
 ): RaceSimEntry[] {
@@ -39,9 +47,16 @@ export function buildRaceSim(
     player_id: entry.player_id,
     player: entry.player,
     lane: entry.lane,
-    score: entry.is_injured ? Number(entry.race_score ?? 0) : 0,
+    score:
+      entry.is_injured || entry.is_fighting
+        ? Number(entry.fight_frozen_score ?? entry.race_score ?? 0)
+        : 0,
     is_injured: Boolean(entry.is_injured),
     injured_at_tick: entry.injured_at_tick ?? null,
+    is_fighting: Boolean(entry.is_fighting),
+    fighting_at_tick: entry.fighting_at_tick ?? null,
+    fight_end_tick: entry.fight_end_tick ?? null,
+    fight_frozen_score: entry.fight_frozen_score ?? null,
     stall_ticks_remaining: 0,
     restart_pending: false,
   }));
@@ -86,6 +101,25 @@ export function applySimTick(
         player_id: entry.player_id,
         delta: 0,
         event_note: "INJURED",
+        chaos_burst_used: false,
+      });
+      continue;
+    }
+
+    if (
+      entry.is_fighting &&
+      entry.fighting_at_tick != null &&
+      entry.fight_end_tick != null &&
+      tickNumber >= entry.fighting_at_tick &&
+      tickNumber < entry.fight_end_tick
+    ) {
+      if (entry.fight_frozen_score != null) {
+        entry.score = entry.fight_frozen_score;
+      }
+      results.push({
+        player_id: entry.player_id,
+        delta: 0,
+        event_note: "FIGHT",
         chaos_burst_used: false,
       });
       continue;

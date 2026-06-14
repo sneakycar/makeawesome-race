@@ -1,5 +1,26 @@
 import { formatRaceScore } from "./score";
-import { seededBool, seededInt } from "./seeded-rng";
+import { seededBool } from "./seeded-rng";
+import {
+  BIG_LAP_PHRASES,
+  CHAOS_SURGE_PHRASES,
+  COLLAPSE_PHRASES,
+  ELIMINATED_PHRASES,
+  HOT_STRETCH_PHRASES,
+  LATE_CLOSE_PHRASES,
+  LEAD_CHANGE_PHRASES,
+  LEAD_PRESSURE_PHRASES,
+  pickTickerPhrase,
+  RACE_START_PHRASES,
+  RACE_WON_PHRASES,
+  RANK_SLIP_PHRASES,
+  RANK_SURGE_BIG_PHRASES,
+  RANK_SURGE_TWO_PHRASES,
+  RESTART_PHRASES,
+  ROOKIE_RUN_PHRASES,
+  STALL_LONG_PHRASES,
+  STALL_TOP_PHRASES,
+  UNDERDOG_PHRASES,
+} from "./ticker-phrases";
 import type { Player, TickerEventFacts } from "./types";
 
 export interface TickerEntrySnapshot {
@@ -28,7 +49,8 @@ export type TickerEventType =
   | "race_won"
   | "eliminated"
   | "race_delay"
-  | "race_resumed";
+  | "race_resumed"
+  | "fight";
 
 export interface TickerEventDraft {
   eventType: TickerEventType;
@@ -40,10 +62,6 @@ export interface TickerEventDraft {
 
 function onAirName(name: string): string {
   return name.toUpperCase().trim();
-}
-
-function pickPhrase(seed: string, options: string[]): string {
-  return options[seededInt(seed, 0, options.length - 1)];
 }
 
 function shouldBroadcast(seed: string, priority: number): boolean {
@@ -94,12 +112,10 @@ export function generateTickTickerEvents(
       eventType: "lead_change",
       playerId: newLeader.player_id,
       priority: 100,
-      message: pickPhrase(`${raceId}:${tickNumber}:lead`, [
-        `OH! ${name} TAKES THE LEAD — ${prevName} DROPPED!`,
-        `LEAD CHANGE! ${name} IS OUT FRONT NOW!`,
-        `${name} SEIZES THE POINT! WHAT A MOVE!`,
-        `NEW LEADER! ${name} AT THE FRONT!`,
-      ]),
+      message: pickTickerPhrase(`${raceId}:${tickNumber}:lead`, LEAD_CHANGE_PHRASES, {
+        name,
+        prev: prevName,
+      }),
       facts: {
         ...baseFacts(newLeader, tickNumber, percentComplete, oldLeader.current_rank),
         previousLeaderName: oldLeader.player.name,
@@ -122,11 +138,7 @@ export function generateTickTickerEvents(
         eventType: "chaos_surge",
         playerId: entry.player_id,
         priority: 94,
-        message: pickPhrase(`${seed}:chaos`, [
-          `CHAOS SURGE! ${name} IS UNLEASHED!`,
-          `${name} WENT ABSOLUTELY WILD!`,
-          `OH MY — ${name} HIT A CHAOS BURST!`,
-        ]),
+        message: pickTickerPhrase(`${seed}:chaos`, CHAOS_SURGE_PHRASES, { name }),
         facts: { ...facts, eventNote: "CHAOS SURGE" },
       });
     }
@@ -136,11 +148,7 @@ export function generateTickTickerEvents(
         eventType: "collapse",
         playerId: entry.player_id,
         priority: 90,
-        message: pickPhrase(`${seed}:fade`, [
-          `${name} IS FADING FAST — DOWN ${rankLoss} SPOTS!`,
-          `DISASTER FOR ${name}! ${rankLoss}-SPOT COLLAPSE!`,
-          `${name} IS FALLING APART OUT THERE!`,
-        ]),
+        message: pickTickerPhrase(`${seed}:fade`, COLLAPSE_PHRASES, { name, loss: rankLoss }),
         facts,
       });
     } else if (rankLoss === 2) {
@@ -148,10 +156,7 @@ export function generateTickTickerEvents(
         eventType: "rank_slip",
         playerId: entry.player_id,
         priority: 70,
-        message: pickPhrase(`${seed}:slip`, [
-          `${name} SLIPPED TWO SPOTS — TROUBLE!`,
-          `TWO-SPOT DROP FOR ${name}!`,
-        ]),
+        message: pickTickerPhrase(`${seed}:slip`, RANK_SLIP_PHRASES, { name }),
         facts,
       });
     }
@@ -161,11 +166,7 @@ export function generateTickTickerEvents(
         eventType: "rank_surge",
         playerId: entry.player_id,
         priority: 82 + Math.min(rankGain, 5),
-        message: pickPhrase(`${seed}:surge`, [
-          `${name} SURGED ${rankGain} SPOTS! INCREDIBLE!`,
-          `WHAT A RUN! ${name} CLIMBED ${rankGain} POSITIONS!`,
-          `${name} IS CHARGING — UP ${rankGain} SPOTS!`,
-        ]),
+        message: pickTickerPhrase(`${seed}:surge`, RANK_SURGE_BIG_PHRASES, { name, gain: rankGain }),
         facts,
       });
     } else if (rankGain === 2) {
@@ -173,10 +174,7 @@ export function generateTickTickerEvents(
         eventType: "rank_surge",
         playerId: entry.player_id,
         priority: 68,
-        message: pickPhrase(`${seed}:gain2`, [
-          `${name} MOVED UP TWO — COMEBACK ALERT!`,
-          `TWO-SPOT GAIN FOR ${name}!`,
-        ]),
+        message: pickTickerPhrase(`${seed}:gain2`, RANK_SURGE_TWO_PHRASES, { name }),
         facts,
       });
     }
@@ -186,10 +184,10 @@ export function generateTickTickerEvents(
         eventType: "big_lap",
         playerId: entry.player_id,
         priority: 60,
-        message: pickPhrase(`${seed}:lap`, [
-          `${name} WITH A MONSTER LAP — +${Math.round(entry.last_delta)} PTS!`,
-          `BIG LAP FROM ${name}! GROUND GAINED!`,
-        ]),
+        message: pickTickerPhrase(`${seed}:lap`, BIG_LAP_PHRASES, {
+          name,
+          delta: Math.round(entry.last_delta),
+        }),
         facts,
       });
     }
@@ -199,11 +197,7 @@ export function generateTickTickerEvents(
         eventType: "big_lap",
         playerId: entry.player_id,
         priority: 70,
-        message: pickPhrase(`${seed}:hot`, [
-          `${name} ON A HEATER — SCORING BURST!`,
-          `HOT STRETCH! ${name} IS UNSTOPPABLE RIGHT NOW!`,
-          `${name} CATCHING FIRE OUT THERE!`,
-        ]),
+        message: pickTickerPhrase(`${seed}:hot`, HOT_STRETCH_PHRASES, { name }),
         facts,
       });
     }
@@ -215,11 +209,11 @@ export function generateTickTickerEvents(
           eventType: "stall",
           playerId: entry.player_id,
           priority: stalled ? 72 : 56,
-          message: pickPhrase(`${seed}:stall`, [
-            stalled ? `${name} STOPPED COLD — LONG STALL!` : `${name} STALLED IN THE TOP FOUR!`,
-            stalled ? `${name} IS FROZEN OUT THERE!` : `WALL HIT! ${name} BARELY MOVED!`,
-            stalled ? `NO POINTS FROM ${name} — IS THE RACE OVER FOR THEM?!` : `${name} STALLED IN THE TOP FOUR!`,
-          ]),
+          message: pickTickerPhrase(
+            `${seed}:stall`,
+            stalled ? STALL_LONG_PHRASES : STALL_TOP_PHRASES,
+            { name, rank: entry.current_rank }
+          ),
           facts,
         });
       }
@@ -230,11 +224,7 @@ export function generateTickTickerEvents(
         eventType: "rank_surge",
         playerId: entry.player_id,
         priority: 75,
-        message: pickPhrase(`${seed}:restart`, [
-          `${name} BACK ON THE TRACK — BIG RESTART!`,
-          `${name} ROARS BACK TO LIFE!`,
-          `AFTER THE STALL — ${name} IS MOVING AGAIN!`,
-        ]),
+        message: pickTickerPhrase(`${seed}:restart`, RESTART_PHRASES, { name }),
         facts,
       });
     }
@@ -249,11 +239,10 @@ export function generateTickTickerEvents(
         eventType: "underdog",
         playerId: entry.player_id,
         priority: 78,
-        message: pickPhrase(`${seed}:underdog`, [
-          `WINLESS ${name} SHOCKS THE FIELD — P${entry.current_rank}!`,
-          `${name} HAS ZERO WINS AND IS IN THE HUNT!`,
-          `UNDERDOG ALERT! ${name} UP TO P${entry.current_rank}!`,
-        ]),
+        message: pickTickerPhrase(`${seed}:underdog`, UNDERDOG_PHRASES, {
+          name,
+          rank: entry.current_rank,
+        }),
         facts,
       });
     }
@@ -268,7 +257,10 @@ export function generateTickTickerEvents(
         eventType: "rookie_run",
         playerId: entry.player_id,
         priority: 66,
-        message: `${name} ON A ROOKIE RUN — NOW P${entry.current_rank}!`,
+        message: pickTickerPhrase(`${seed}:rookie`, ROOKIE_RUN_PHRASES, {
+          name,
+          rank: entry.current_rank,
+        }),
         facts,
       });
     }
@@ -288,10 +280,9 @@ export function generateTickTickerEvents(
         eventType: "lead_pressure",
         playerId: newLeader.player_id,
         priority: 64,
-        message: pickPhrase(`${raceId}:${tickNumber}:tight`, [
-          `${name} CLINGING TO THE LEAD — PRESSURE BUILDING!`,
-          `CAN ${name} HOLD ON UP FRONT?!`,
-        ]),
+        message: pickTickerPhrase(`${raceId}:${tickNumber}:tight`, LEAD_PRESSURE_PHRASES, {
+          name,
+        }),
         facts: baseFacts(leaderAfter, tickNumber, percentComplete, leaderBefore.current_rank),
       });
     }
@@ -309,11 +300,11 @@ export function generateTickTickerEvents(
           eventType: "late_close",
           playerId: chaser.player_id,
           priority: 88,
-          message: pickPhrase(`${raceId}:${tickNumber}:close`, [
-            `${chaserName} CLOSING ON ${leaderName} — ONLY ${Math.round(gap)} PTS BACK!`,
-            `IT'S TIGHT! ${chaserName} HUNTING THE LEAD!`,
-            `FINAL STRETCH DRAMA — ${chaserName} IS RIGHT THERE!`,
-          ]),
+          message: pickTickerPhrase(`${raceId}:${tickNumber}:close`, LATE_CLOSE_PHRASES, {
+            chaser: chaserName,
+            leader: leaderName,
+            gap: Math.round(gap),
+          }),
           facts: {
             ...baseFacts(chaser, tickNumber, percentComplete, beforeById.get(chaser.player_id)?.current_rank),
             gapToLeader: Number(gap.toFixed(1)),
@@ -366,9 +357,9 @@ export function generateRaceStartTickerEvents(raceNumber: number): TickerEventDr
   return [
     {
       eventType: "race_start",
-      playerId: "",
+      playerId: null,
       priority: 85,
-      message: `8 RACERS ON THE GRID — WE ARE LIVE!`,
+      message: pickTickerPhrase(`race-start:${raceNumber}`, RACE_START_PHRASES, {}),
       facts: {
         tickNumber: 0,
         percentComplete: 0,
@@ -393,7 +384,7 @@ export function generateFinalizeTickerEvents(
       eventType: "race_won",
       playerId: winnerId,
       priority: 100,
-      message: `${winner} WINS! CHECKERED FLAG!`,
+      message: pickTickerPhrase(`finalize:${raceNumber}:win`, RACE_WON_PHRASES, { winner }),
       facts: {
         tickNumber: 48,
         percentComplete: 100,
@@ -407,7 +398,7 @@ export function generateFinalizeTickerEvents(
       eventType: "eliminated",
       playerId: lastId,
       priority: 95,
-      message: `${last} FINISHES LAST — SENT TO HOLDING!`,
+      message: pickTickerPhrase(`finalize:${raceNumber}:last`, ELIMINATED_PHRASES, { last }),
       facts: {
         tickNumber: 48,
         percentComplete: 100,

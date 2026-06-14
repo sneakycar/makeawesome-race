@@ -22,13 +22,30 @@ export function getScorePipBackground(index: number, count: number, night = fals
     const top = Math.round(74 - t * 16);
     const mid = Math.round(68 - t * 18);
     const bot = Math.round(62 - t * 20);
-    return `linear-gradient(180deg, hsl(${hue} ${sat}% ${top}%) 0%, hsl(${hue} ${sat}% ${mid}%) 55%, hsl(${hue} ${sat}% ${bot}%) 100%)`;
+    return `linear-gradient(165deg, hsl(${hue} ${sat}% ${top + 4}%) 0%, hsl(${hue} ${sat}% ${mid}%) 45%, hsl(${hue} ${sat}% ${bot}%) 100%)`;
   }
 
   const top = Math.round(56 - t * 22);
   const mid = Math.round(48 - t * 26);
   const bot = Math.round(40 - t * 28);
-  return `linear-gradient(180deg, hsl(${hue} ${sat}% ${top}%) 0%, hsl(${hue} ${sat}% ${mid}%) 55%, hsl(${hue} ${sat}% ${bot}%) 100%)`;
+  return `linear-gradient(165deg, hsl(${hue} ${sat}% ${top + 4}%) 0%, hsl(${hue} ${sat}% ${mid}%) 45%, hsl(${hue} ${sat}% ${bot}%) 100%)`;
+}
+
+export const SCORE_PIP_SLOTS = 20;
+
+/** Filled diagonal pips within the pill (0–SCORE_PIP_SLOTS). */
+export function scorePipFillCount(
+  points: number,
+  minScore: number,
+  leaderScore: number,
+  slots = SCORE_PIP_SLOTS
+): number {
+  const min = Math.max(0, Math.round(minScore));
+  const leader = Math.max(min, Math.round(leaderScore));
+  const pts = Math.max(0, Math.round(points));
+  const spread = leader - min;
+  if (spread <= 0) return pts > 0 ? slots : 0;
+  return Math.max(0, Math.min(slots, Math.round(((pts - min) / spread) * slots)));
 }
 
 /** @deprecated use formatRaceScore */

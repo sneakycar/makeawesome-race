@@ -90,7 +90,7 @@ export async function backfillRaceTicker(
 
   const { data: entries, error: entriesErr } = await supabase
     .from("race_entries")
-    .select("*, player:players(*)")
+    .select("*, player:players!race_entries_player_id_fkey(*)")
     .eq("race_id", raceId);
 
   if (entriesErr) throw entriesErr;
@@ -120,6 +120,10 @@ export async function backfillRaceTicker(
     score: 0,
     is_injured: false,
     injured_at_tick: entry.injured_at_tick as number | null,
+    is_fighting: false,
+    fighting_at_tick: null,
+    fight_end_tick: null,
+    fight_frozen_score: null,
     stall_ticks_remaining: 0,
     restart_pending: false,
   }));

@@ -44,6 +44,13 @@ import {
   getSupportRecoveryBonus,
 } from "./injuries";
 import {
+  calculateFightChance,
+  clearEndedFights,
+  fightTraitMultiplier,
+  pickFightPair,
+  shouldStartFight,
+} from "./fights";
+import {
   clearExpiredRaceDelay,
   getRaceEffectiveNow,
   isRaceDelayed,
@@ -52,6 +59,7 @@ import {
 } from "./race-delay";
 import { assignLanesBySkill, getLanePerformanceMultiplier } from "./lanes";
 import { calculatePlayerOvr } from "./ovr";
+import { syncRaceWeatherEvents } from "./weather-db";
 import {
   applySimTick,
   buildRaceSim,
@@ -447,6 +455,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   let endsAt = new Date(race.ends_at);
 
   if (isRaceDelayed(race as Race, now)) {
+    await syncRaceWeatherEvents(supabase, race as Race, startedAt, now);
     await supabase
       .from("game_state")
       .update({ last_tick_at: now.toISOString(), updated_at: now.toISOString() })
@@ -481,11 +490,15 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
 
   const { data: entries, error: entriesErr } = await supabase
     .from("race_entries")
-    .select("*, player:players(*)")
+    .select("*, player:players!race_entries_player_id_fkey(*)")
     .eq("race_id", race.id);
 
   if (entriesErr) throw entriesErr;
   if (!entries?.length) return;
+
+  for (let i = 0; i < entries.length; i++) {
+    entries[i] = clearEndedFights([entries[i]], tickNumber)[0];
+  }
 
   const chaosUsed = new Map<string, boolean>();
   for (const entry of entries) {
@@ -501,11 +514,74 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
       lane: entry.lane,
       is_injured: Boolean(entry.is_injured),
       injured_at_tick: entry.injured_at_tick as number | null,
+      is_fighting: Boolean(entry.is_fighting),
+      fighting_at_tick: entry.fighting_at_tick as number | null,
+      fight_end_tick: entry.fight_end_tick as number | null,
+      fight_frozen_score: entry.fight_frozen_score as number | null,
       race_score: entry.race_score,
     }))
   );
 
   replaySimToTick(race as Race, sim, tickNumber, startedAt, endsAt, chaosUsed);
+
+  const rankedForFight = rankSimEntries(sim);
+  if (!entries.some((e) => e.is_fighting)) {
+    const eligibleFight = entries
+      .filter((e) => !e.is_injured && !e.is_fighting)
+      .map((e) => ({
+        player_id: e.player_id,
+        current_rank:
+          rankedForFight.find((s) => s.player_id === e.player_id)?.current_rank ??
+          e.current_rank,
+        player: e.player as Player,
+      }));
+
+    const fightChance =
+      calculateFightChance({ tickNumber, percentComplete }) *
+      fightTraitMultiplier(eligibleFight.map((e) => e.player));
+    const fightSeed = `${race.id}:${tickNumber}:fight-roll`;
+
+    if (shouldStartFight(fightSeed, fightChance)) {
+      const pick = pickFightPair(race.id, tickNumber, eligibleFight);
+      if (pick) {
+        const applyFightStart = (playerId: string, partnerId: string) => {
+          const entry = entries.find((e) => e.player_id === playerId);
+          const simEntry = sim.find((s) => s.player_id === playerId);
+          if (!entry || !simEntry) return;
+          const frozen = simEntry.score;
+          entry.is_fighting = true;
+          entry.fighting_at_tick = tickNumber;
+          entry.fight_end_tick = tickNumber + pick.durationTicks;
+          entry.fight_partner_id = partnerId;
+          entry.fight_frozen_score = frozen;
+          simEntry.is_fighting = true;
+          simEntry.fighting_at_tick = tickNumber;
+          simEntry.fight_end_tick = tickNumber + pick.durationTicks;
+          simEntry.fight_frozen_score = frozen;
+        };
+        applyFightStart(pick.playerAId, pick.playerBId);
+        applyFightStart(pick.playerBId, pick.playerAId);
+
+        const nameA = (entries.find((e) => e.player_id === pick.playerAId)!.player as Player)
+          .name;
+        const nameB = (entries.find((e) => e.player_id === pick.playerBId)!.player as Player)
+          .name;
+        await saveTickerEvents(supabase, race.id, tickNumber, [
+          {
+            message: `${nameA} and ${nameB} throw down — FIGHT!`,
+            eventType: "fight",
+            playerId: pick.playerAId,
+            facts: {
+              tickNumber,
+              percentComplete,
+              playerName: nameA,
+            },
+            priority: 78,
+          },
+        ]);
+      }
+    }
+  }
 
   const scoreById = new Map(sim.map((s) => [s.player_id, s.score]));
 
@@ -547,6 +623,19 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         displayed_progress: Math.round(newScore),
         last_delta: 0,
         event_note: "INJURED",
+      });
+      continue;
+    }
+
+    if (entry.is_fighting) {
+      const frozen = Number(entry.fight_frozen_score ?? newScore);
+      updated.push({
+        ...entry,
+        race_score: frozen,
+        progress: frozen,
+        displayed_progress: Math.round(frozen),
+        last_delta: 0,
+        event_note: "FIGHT",
       });
       continue;
     }
@@ -640,6 +729,8 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   );
   await saveTickerEvents(supabase, race.id, tickNumber, tickerEvents);
 
+  await syncRaceWeatherEvents(supabase, race as Race, startedAt, effectiveNow);
+
   for (const entry of ranked) {
     const score = Math.round(Number(entry.race_score));
     const peakRaceScore = Math.max(Number(entry.peak_race_score ?? 0), score);
@@ -662,6 +753,11 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         injury_severity: entry.injury_severity ?? null,
         injury_note: entry.injury_note ?? null,
         injury_races_missed: entry.injury_races_missed ?? null,
+        is_fighting: entry.is_fighting ?? false,
+        fighting_at_tick: entry.fighting_at_tick ?? null,
+        fight_end_tick: entry.fight_end_tick ?? null,
+        fight_partner_id: entry.fight_partner_id ?? null,
+        fight_frozen_score: entry.fight_frozen_score ?? null,
         updated_at: now.toISOString(),
       })
       .eq("id", entry.id);
@@ -795,7 +891,7 @@ export async function finalizeRace(
 
   const { data: entries, error: entriesErr } = await supabase
     .from("race_entries")
-    .select("*, player:players(*)")
+    .select("*, player:players!race_entries_player_id_fkey(*)")
     .eq("race_id", race.id);
 
   if (entriesErr) throw entriesErr;
@@ -808,6 +904,7 @@ export async function finalizeRace(
 
   const startedAt = new Date(race.started_at);
   const endsAt = new Date(race.ends_at);
+  await syncRaceWeatherEvents(supabase, race, startedAt, endsAt);
   const chaosUsed = new Map<string, boolean>();
   const sim = buildRaceSim(
     entries.map((entry) => ({
@@ -816,6 +913,10 @@ export async function finalizeRace(
       lane: entry.lane,
       is_injured: Boolean(entry.is_injured),
       injured_at_tick: entry.injured_at_tick as number | null,
+      is_fighting: Boolean(entry.is_fighting),
+      fighting_at_tick: entry.fighting_at_tick as number | null,
+      fight_end_tick: entry.fight_end_tick as number | null,
+      fight_frozen_score: entry.fight_frozen_score as number | null,
       race_score: entry.race_score,
     }))
   );
@@ -1431,22 +1532,24 @@ export async function getActiveRaceWithEntries(
       .limit(1)
       .maybeSingle();
     if (!lastRace) return null;
-    const { data: entries } = await supabase
+    const { data: entries, error: entriesErr } = await supabase
       .from("race_entries")
-      .select("*, player:players(*)")
+      .select("*, player:players!race_entries_player_id_fkey(*)")
       .eq("race_id", lastRace.id)
       .order("lane", { ascending: true });
+    if (entriesErr) throw entriesErr;
     return {
       race: lastRace as Race,
       entries: (entries || []) as RaceEntryWithPlayer[],
     };
   }
 
-  const { data: entries } = await supabase
+  const { data: entries, error: entriesErr } = await supabase
     .from("race_entries")
-    .select("*, player:players(*)")
+    .select("*, player:players!race_entries_player_id_fkey(*)")
     .eq("race_id", race.id)
     .order("lane", { ascending: true });
+  if (entriesErr) throw entriesErr;
 
   return {
     race: race as Race,

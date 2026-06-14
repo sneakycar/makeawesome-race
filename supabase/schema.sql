@@ -91,6 +91,11 @@ create table if not exists race_entries (
   injury_severity text,
   injury_note text,
   injury_races_missed integer,
+  is_fighting boolean not null default false,
+  fighting_at_tick integer,
+  fight_end_tick integer,
+  fight_partner_id uuid references players(id) on delete set null,
+  fight_frozen_score numeric,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   unique (race_id, player_id),
@@ -137,6 +142,23 @@ create table if not exists race_ticker_events (
 
 create index if not exists idx_race_ticker_race_time on race_ticker_events(race_id, created_at desc);
 
+-- race_weather_events (global weather bursts during races)
+create table if not exists race_weather_events (
+  id uuid primary key default gen_random_uuid(),
+  race_id uuid not null references races(id) on delete cascade,
+  race_number integer not null,
+  weather_slot bigint not null,
+  weather_type text not null check (weather_type in ('rain', 'wind', 'storm', 'heat', 'fog')),
+  started_at timestamptz not null,
+  ended_at timestamptz not null,
+  created_at timestamptz default now(),
+  unique (race_id, weather_slot)
+);
+
+create index if not exists idx_race_weather_events_time on race_weather_events(started_at desc);
+create index if not exists idx_race_weather_events_type on race_weather_events(weather_type);
+create index if not exists idx_race_weather_events_race on race_weather_events(race_id);
+
 -- injury_events
 create table if not exists injury_events (
   id uuid primary key default gen_random_uuid(),
@@ -178,6 +200,7 @@ alter table game_state enable row level security;
 alter table race_supports enable row level security;
 alter table race_ticker_events enable row level security;
 alter table injury_events enable row level security;
+alter table race_weather_events enable row level security;
 
 create policy "public read players" on players for select using (true);
 create policy "public read races" on races for select using (true);
@@ -187,3 +210,4 @@ create policy "public read game_state" on game_state for select using (true);
 create policy "public read race_supports" on race_supports for select using (true);
 create policy "public read race_ticker_events" on race_ticker_events for select using (true);
 create policy "public read injury_events" on injury_events for select using (true);
+create policy "public read race_weather_events" on race_weather_events for select using (true);

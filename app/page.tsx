@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { getRaceClock, type RaceClock } from "@/lib/race-clock";
 import { useCronUpdate } from "@/lib/use-cron-update";
-import type { GameStateResponse, LaneWinStat, Player, PlayerProfileResponse, TickerEvent } from "@/lib/types";
-import { formatLaneBonus } from "@/lib/lanes";
+import type { GameStateResponse, Player, PlayerProfileResponse, TickerEvent } from "@/lib/types";
+import Link from "next/link";
 import {
   formatRaceBegan,
   formatRemainingTime,
@@ -18,7 +18,7 @@ import {
   formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
-import { formatRaceScore, getScorePipBackground } from "@/lib/score";
+import { formatRaceScore, getScorePipBackground, scorePipFillCount, SCORE_PIP_SLOTS } from "@/lib/score";
 import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
@@ -26,6 +26,7 @@ import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
 import { useRaceWeather } from "@/lib/use-race-weather";
 import { formatRankDelta, useLiveRankDelta } from "@/lib/use-live-rank-delta";
 import { WEATHER_ART, type RaceWeatherState } from "@/lib/race-weather";
+import { canEncourageVote, vibrateNope } from "@/lib/nope-feedback";
 
 function RaceDelayOverlay({
   delay,
@@ -235,54 +236,70 @@ function ScorePipTrack({
   leaderScore,
   isLeader,
   isNight,
+  statusOverlay,
 }: {
   score: number;
   minScore: number;
   leaderScore: number;
   isLeader: boolean;
   isNight: boolean;
+  statusOverlay?: { emoji: string; label: string };
 }) {
   const points = Math.max(0, Math.round(score));
   const min = Math.max(0, Math.round(minScore));
   const leader = Math.max(min, Math.round(leaderScore));
-  const spread = leader - min;
-  const slots = spread > 0 ? spread : 1;
-  const bright = spread > 0 ? Math.max(0, points - min) : 1;
+  const filled = scorePipFillCount(points, min, leader, SCORE_PIP_SLOTS);
   const behind = leader - points;
 
   return (
     <div
-      className="score-pip-viewport"
+      className={`score-pip-viewport${statusOverlay ? " score-pip-viewport-paused" : ""}`}
       aria-label={
-        isLeader
-          ? `${points} points, race leader`
-          : `${points} points, ${behind} behind leader`
+        statusOverlay
+          ? `${statusOverlay.label} — ${points} points`
+          : isLeader
+            ? `${points} points, race leader`
+            : `${points} points, ${behind} behind leader`
       }
       title={
-        isLeader ? `${points} points` : `${points} pts · ${behind} behind lead`
+        statusOverlay
+          ? `${statusOverlay.label} — ${points} pts`
+          : isLeader
+            ? `${points} points`
+            : `${points} pts · ${behind} behind lead`
       }
     >
-      <div className="score-pip-track">
-        {Array.from({ length: slots }, (_, i) => {
-          if (i < bright) {
+      <div className="score-pip-pill">
+        <div className="score-pip-track">
+          {Array.from({ length: SCORE_PIP_SLOTS }, (_, i) => {
+            const isOn = i < filled;
             return (
               <span
                 key={i}
-                className="score-pip score-pip-on"
-                style={{
-                  background: getScorePipBackground(
-                    i,
-                    Math.max(1, bright),
-                    isNight
-                  ),
-                }}
+                className={`score-pip${isOn ? " score-pip-on" : " score-pip-dim"}`}
+                style={
+                  isOn
+                    ? {
+                        background: getScorePipBackground(
+                          i,
+                          Math.max(1, filled),
+                          isNight
+                        ),
+                      }
+                    : undefined
+                }
                 aria-hidden="true"
               />
             );
-          }
-          return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
-        })}
+          })}
+        </div>
       </div>
+      {statusOverlay && (
+        <div className="score-pip-overlay" aria-hidden="true">
+          <span className="score-pip-overlay-emoji">{statusOverlay.emoji}</span>
+          <span className="score-pip-overlay-label">{statusOverlay.label}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -587,36 +604,6 @@ function PlayerOverlay({
   );
 }
 
-function LaneStatsSection({ stats }: { stats: LaneWinStat[] }) {
-  const withStarts = stats.filter((s) => s.starts > 0);
-  const best =
-    withStarts.length > 0
-      ? [...withStarts].sort((a, b) => b.winPct - a.winPct || a.lane - b.lane)[0]
-      : null;
-
-  return (
-    <>
-      <div className="section-label">LANE WIN %</div>
-      {withStarts.length === 0 ? (
-        <p className="lane-stat-empty">
-          Awaiting results — pole favored, best OVR gets inside lanes
-        </p>
-      ) : (
-        <div className="lane-stat-list">
-          {stats.map((s) => (
-            <div
-              key={s.lane}
-              className={`lane-stat-row${best && s.lane === best.lane ? " lane-stat-best" : ""}`}
-            >
-              L{s.lane} {s.label} — {s.winPct}% ({s.wins}/{s.starts}) · {formatLaneBonus(s.lane)}
-            </div>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
-
 function StreakSection({ streaks }: { streaks: GameStateResponse["streaks"] }) {
   if (streaks.length === 0) {
     return <p className="streak-empty">No active streaks yet</p>;
@@ -718,6 +705,7 @@ export default function HomePage() {
   const [state, setState] = useState<GameStateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [nopeShakeId, setNopeShakeId] = useState<string | null>(null);
   const [encourageError, setEncourageError] = useState<string | null>(null);
   const [encouraging, setEncouraging] = useState(false);
   const [devBusy, setDevBusy] = useState(false);
@@ -744,6 +732,22 @@ export default function HomePage() {
     loadState();
   }, [loadState]);
 
+  const handleEncourageClick = (playerId: string) => {
+    if (
+      canEncourageVote({
+        raceActive: state?.race.status === "active",
+        raceDelayed: Boolean(state?.raceDelay?.active),
+        encouraging,
+        supportedPlayerId: state?.encouragement.supportedPlayerId ?? null,
+      })
+    ) {
+      handleEncourage(playerId);
+      return;
+    }
+    vibrateNope();
+    setNopeShakeId(playerId);
+  };
+
   const handleEncourage = async (playerId: string) => {
     if (encouraging || state?.encouragement.supportedPlayerId) return;
     setEncouraging(true);
@@ -757,6 +761,8 @@ export default function HomePage() {
       const data = await res.json();
       if (!res.ok) {
         setEncourageError(data.error || "Could not encourage");
+        vibrateNope();
+        setNopeShakeId(playerId);
         return;
       }
       setState((prev) =>
@@ -787,6 +793,7 @@ export default function HomePage() {
   const entryScorePoints =
     state?.entries.map((e) => {
       if (e.is_injured) return Math.round(Number(e.race_score));
+      if (e.is_fighting) return Math.round(Number(e.fight_frozen_score ?? e.race_score));
       const live = liveRace?.entries.get(e.player_id);
       return Math.round(live?.score ?? Number(e.race_score));
     }) ?? [];
@@ -839,6 +846,7 @@ export default function HomePage() {
         className={`race-update-shell${isFlickering ? " is-flickering" : ""}`}
         aria-busy={isFlickering}
       >
+      <div className="home-content">
       {state && (
         <ScrollingTicker
           events={state.ticker}
@@ -852,7 +860,12 @@ export default function HomePage() {
         />
       )}
 
-      <h1 className="title">HOLES RACE</h1>
+      <div className="home-header">
+        <h1 className="title">HOLES RACE</h1>
+        <Link href="/stats" className="stats-nav-link">
+          LEAGUE STATS ▶
+        </Link>
+      </div>
 
       {error && <p className="error">{error}</p>}
       {encourageError && <p className="error">{encourageError}</p>}
@@ -886,7 +899,7 @@ export default function HomePage() {
             raceDelay={state.raceDelay}
           />
 
-          <p className="tap-hint">tap to see player&apos;s stats</p>
+          <p className="tap-hint">click a racer to see stats</p>
 
           <div className={`race-standings-wrap${raceDelayed ? " race-standings-frozen" : ""}`}>
             {raceWeather && raceActive && !raceDelayed && (
@@ -900,11 +913,19 @@ export default function HomePage() {
             const rank = live?.current_rank ?? entry.current_rank;
             const scorePoints = entry.is_injured
               ? Math.round(Number(entry.race_score))
-              : Math.round(live?.score ?? Number(entry.race_score));
+              : entry.is_fighting
+                ? Math.round(Number(entry.fight_frozen_score ?? entry.race_score))
+                : Math.round(live?.score ?? Number(entry.race_score));
             const isInjured = entry.is_injured;
-            const isComeback = !isInjured && entry.last_rank_change >= 2;
-            const isLeader = !isInjured && rank === 1;
-            const isLast = !isInjured && rank === 8;
+            const isFighting = entry.is_fighting;
+            const isComeback = !isInjured && !isFighting && entry.last_rank_change >= 2;
+            const isLeader = !isInjured && !isFighting && rank === 1;
+            const isLast = !isInjured && !isFighting && rank === 8;
+            const pipOverlay = isInjured
+              ? { emoji: "🏥", label: "INJURED" }
+              : isFighting
+                ? { emoji: "👊", label: "FIGHT" }
+                : undefined;
             const barMark = isInjured
               ? null
               : isLeader
@@ -917,10 +938,12 @@ export default function HomePage() {
             const rankDelta = rankDeltaById.get(entry.player_id) ?? 0;
             const rankDeltaLabel = formatRankDelta(rankDelta);
             const isSupported = supportedId === entry.player_id;
-            const hasSupported = supportedId != null;
-
-            let buttonDisabled =
-              !raceActive || raceDelayed || encouraging || hasSupported || isInjured;
+            const canEncourage = canEncourageVote({
+              raceActive,
+              raceDelayed,
+              encouraging,
+              supportedPlayerId: supportedId,
+            });
 
             return (
               <div key={entry.id} className={`row-line${isLeader ? " row-line-leader" : ""}`}>
@@ -936,8 +959,7 @@ export default function HomePage() {
                   tabIndex={0}
                 >
                   <div className="row-head">
-                    <span className="row-lane-tag">L{entry.lane}</span>
-                    <span className="row-rank-pos">{rank}]</span>
+                    <span className="row-archetype">{entry.lane}]</span>
                     <span className="row-name">{formatRacerName(entry.player.name)}</span>
                     {rankDeltaLabel && (
                       <span
@@ -958,16 +980,18 @@ export default function HomePage() {
                       title={
                         isInjured
                           ? "Injured"
-                          : isLeader
-                            ? "Race leader"
-                            : isLast
-                              ? "Last place"
-                              : isComeback
-                                ? `Up ${entry.last_rank_change} spots since last update`
-                                : undefined
+                          : isFighting
+                            ? "Fighting"
+                            : isLeader
+                              ? "Race leader"
+                              : isLast
+                                ? "Last place"
+                                : isComeback
+                                  ? `Up ${entry.last_rank_change} spots since last update`
+                                  : undefined
                       }
                     >
-                      {isInjured ? "🏥" : barMark}
+                      {barMark}
                     </span>
                     <ScorePipTrack
                       score={scorePoints}
@@ -975,17 +999,23 @@ export default function HomePage() {
                       leaderScore={leaderScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
+                      statusOverlay={pipOverlay}
                     />
                     <span className="row-score">{formatRaceScore(scorePoints)}</span>
-                    {raceActive && !isInjured && (
+                    {raceActive && !isInjured && !isFighting && (
                       <button
                         type="button"
-                        className={`encourage-btn${isSupported ? " supported" : ""}`}
-                        disabled={buttonDisabled}
+                        className={`encourage-btn${isSupported ? " supported" : ""}${
+                          !canEncourage ? " encourage-btn-blocked" : ""
+                        }${nopeShakeId === entry.player_id ? " encourage-btn-nope" : ""}`}
+                        aria-disabled={!canEncourage}
                         aria-label={isSupported ? "Supported" : "Encourage +1"}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleEncourage(entry.player_id);
+                          handleEncourageClick(entry.player_id);
+                        }}
+                        onAnimationEnd={() => {
+                          if (nopeShakeId === entry.player_id) setNopeShakeId(null);
                         }}
                       >
                         {isSupported ? "✓" : "+1"}
@@ -1012,31 +1042,43 @@ export default function HomePage() {
               <span className="row-mark-slot" aria-hidden="true">💀</span>
               LAST
             </span>
+            <span className="legend-key">
+              <span className="score-pip-overlay-legend" aria-hidden="true">👊</span>
+              FIGHT
+            </span>
           </div>
-
-          <LaneStatsSection stats={state.laneStats} />
 
           <div className="divider">{"────────────────────────"}</div>
 
-          <div className="section-label">ALL-TIME</div>
-          {state.allTime.length === 0 ? (
-            <p className="all-time-empty">Awaiting first race results</p>
-          ) : (
-            state.allTime.map((p, i) => (
-              <div key={p.id} className="all-time-row">
-                {i + 1}] {p.name} — {p.wins} WIN{p.wins === 1 ? "" : "S"}
-              </div>
-            ))
-          )}
+          <div className="home-sections-grid">
+            <div className="home-section-block">
+              <div className="section-label">ALL-TIME</div>
+              {state.allTime.length === 0 ? (
+                <p className="all-time-empty">Awaiting first race results</p>
+              ) : (
+                state.allTime.map((p, i) => (
+                  <div key={p.id} className="all-time-row">
+                    {i + 1}] {p.name} — {p.wins} WIN{p.wins === 1 ? "" : "S"}
+                  </div>
+                ))
+              )}
+            </div>
 
-          <div className="section-label">STREAK</div>
-          <StreakSection streaks={state.streaks} />
+            <div className="home-section-block">
+              <div className="section-label">STREAK</div>
+              <StreakSection streaks={state.streaks} />
+            </div>
 
-          <div className="section-label">HOLDING</div>
-          <HoldingSection players={state.holding} />
+            <div className="home-section-block">
+              <div className="section-label">HOLDING</div>
+              <HoldingSection players={state.holding} />
+            </div>
 
-          <div className="section-label">INJURED</div>
-          <InjuredSection players={state.injured ?? []} />
+            <div className="home-section-block">
+              <div className="section-label">INJURED</div>
+              <InjuredSection players={state.injured ?? []} />
+            </div>
+          </div>
 
           <div className="divider">{"────────────────────────"}</div>
 
@@ -1070,6 +1112,7 @@ export default function HomePage() {
           )}
         </>
       )}
+      </div>
       </div>
 
       {state?.raceDelay?.active && <RaceDelayOverlay delay={state.raceDelay} />}

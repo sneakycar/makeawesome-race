@@ -30,6 +30,7 @@ export function useLiveRankDelta(
 
     for (const entry of state.entries) {
       if (entry.is_injured) continue;
+      if (entry.is_fighting) continue;
 
       const baseline =
         baselineRef.current.get(entry.player_id) ?? entry.current_rank;

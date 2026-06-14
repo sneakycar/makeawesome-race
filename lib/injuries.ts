@@ -168,10 +168,11 @@ function traitMult(player: Player, ctx: InjuryRollContext): number {
 
 export function calculateInjuryChance(
   player: Player,
-  entry: Pick<RaceEntry, "is_injured">,
+  entry: Pick<RaceEntry, "is_injured" | "is_fighting">,
   ctx: InjuryRollContext
 ): number {
   if (entry.is_injured) return 0;
+  if (entry.is_fighting) return 0;
   if (player.status !== "active") return 0;
   if (ctx.percentComplete <= 10) return 0;
 
