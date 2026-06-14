@@ -17,7 +17,7 @@ import {
   formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
-import { formatRaceScore, getScorePipBackground, SCORE_PIP_SLOTS } from "@/lib/score";
+import { formatRaceScore, getScorePipBackground } from "@/lib/score";
 import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
@@ -138,18 +138,24 @@ function ScrollingTicker({
 
 function ScorePipTrack({
   score,
+  minScore,
   leaderScore,
   isLeader,
   isNight,
 }: {
   score: number;
+  minScore: number;
   leaderScore: number;
   isLeader: boolean;
   isNight: boolean;
 }) {
   const points = Math.max(0, Math.round(score));
-  const leader = Math.max(1, Math.round(leaderScore));
-  const behind = isLeader ? 0 : Math.max(0, leader - points);
+  const min = Math.max(0, Math.round(minScore));
+  const leader = Math.max(min, Math.round(leaderScore));
+  const spread = leader - min;
+  const slots = spread > 0 ? spread : 1;
+  const bright = spread > 0 ? Math.max(0, points - min) : 1;
+  const behind = leader - points;
 
   return (
     <div
@@ -164,21 +170,24 @@ function ScorePipTrack({
       }
     >
       <div className="score-pip-track">
-        {Array.from({ length: SCORE_PIP_SLOTS }, (_, i) => {
-          if (i < points) {
+        {Array.from({ length: slots }, (_, i) => {
+          if (i < bright) {
             return (
               <span
                 key={i}
                 className="score-pip score-pip-on"
-                style={{ background: getScorePipBackground(i, points, isNight) }}
+                style={{
+                  background: getScorePipBackground(
+                    i,
+                    Math.max(1, bright),
+                    isNight
+                  ),
+                }}
                 aria-hidden="true"
               />
             );
           }
-          if (!isLeader && i < leader) {
-            return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
-          }
-          return <span key={i} className="score-pip score-pip-empty" aria-hidden="true" />;
+          return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
         })}
       </div>
     </div>
@@ -635,17 +644,19 @@ export default function HomePage() {
   const isNight = useDayNight();
   useHomeDayNightTheme(isNight);
 
-  const leaderScorePoints =
-    state && state.entries.length
-      ? Math.max(
-          1,
-          ...state.entries.map((e) => {
-            if (e.is_injured) return Math.round(Number(e.race_score));
-            const live = liveRace?.entries.get(e.player_id);
-            return Math.round(live?.score ?? Number(e.race_score));
-          })
-        )
-      : 1;
+  const entryScorePoints =
+    state?.entries.map((e) => {
+      if (e.is_injured) return Math.round(Number(e.race_score));
+      const live = liveRace?.entries.get(e.player_id);
+      return Math.round(live?.score ?? Number(e.race_score));
+    }) ?? [];
+
+  const minScorePoints = entryScorePoints.length
+    ? Math.min(...entryScorePoints)
+    : 0;
+  const leaderScorePoints = entryScorePoints.length
+    ? Math.max(...entryScorePoints)
+    : 1;
 
   const selectedEntry = selectedSlug
     ? state?.entries.find((e) => e.player.slug === selectedSlug)
@@ -803,6 +814,7 @@ export default function HomePage() {
                     </span>
                     <ScorePipTrack
                       score={scorePoints}
+                      minScore={minScorePoints}
                       leaderScore={leaderScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
