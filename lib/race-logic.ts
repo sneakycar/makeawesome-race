@@ -44,6 +44,12 @@ import {
   getRecoveryPositiveChance,
   getSupportRecoveryBonus,
 } from "./injuries";
+import {
+  applySimTick,
+  buildRaceSim,
+  replaySimToTick,
+  rankSimEntries,
+} from "./race-sim";
 import type { Player, Race, RaceEntry, RaceEntryWithPlayer, InjuryRecord } from "./types";
 
 export const TICKS_PER_RACE = 48;
@@ -162,10 +168,19 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
   const normalizedSkill = Math.max(0, Math.min(100, baseSkill + rookieBonus + comebackBonus)) / 100;
   const skillMultiplier = 0.65 + normalizedSkill * 0.9;
 
-  const wildSwingBase = seededRange(`${seedBase}:wild`, -0.8, 1.2);
+  const wildSwingBase = seededRange(`${seedBase}:wild`, -1.6, 2.4);
   const wildSwing = wildSwingBase * (1 + player.chaos / 200) * getWildSwingMultiplier(player);
 
   let delta = EXPECTED_POINTS_PER_TICK * skillMultiplier + wildSwing;
+
+  // Trailing pack catches up — fuels lead changes
+  if (currentRank >= 5) {
+    delta += (currentRank - 4) * 0.14;
+  }
+  // Leaders feel pressure late
+  if (currentRank === 1 && percentComplete >= 60) {
+    delta *= 0.88;
+  }
   let eventNote: string | null = null;
 
   const burstChance = (0.04 + player.chaos / 500) * getBurstChanceMultiplier(player);
@@ -198,8 +213,10 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
 
   delta = Math.max(0, Math.min(getMaxTickDelta(player), delta));
 
-  // Soft pace cap — scores can't run too far ahead of the race clock
-  const paceCap = (percentComplete / 100) * TARGET_WINNER_SCORE * 1.12 + 4;
+  // Soft pace cap — room to keep scoring all day as the clock advances
+  const expectedScore = (percentComplete / 100) * TARGET_WINNER_SCORE;
+  const paceLeash = 28 + player.burst * 0.1 + player.luck * 0.06;
+  const paceCap = expectedScore + paceLeash;
   const newScore = currentScore + delta;
   if (newScore > paceCap) {
     delta = Math.max(0, paceCap - currentScore);
@@ -353,49 +370,6 @@ function rankEntries<T extends { race_score: number; is_injured?: boolean }>(
   }));
 }
 
-function applySimTick(
-  race: Race,
-  sim: Array<{
-    player_id: string;
-    player: Player;
-    score: number;
-    is_injured: boolean;
-    injured_at_tick: number | null;
-  }>,
-  tickNumber: number,
-  startedAt: Date,
-  endsAt: Date,
-  chaosUsed: Map<string, boolean>
-): void {
-  const tickMs = getRaceTickIntervalMs(startedAt, endsAt);
-  const tickTime = new Date(startedAt.getTime() + tickNumber * tickMs);
-  const percentComplete = calculatePercentComplete(startedAt, endsAt, tickTime);
-
-  const rankedBefore = [...sim].sort((a, b) => b.score - a.score);
-  const rankById = new Map(
-    rankedBefore.map((entry, index) => [entry.player_id, index + 1])
-  );
-
-  for (const entry of sim) {
-    if (entry.is_injured && entry.injured_at_tick != null && tickNumber >= entry.injured_at_tick) {
-      continue;
-    }
-    const result = calculateTickDelta({
-      raceId: race.id,
-      playerId: entry.player_id,
-      tickNumber,
-      dayNumber: race.day_number,
-      percentComplete,
-      player: entry.player,
-      currentProgress: entry.score,
-      currentRank: rankById.get(entry.player_id) ?? sim.length,
-      chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
-    });
-    if (result.chaosBurstUsed) chaosUsed.set(entry.player_id, true);
-    entry.score = Math.max(0, entry.score + result.delta);
-  }
-}
-
 export async function tickRace(supabase: SupabaseClient): Promise<void> {
   const now = new Date();
   const { data: race, error: raceErr } = await supabase
@@ -435,63 +409,62 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     }
   }
 
-  const sim = entries.map((entry) => ({
-    player_id: entry.player_id,
-    player: entry.player as Player,
-    score: entry.is_injured ? Number(entry.race_score) : 0,
-    is_injured: Boolean(entry.is_injured),
-    injured_at_tick: entry.injured_at_tick as number | null,
-  }));
+  const sim = buildRaceSim(
+    entries.map((entry) => ({
+      player_id: entry.player_id,
+      player: entry.player as Player,
+      is_injured: Boolean(entry.is_injured),
+      injured_at_tick: entry.injured_at_tick as number | null,
+      race_score: entry.race_score,
+    }))
+  );
 
-  for (let t = 0; t < tickNumber; t++) {
-    applySimTick(race as Race, sim, t, startedAt, endsAt, chaosUsed);
-  }
+  replaySimToTick(race as Race, sim, tickNumber, startedAt, endsAt, chaosUsed);
 
   const scoreById = new Map(sim.map((s) => [s.player_id, s.score]));
+
+  const rankedBeforeTick = rankSimEntries(sim);
+  const rankBeforeById = new Map(
+    rankedBeforeTick.map((entry) => [entry.player_id, entry.current_rank])
+  );
 
   const beforeSnapshots: TickerEntrySnapshot[] = entries.map((entry) => ({
     player_id: entry.player_id,
     player: entry.player as Player,
-    current_rank: entry.current_rank,
+    current_rank: rankBeforeById.get(entry.player_id) ?? entry.current_rank,
     progress: scoreById.get(entry.player_id) ?? 0,
     last_delta: Number(entry.last_delta),
     event_note: entry.event_note,
   }));
 
+  const tickResults = applySimTick(
+    race as Race,
+    sim,
+    tickNumber,
+    startedAt,
+    endsAt,
+    chaosUsed
+  );
+  const tickResultById = new Map(tickResults.map((r) => [r.player_id, r]));
+
   const updated = [];
   for (const entry of entries) {
     const player = entry.player as Player;
+    const tickResult = tickResultById.get(entry.player_id)!;
+    const newScore = sim.find((s) => s.player_id === entry.player_id)!.score;
 
     if (entry.is_injured) {
       updated.push({
         ...entry,
-        race_score: scoreById.get(entry.player_id) ?? entry.race_score,
-        progress: scoreById.get(entry.player_id) ?? entry.race_score,
-        displayed_progress: Math.round(Number(scoreById.get(entry.player_id) ?? entry.race_score)),
+        race_score: newScore,
+        progress: newScore,
+        displayed_progress: Math.round(newScore),
         last_delta: 0,
         event_note: "INJURED",
       });
       continue;
     }
 
-    const simEntry = sim.find((s) => s.player_id === entry.player_id)!;
-    const rankedBefore = [...sim].sort((a, b) => b.score - a.score);
-    const currentRank =
-      rankedBefore.findIndex((s) => s.player_id === entry.player_id) + 1;
-
-    const result = calculateTickDelta({
-      raceId: race.id,
-      playerId: entry.player_id,
-      tickNumber,
-      dayNumber: race.day_number,
-      percentComplete,
-      player,
-      currentProgress: simEntry.score,
-      currentRank,
-      chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
-    });
-
-    const newScore = Math.max(0, simEntry.score + result.delta);
     let isInjured = Boolean(entry.is_injured);
     let injuredAtTick = entry.injured_at_tick as number | null;
     let injuryName = entry.injury_name as string | null;
@@ -504,7 +477,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
       raceNumber: race.race_number,
       tickNumber,
       percentComplete,
-      currentRank: entry.current_rank,
+      currentRank: rankBeforeById.get(entry.player_id) ?? entry.current_rank,
     };
     const injuryChance = calculateInjuryChance(player, entry, injuryCtx);
     const injurySeed = `${race.id}:${entry.player_id}:${tickNumber}:injury-roll`;
@@ -545,8 +518,8 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
       ...entry,
       progress: newScore,
       displayed_progress: Math.round(newScore),
-      last_delta: isInjured ? 0 : result.delta,
-      event_note: isInjured ? "INJURED" : result.eventNote,
+      last_delta: isInjured ? 0 : tickResult.delta,
+      event_note: isInjured ? "INJURED" : tickResult.event_note,
       race_score: newScore,
       is_injured: isInjured,
       injured_at_tick: injuredAtTick,
@@ -750,31 +723,31 @@ export async function finalizeRace(
 
   await processInjuredRecovery(supabase, currentDay);
 
-  // Final tick pass — skip scoring for already-injured entries
-  let processed = entries.map((entry) => {
-    if (entry.is_injured) {
-      return { ...entry, player: entry.player as Player };
-    }
-    const player = entry.player as Player;
-    const currentScore = Number(entry.race_score);
-    const result = calculateTickDelta({
-      raceId: race.id,
-      playerId: entry.player_id,
-      tickNumber,
-      dayNumber: race.day_number,
-      percentComplete: 100,
-      player,
-      currentProgress: currentScore,
-      currentRank: entry.current_rank,
-      chaosBurstUsed: false,
-    });
-    const newScore = Math.max(0, currentScore + result.delta);
+  const startedAt = new Date(race.started_at);
+  const endsAt = new Date(race.ends_at);
+  const chaosUsed = new Map<string, boolean>();
+  const sim = buildRaceSim(
+    entries.map((entry) => ({
+      player_id: entry.player_id,
+      player: entry.player as Player,
+      is_injured: Boolean(entry.is_injured),
+      injured_at_tick: entry.injured_at_tick as number | null,
+      race_score: entry.race_score,
+    }))
+  );
+
+  for (let t = 0; t < TICKS_PER_RACE; t++) {
+    applySimTick(race, sim, t, startedAt, endsAt, chaosUsed, { allowNewStalls: t < TICKS_PER_RACE - 1 });
+  }
+
+  const processed = entries.map((entry) => {
+    const simEntry = sim.find((s) => s.player_id === entry.player_id)!;
     return {
       ...entry,
-      progress: newScore,
-      race_score: newScore,
-      displayed_progress: Math.round(newScore),
-      player,
+      player: entry.player as Player,
+      progress: simEntry.score,
+      race_score: simEntry.score,
+      displayed_progress: Math.round(simEntry.score),
     };
   });
 
@@ -948,7 +921,9 @@ export async function finalizeRace(
 
   const nextDay = currentDay + 1;
   const nextRaceNumber = race.race_number + 1;
-  const { startedAt, endsAt } = getNextRaceDayBounds(new Date(race.ends_at));
+  const { startedAt: nextStartedAt, endsAt: nextEndsAt } = getNextRaceDayBounds(
+    new Date(race.ends_at)
+  );
 
   const { data: activePlayers } = await supabase.from("players").select("id").eq("status", "active");
   let rosterIds = (activePlayers || []).map((p) => p.id);
@@ -981,7 +956,14 @@ export async function finalizeRace(
     }
   }
 
-  await createRace(supabase, nextDay, nextRaceNumber, rosterIds.slice(0, 8), startedAt, endsAt);
+  await createRace(
+    supabase,
+    nextDay,
+    nextRaceNumber,
+    rosterIds.slice(0, 8),
+    nextStartedAt,
+    nextEndsAt
+  );
 
   await supabase
     .from("game_state")

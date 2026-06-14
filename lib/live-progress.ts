@@ -1,11 +1,11 @@
 import { getRaceClock } from "./race-clock";
+import { TICKS_PER_RACE, getRaceTickIntervalMs } from "./race-logic";
 import {
-  TICKS_PER_RACE,
-  calculatePercentComplete,
-  calculateTickDelta,
-  getRaceTickIntervalMs,
-} from "./race-logic";
-import { seededRange } from "./seeded-rng";
+  applySimTick,
+  buildRaceSim,
+  rankSimEntries,
+  replaySimToTick,
+} from "./race-sim";
 import type { Race, RaceEntryWithPlayer } from "./types";
 
 export interface LiveEntryState {
@@ -49,87 +49,54 @@ export function simulateLiveEntries(
   if (nowMs >= endMs) {
     return entries.map((entry) => ({
       player_id: entry.player_id,
-      score: Number(entry.race_score),
+      score: Math.round(Number(entry.race_score)),
       current_rank: entry.current_rank,
     }));
   }
 
-  const elapsedMs = nowMs - startMs;
   const tickMs = getRaceTickIntervalMs(startedAt, endsAt);
-  const completedTicks = Math.min(TICKS_PER_RACE, Math.floor(elapsedMs / tickMs));
-  const subTick = (elapsedMs % tickMs) / tickMs;
-
-  const sim = entries.map((entry) => ({
-    player_id: entry.player_id,
-    player: entry.player,
-    score: entry.is_injured ? Number(entry.race_score) : 0,
-    is_injured: Boolean(entry.is_injured),
-  }));
+  const completedTicks = Math.min(TICKS_PER_RACE, Math.floor((nowMs - startMs) / tickMs));
+  const subTick = ((nowMs - startMs) % tickMs) / tickMs;
 
   const chaosUsed = new Map<string, boolean>();
+  const sim = buildRaceSim(
+    entries.map((entry) => ({
+      player_id: entry.player_id,
+      player: entry.player,
+      is_injured: entry.is_injured,
+      injured_at_tick: entry.injured_at_tick,
+      race_score: entry.race_score,
+    }))
+  );
 
-  const applyTick = (tickNumber: number, fraction: number) => {
-    if (fraction <= 0 || tickNumber >= TICKS_PER_RACE) return;
+  replaySimToTick(race, sim, completedTicks, startedAt, endsAt, chaosUsed);
 
-    const tickTime = new Date(startMs + tickNumber * tickMs + fraction * tickMs);
-    const percentComplete = calculatePercentComplete(startedAt, endsAt, tickTime);
-
-    const rankedBefore = [...sim].sort((a, b) => b.score - a.score);
-    const rankById = new Map(
-      rankedBefore.map((entry, index) => [entry.player_id, index + 1])
+  if (subTick > 0 && completedTicks < TICKS_PER_RACE) {
+    const snapshot = sim.map((entry) => ({
+      ...entry,
+      score: entry.score,
+      stall_ticks_remaining: entry.stall_ticks_remaining,
+      restart_pending: entry.restart_pending,
+    }));
+    const tickResults = applySimTick(
+      race,
+      snapshot,
+      completedTicks,
+      startedAt,
+      endsAt,
+      chaosUsed
     );
-
-    const deltas = sim.map((entry) => {
-      if (entry.is_injured) {
-        return {
-          player_id: entry.player_id,
-          delta: 0,
-          chaosBurstUsed: false,
-        };
-      }
-      const result = calculateTickDelta({
-        raceId: race.id,
-        playerId: entry.player_id,
-        tickNumber,
-        dayNumber: race.day_number,
-        percentComplete,
-        player: entry.player,
-        currentProgress: entry.score,
-        currentRank: rankById.get(entry.player_id) ?? sim.length,
-        chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
-      });
-      return {
-        player_id: entry.player_id,
-        delta: result.delta * fraction,
-        chaosBurstUsed: result.chaosBurstUsed,
-      };
-    });
-
-    for (const row of deltas) {
-      if (row.chaosBurstUsed) chaosUsed.set(row.player_id, true);
-    }
-
     for (const entry of sim) {
-      const row = deltas.find((d) => d.player_id === entry.player_id)!;
-      entry.score = Math.max(0, entry.score + row.delta);
+      const result = tickResults.find((r) => r.player_id === entry.player_id);
+      if (!result || result.event_note === "STALLED" || result.event_note === "INJURED") continue;
+      entry.score = Math.max(0, entry.score + result.delta * subTick);
     }
-  };
-
-  for (let t = 0; t < completedTicks; t++) {
-    applyTick(t, 1);
-  }
-  if (completedTicks < TICKS_PER_RACE) {
-    applyTick(completedTicks, subTick);
   }
 
-  const ranked = [...sim].sort((a, b) => {
-    if (a.is_injured !== b.is_injured) return a.is_injured ? 1 : -1;
-    return b.score - a.score;
-  });
-  return ranked.map((entry, index) => ({
+  return rankSimEntries(sim).map((entry) => ({
     player_id: entry.player_id,
     score: entry.score,
-    current_rank: index + 1,
+    current_rank: entry.current_rank,
   }));
 }
 

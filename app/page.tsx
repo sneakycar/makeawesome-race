@@ -698,7 +698,6 @@ export default function HomePage() {
             const filled = Math.min(18, Math.max(0, Math.round((score / leaderScore) * 18)));
             const isSupported = supportedId === entry.player_id;
             const hasSupported = supportedId != null;
-            const ovrInfo = state.ovrByPlayerId[entry.player_id];
 
             let buttonDisabled =
               !raceActive || encouraging || hasSupported || isInjured;
@@ -716,14 +715,6 @@ export default function HomePage() {
                   role="button"
                   tabIndex={0}
                 >
-                  <div className="row-ovr-strip">
-                    {ovrInfo && (
-                      <>
-                        <span className="row-ovr">{ovrInfo.ovr} OVR</span>
-                        <span className="row-ovr-rank">{formatOvrRank(ovrInfo)}</span>
-                      </>
-                    )}
-                  </div>
                   <div className="row-head">
                     <span className="row-lane">Lane {entry.lane}</span>
                     <span className="row-name">{formatRacerName(entry.player.name)}</span>

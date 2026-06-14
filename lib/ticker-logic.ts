@@ -193,18 +193,34 @@ export function generateTickTickerEvents(
     }
 
     if (entry.event_note?.includes("STALL") || entry.last_delta < 0.15) {
-      if (entry.current_rank <= 4) {
+      const stalled = entry.event_note?.includes("STALL");
+      if (entry.current_rank <= 4 || stalled) {
         candidates.push({
           eventType: "stall",
           playerId: entry.player_id,
-          priority: 56,
+          priority: stalled ? 72 : 56,
           message: pickPhrase(`${seed}:stall`, [
-            `${name} STALLED IN THE TOP FOUR!`,
-            `WALL HIT! ${name} BARELY MOVED!`,
+            stalled ? `${name} STOPPED COLD — LONG STALL!` : `${name} STALLED IN THE TOP FOUR!`,
+            stalled ? `${name} IS FROZEN OUT THERE!` : `WALL HIT! ${name} BARELY MOVED!`,
+            stalled ? `NO POINTS FROM ${name} — IS THE RACE OVER FOR THEM?!` : `${name} STALLED IN THE TOP FOUR!`,
           ]),
           facts,
         });
       }
+    }
+
+    if (entry.event_note?.includes("RESTART")) {
+      candidates.push({
+        eventType: "rank_surge",
+        playerId: entry.player_id,
+        priority: 75,
+        message: pickPhrase(`${seed}:restart`, [
+          `${name} BACK ON THE TRACK — BIG RESTART!`,
+          `${name} ROARS BACK TO LIFE!`,
+          `AFTER THE STALL — ${name} IS MOVING AGAIN!`,
+        ]),
+        facts,
+      });
     }
 
     if (
