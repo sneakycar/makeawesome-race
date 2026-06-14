@@ -123,10 +123,19 @@ export interface TickerEvent {
   created_at: string;
 }
 
+export interface StreakEntry {
+  name: string;
+  slug: string;
+  current_streak_type: StreakType;
+  current_streak_count: number;
+  updated_at: string;
+}
+
 export interface GameStateResponse {
   race: Race;
   entries: RaceEntryWithPlayer[];
   allTime: Player[];
+  streaks: StreakEntry[];
   holding: Player[];
   serverTime: string;
   remainingMs: number;

@@ -5,6 +5,7 @@ import {
   getActiveRaceOnly,
   getActiveRaceWithEntries,
   getAllTimeTop3,
+  getActiveStreaks,
   getNextRaceDayBounds,
   initializeGameIfNeeded,
 } from "@/lib/race-logic";
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
         : getRaceClock(startedAt, endsAt, now);
 
     const allTime = await getAllTimeTop3(supabase);
+    const streaks = await getActiveStreaks(supabase);
 
     const { data: holding } = await supabase
       .from("players")
@@ -69,6 +71,7 @@ export async function GET(request: Request) {
       race: { ...race, percent_complete: clock.percentComplete },
       entries,
       allTime: allTime || [],
+      streaks,
       holding: holding || [],
       serverTime: now.toISOString(),
       remainingMs: clock.remainingMs,

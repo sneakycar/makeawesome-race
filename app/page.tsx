@@ -313,6 +313,28 @@ function PlayerOverlay({
   );
 }
 
+function StreakSection({ streaks }: { streaks: GameStateResponse["streaks"] }) {
+  if (streaks.length === 0) {
+    return <p className="streak-empty">No active streaks yet</p>;
+  }
+
+  return (
+    <div className="streak-list">
+      {streaks.map((entry) => {
+        const isWin = entry.current_streak_type === "win";
+        return (
+          <div key={entry.slug} className="streak-row">
+            <span className={isWin ? "streak-badge streak-win" : "streak-badge streak-lose"}>
+              {formatStreak(entry.current_streak_type, entry.current_streak_count)}
+            </span>
+            <span className="streak-name">{formatRacerName(entry.name)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function HoldingSection({ players }: { players: Player[] }) {
   if (players.length === 0) {
     return (
@@ -586,6 +608,9 @@ export default function HomePage() {
               </div>
             ))
           )}
+
+          <div className="section-label">STREAK</div>
+          <StreakSection streaks={state.streaks} />
 
           <div className="section-label">HOLDING</div>
           <HoldingSection players={state.holding} />

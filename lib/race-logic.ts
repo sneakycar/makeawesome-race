@@ -870,6 +870,20 @@ export async function getAllTimeTop3(supabase: SupabaseClient): Promise<Player[]
   return withWins.slice(0, 3);
 }
 
+export async function getActiveStreaks(
+  supabase: SupabaseClient
+): Promise<Array<Pick<Player, "name" | "slug" | "current_streak_type" | "current_streak_count" | "updated_at">>> {
+  const { data, error } = await supabase
+    .from("players")
+    .select("name, slug, current_streak_type, current_streak_count, updated_at")
+    .in("current_streak_type", ["win", "lose"])
+    .gt("current_streak_count", 0)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export async function getActiveRaceOnly(supabase: SupabaseClient): Promise<Race | null> {
   const { data: race } = await supabase
     .from("races")

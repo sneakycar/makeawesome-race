@@ -636,6 +636,48 @@ main,
   line-height: 1.35;
 }
 
+.streak-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.streak-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.streak-badge {
+  flex-shrink: 0;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  min-width: 1.75rem;
+}
+
+.streak-win {
+  color: #15803d;
+}
+
+.streak-lose {
+  color: #dc2626;
+}
+
+.streak-name {
+  color: #111;
+  text-transform: lowercase;
+}
+
+.streak-empty {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #555;
+  font-style: italic;
+}
+
 .holding-empty {
   margin: 0;
   font-size: 11px;
