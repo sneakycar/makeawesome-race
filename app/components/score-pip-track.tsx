@@ -55,7 +55,7 @@ export function ScorePipTrack({
   );
 
   const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, rolling.score));
-  const displayPoints = Math.round(livePoints);
+  const displayPoints = Math.round(confirmed);
   const leader = Math.max(0, Math.round(leaderScore));
   const behind = leader - displayPoints;
   const colorSpan = slots;

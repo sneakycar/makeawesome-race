@@ -11,6 +11,7 @@ import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap, normalizePeakRa
 import { getCombinedRaceTempo, getRaceWeekTempo } from "./race-tempo";
 import { resolveWinnerRaceScore } from "./god-score";
 import { appendRecentDelta } from "./hybrid-live-score";
+import { CRON_SEGMENT_MS } from "./race-clock";
 import { ordinal, slugify, formatRacerName } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
 import { RACE_ENTRY_PLAYER_SELECT } from "./race-player-columns";
@@ -82,13 +83,41 @@ import {
 } from "./race-sim";
 import type { Player, Race, RaceEntry, RaceEntryWithPlayer, InjuryRecord } from "./types";
 
+/** Wall-clock cadence for cron + log — always 15 minutes. */
+export const RACE_TICK_MS = CRON_SEGMENT_MS;
+
+/** @deprecated 12h races used 48 ticks; 24h races use 96. Prefer getRaceTickCount(). */
 export const TICKS_PER_RACE = 48;
 /** @deprecated use TICKS_PER_RACE */
 export const TICKS_PER_DAY = TICKS_PER_RACE;
-/** Average points per tick at neutral tempo (~155 midpoint over 48 ticks). */
+/** Average points per tick for a 12h / 48-tick race at neutral tempo. */
 export const EXPECTED_POINTS_PER_TICK = TARGET_WINNER_SCORE / TICKS_PER_RACE;
 /** @deprecated use EXPECTED_POINTS_PER_TICK */
 export const EXPECTED_DELTA = EXPECTED_POINTS_PER_TICK;
+
+export function getRaceTickCount(startedAt: Date, endsAt: Date): number {
+  const durationMs = Math.max(RACE_TICK_MS, endsAt.getTime() - startedAt.getTime());
+  return Math.max(1, Math.floor(durationMs / RACE_TICK_MS));
+}
+
+export function getExpectedPointsPerTick(startedAt: Date, endsAt: Date): number {
+  return TARGET_WINNER_SCORE / getRaceTickCount(startedAt, endsAt);
+}
+
+export function getRaceTickIntervalMs(_startedAt?: Date, _endsAt?: Date): number {
+  return RACE_TICK_MS;
+}
+
+export function getTickNumber(startedAt: Date, endsAt: Date, now: Date = new Date()): number {
+  const elapsedMs = now.getTime() - startedAt.getTime();
+  if (elapsedMs <= 0) return 0;
+  const tickCount = getRaceTickCount(startedAt, endsAt);
+  return Math.min(tickCount - 1, Math.floor(elapsedMs / RACE_TICK_MS));
+}
+
+export function tickTimeForNumber(startedAt: Date, tickNumber: number): Date {
+  return new Date(startedAt.getTime() + tickNumber * RACE_TICK_MS);
+}
 
 export {
   getRaceDayBounds,
@@ -97,18 +126,6 @@ export {
   getRaceOneBounds,
   getExpectedRaceEndsAt,
 } from "./eastern-time";
-
-export function getRaceTickIntervalMs(startedAt: Date, endsAt: Date): number {
-  const durationMs = Math.max(1, endsAt.getTime() - startedAt.getTime());
-  return durationMs / TICKS_PER_RACE;
-}
-
-export function getTickNumber(startedAt: Date, endsAt: Date, now: Date = new Date()): number {
-  const elapsedMs = now.getTime() - startedAt.getTime();
-  if (elapsedMs <= 0) return 0;
-  const tickMs = getRaceTickIntervalMs(startedAt, endsAt);
-  return Math.min(TICKS_PER_RACE - 1, Math.floor(elapsedMs / tickMs));
-}
 
 export interface TickDeltaInput {
   raceId: string;
@@ -123,6 +140,7 @@ export interface TickDeltaInput {
   chaosBurstUsed: boolean;
   lane: number;
   badMoneyCount?: number;
+  expectedPointsPerTick?: number;
 }
 
 export interface TickDeltaResult {
@@ -259,7 +277,7 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
   const wildSwingBase = seededRange(`${seedBase}:wild`, -2.8, 3.6);
   const wildSwing = wildSwingBase * (1 + player.chaos / 160) * getWildSwingMultiplier(player);
 
-  let delta = EXPECTED_POINTS_PER_TICK * skillMultiplier * raceTempo + wildSwing;
+  let delta = (input.expectedPointsPerTick ?? EXPECTED_POINTS_PER_TICK) * skillMultiplier * raceTempo + wildSwing;
   let eventNote: string | null = null;
 
   // Hot stretch — some racers randomly catch fire for a tick
@@ -588,24 +606,38 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     return;
   }
 
-  const effectiveNow = getRaceEffectiveNow(race as Race, now);
-  const percentComplete = calculatePercentComplete(startedAt, endsAt, effectiveNow);
-  const tickNumber = getTickNumber(startedAt, endsAt, effectiveNow);
+  const wallEffectiveNow = getRaceEffectiveNow(race as Race, now);
+  const targetTick = getTickNumber(startedAt, endsAt, wallEffectiveNow);
 
-  const { count: processedTickCount } = await supabase
+  const { data: processedRows, error: processedErr } = await supabase
     .from("race_ticker_events")
-    .select("id", { count: "exact", head: true })
+    .select("tick_number")
     .eq("race_id", race.id)
-    .eq("tick_number", tickNumber);
+    .lte("tick_number", targetTick);
 
-  if ((processedTickCount ?? 0) > 0) {
-    logTick("exit: tick already processed", tickNumber);
+  if (processedErr) throw processedErr;
+
+  const processedTicks = new Set((processedRows ?? []).map((r) => r.tick_number));
+  let tickNumber = -1;
+  for (let t = 0; t <= targetTick; t++) {
+    if (!processedTicks.has(t)) {
+      tickNumber = t;
+      break;
+    }
+  }
+
+  if (tickNumber < 0) {
+    logTick("exit: caught up through tick", targetTick);
     await supabase
       .from("game_state")
       .update({ last_tick_at: now.toISOString(), updated_at: now.toISOString() })
       .eq("id", 1);
     return;
   }
+
+  const tickAt = tickTimeForNumber(startedAt, tickNumber);
+  const effectiveNow = getRaceEffectiveNow(race as Race, tickAt);
+  const percentComplete = calculatePercentComplete(startedAt, endsAt, effectiveNow);
 
   if (
     shouldTriggerRaceDelay(
@@ -1064,7 +1096,10 @@ export async function finalizeRace(
   if (race.status === "finalized") return;
 
   const now = new Date();
-  const tickNumber = TICKS_PER_RACE - 1;
+  const startedAt = new Date(race.started_at);
+  const endsAt = new Date(race.ends_at);
+  const raceTickCount = getRaceTickCount(startedAt, endsAt);
+  const tickNumber = raceTickCount - 1;
 
   const { data: entries, error: entriesErr } = await supabase
     .from("race_entries")
@@ -1079,8 +1114,6 @@ export async function finalizeRace(
 
   await processInjuredRecovery(supabase, currentDay);
 
-  const startedAt = new Date(race.started_at);
-  const endsAt = new Date(race.ends_at);
   await syncRaceWeatherEvents(supabase, race, startedAt, endsAt);
   const chaosUsed = new Map<string, boolean>();
   for (const entry of entries) {
@@ -1104,8 +1137,8 @@ export async function finalizeRace(
     }))
   );
 
-  for (let t = 0; t < TICKS_PER_RACE; t++) {
-    applySimTick(race, sim, t, startedAt, endsAt, chaosUsed, { allowNewStalls: t < TICKS_PER_RACE - 1 });
+  for (let t = 0; t < raceTickCount; t++) {
+    applySimTick(race, sim, t, startedAt, endsAt, chaosUsed, { allowNewStalls: t < raceTickCount - 1 });
   }
 
   applyFanLiveBonusToSim(
@@ -1118,7 +1151,7 @@ export async function finalizeRace(
       fighting_at_tick: entry.fighting_at_tick as number | null,
       fight_end_tick: entry.fight_end_tick as number | null,
     })),
-    TICKS_PER_RACE - 1
+    raceTickCount - 1
   );
 
   const processed = entries.map((entry) => {
@@ -1388,7 +1421,7 @@ export async function finalizeRace(
         eventType: "god_score",
         playerId: winnerEntry.player_id,
         facts: {
-          tickNumber: TICKS_PER_RACE - 1,
+          tickNumber,
           percentComplete: 100,
           playerName: (winnerEntry.player as Player).name,
           progressAfter: 240,
@@ -1396,7 +1429,7 @@ export async function finalizeRace(
         priority: 99,
       });
     }
-    await saveTickerEvents(supabase, race.id, TICKS_PER_RACE, finalizeMessages);
+    await saveTickerEvents(supabase, race.id, tickNumber, finalizeMessages);
   }
 
   const slotsNeeded = injuredIds.length + dqIds.length + (hadInjuries || hadDqs ? 0 : 1);
@@ -2018,6 +2051,7 @@ export async function runTickPipeline(supabase: SupabaseClient): Promise<void> {
 }
 
 const STALE_TICK_MS = 14 * 60 * 1000;
+const MAX_CATCHUP_TICKS = 8;
 
 /** Catch up if cron missed a 15m boundary — safe to call from read paths. */
 export async function ensureRaceTickedIfStale(supabase: SupabaseClient): Promise<void> {
@@ -2043,7 +2077,18 @@ export async function ensureRaceTickedIfStale(supabase: SupabaseClient): Promise
     const staleForMs = Date.now() - new Date(gs.last_tick_at).getTime();
     if (staleForMs < STALE_TICK_MS) return;
 
-    await tickRace(supabase);
+    let lastTickAt = gs.last_tick_at;
+    for (let i = 0; i < MAX_CATCHUP_TICKS; i++) {
+      const before = lastTickAt;
+      await tickRace(supabase);
+      const { data: afterGs } = await supabase
+        .from("game_state")
+        .select("last_tick_at")
+        .eq("id", 1)
+        .single();
+      if (!afterGs?.last_tick_at || afterGs.last_tick_at === before) break;
+      lastTickAt = afterGs.last_tick_at;
+    }
   } catch (err) {
     console.error("[ensureRaceTickedIfStale]", err);
   }

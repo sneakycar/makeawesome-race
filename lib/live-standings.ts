@@ -50,9 +50,10 @@ export function buildLiveScoreMap(
   const scores = new Map<string, number>();
   for (const entry of entries) {
     const live = liveScores?.get(entry.player_id);
+    // Rank by cron-confirmed score — not the in-segment rolling animation baseline.
     scores.set(
       entry.player_id,
-      getEntryDisplayScore(entry, live?.score ?? live?.confirmedScore)
+      getEntryDisplayScore(entry, live?.confirmedScore ?? live?.score)
     );
   }
   return scores;

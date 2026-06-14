@@ -1,6 +1,7 @@
 import {
   calculatePercentComplete,
   calculateTickDelta,
+  getExpectedPointsPerTick,
   getRaceTickIntervalMs,
   type TickDeltaResult,
 } from "./race-logic";
@@ -88,6 +89,7 @@ export function applySimTick(
   const tickMs = getRaceTickIntervalMs(startedAt, endsAt);
   const tickTime = new Date(startedAt.getTime() + tickNumber * tickMs);
   const percentComplete = calculatePercentComplete(startedAt, endsAt, tickTime);
+  const expectedPointsPerTick = getExpectedPointsPerTick(startedAt, endsAt);
 
   const rankedBefore = [...sim].sort((a, b) => b.score - a.score);
   const rankById = new Map(
@@ -157,6 +159,7 @@ export function applySimTick(
       chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
       lane: entry.lane,
       badMoneyCount: entry.bad_money_count,
+      expectedPointsPerTick,
     });
 
     if (entry.restart_pending) {

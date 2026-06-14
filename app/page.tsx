@@ -999,9 +999,8 @@ export default function HomePage() {
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
             const rank = liveRankMap.get(entry.player_id) ?? entry.current_rank;
-            const pipDisplayScore =
-              live?.score ?? roundRaceScore(Number(entry.race_score));
-            const pipConfirmedScore = roundRaceScore(Number(entry.race_score));
+            const pipDisplayScore = roundRaceScore(Number(entry.race_score));
+            const pipConfirmedScore = pipDisplayScore;
             const pipSegmentProgress = live?.segmentProgress ?? 1;
             const pipAnimatingDelta = live?.animatingDelta ?? 0;
             const isInjured = entry.is_injured;
@@ -1230,6 +1229,11 @@ export default function HomePage() {
           <div className="divider">{"────────────────────────"}</div>
 
           <div className="home-sections-grid">
+            <div className="home-section-block home-section-block-full">
+              <div className="section-label">&gt; LOG</div>
+              <RaceTickLogPanel entries={state.raceLog ?? []} serverTime={state.serverTime} />
+            </div>
+
             {lastRaceRecap && (
               <div className="home-section-block home-section-block-full">
                 <div className="section-label">LAST RACE RECAP</div>
@@ -1286,11 +1290,6 @@ export default function HomePage() {
             <div className="home-section-block">
               <div className="section-label">INJURED</div>
               <InjuredSection players={state.injured ?? []} />
-            </div>
-
-            <div className="home-section-block home-section-block-full">
-              <div className="section-label">&gt; LOG</div>
-              <RaceTickLogPanel entries={state.raceLog ?? []} serverTime={state.serverTime} />
             </div>
           </div>
 

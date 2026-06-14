@@ -27,7 +27,7 @@ const WEATHER_LABELS: Record<RaceWeatherType, string> = {
 
 const WEATHER_TYPES: RaceWeatherType[] = ["rain", "wind", "storm", "heat", "fog"];
 
-const TICKS_PER_RACE = 48;
+import { getRaceTickCount, getRaceTickIntervalMs } from "./race-logic";
 
 /** Chance a sim tick starts a new weather episode (~35%). */
 export const WEATHER_SHOW_PROB = 0.35;
@@ -39,10 +39,6 @@ export const WEATHER_FADE_FRACTION = 0.1;
 
 interface WeatherEpisode extends RaceWeatherEventRecord {
   durationTicks: number;
-}
-
-function getRaceTickIntervalMs(startedAt: Date, endsAt: Date): number {
-  return Math.max(1, endsAt.getTime() - startedAt.getTime()) / TICKS_PER_RACE;
 }
 
 /** Opacity within an episode: 0 outside, ramps at edges, 1 in the middle. */
@@ -69,16 +65,17 @@ function weatherEpisodeStartingAt(
   raceId: string,
   slot: number,
   raceStartedAt: Date,
-  tickMs: number
+  tickMs: number,
+  tickCount: number
 ): WeatherEpisode | null {
-  if (slot >= TICKS_PER_RACE) return null;
+  if (slot >= tickCount) return null;
 
   const seed = `${raceId}:wx:${slot}`;
   if (!seededBool(`${seed}:show`, WEATHER_SHOW_PROB)) return null;
 
   const type = seededPick(`${seed}:type`, WEATHER_TYPES);
   const durationTicks = seededInt(`${seed}:dur`, WEATHER_EPISODE_MIN_TICKS, WEATHER_EPISODE_MAX_TICKS);
-  const endSlotExclusive = Math.min(TICKS_PER_RACE, slot + durationTicks);
+  const endSlotExclusive = Math.min(tickCount, slot + durationTicks);
   const startMs = raceStartedAt.getTime() + slot * tickMs;
   const endMs = raceStartedAt.getTime() + endSlotExclusive * tickMs;
 
@@ -99,11 +96,12 @@ function buildWeatherEpisodeSchedule(
   raceEndsAt: Date
 ): WeatherEpisode[] {
   const tickMs = getRaceTickIntervalMs(raceStartedAt, raceEndsAt);
+  const tickCount = getRaceTickCount(raceStartedAt, raceEndsAt);
   const episodes: WeatherEpisode[] = [];
   let slot = 0;
 
-  while (slot < TICKS_PER_RACE) {
-    const episode = weatherEpisodeStartingAt(raceId, slot, raceStartedAt, tickMs);
+  while (slot < tickCount) {
+    const episode = weatherEpisodeStartingAt(raceId, slot, raceStartedAt, tickMs, tickCount);
     if (episode) {
       episodes.push(episode);
       slot += episode.durationTicks;

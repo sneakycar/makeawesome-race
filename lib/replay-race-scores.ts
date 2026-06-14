@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { TICKS_PER_RACE } from "./race-logic";
+import { getRaceTickCount } from "./race-logic";
 import {
   applyFanLiveBonusToSim,
   applySimTick,
@@ -54,9 +54,11 @@ export function replayRaceScores(
     }))
   );
 
-  for (let t = 0; t < TICKS_PER_RACE; t++) {
+  const tickCount = getRaceTickCount(startedAt, endsAt);
+
+  for (let t = 0; t < tickCount; t++) {
     applySimTick(race, sim, t, startedAt, endsAt, chaosUsed, {
-      allowNewStalls: t < TICKS_PER_RACE - 1,
+      allowNewStalls: t < tickCount - 1,
     });
   }
 
@@ -74,7 +76,7 @@ export function replayRaceScores(
         ? null
         : (entry.fight_end_tick as number | null),
     })),
-    TICKS_PER_RACE - 1
+    tickCount - 1
   );
 
   return rankSimEntries(sim);
