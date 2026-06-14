@@ -91,17 +91,18 @@ function RaceMetaPanel({
 function ScrollingTicker({
   events,
   serverTime,
+  fallback,
 }: {
   events: TickerEvent[];
   serverTime: string;
+  fallback: string;
 }) {
-  if (!events.length) return null;
-
   const now = new Date(serverTime);
-  const chunks = events.map(
-    (e) => `${e.message} (${formatTickerAge(e.created_at, now)})`
-  );
-  const line = chunks.join(" · ");
+  const line = events.length
+    ? events
+        .map((e) => `${e.message} (${formatTickerAge(e.created_at, now)})`)
+        .join(" · ")
+    : fallback;
 
   return (
     <div className="ticker-wrap" aria-live="polite">
@@ -362,8 +363,16 @@ export default function HomePage() {
 
   return (
     <main>
-      {state?.ticker && state.ticker.length > 0 && (
-        <ScrollingTicker events={state.ticker} serverTime={state.serverTime} />
+      {state && (
+        <ScrollingTicker
+          events={state.ticker}
+          serverTime={state.serverTime}
+          fallback={
+            state.race.status === "active"
+              ? "RACE IN PROGRESS — AWAITING FIRST BROADCAST"
+              : "AWAITING RACE UPDATES"
+          }
+        />
       )}
 
       <h1 className="title">HOLES RACE</h1>

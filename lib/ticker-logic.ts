@@ -22,6 +22,7 @@ export type TickerEventType =
   | "rookie_run"
   | "late_close"
   | "lead_pressure"
+  | "race_start"
   | "race_won"
   | "eliminated";
 
@@ -297,6 +298,23 @@ export function generateTickTickerEvents(
   if (verified.length === 0) return [];
 
   return [verified[0]];
+}
+
+export function generateRaceStartTickerEvents(raceNumber: number): TickerEventDraft[] {
+  return [
+    {
+      eventType: "race_start",
+      playerId: "",
+      priority: 85,
+      message: `RACE ${raceNumber} IS LIVE — 8 RACERS ON THE GRID`,
+      facts: {
+        tickNumber: 0,
+        percentComplete: 0,
+        playerName: "",
+        raceNumber,
+      },
+    },
+  ];
 }
 
 export function generateFinalizeTickerEvents(

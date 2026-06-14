@@ -7,6 +7,7 @@ import { processRaceSupports } from "./support-db";
 import { saveTickerEvents } from "./ticker-db";
 import {
   generateFinalizeTickerEvents,
+  generateRaceStartTickerEvents,
   generateTickTickerEvents,
   type TickerEntrySnapshot,
 } from "./ticker-logic";
@@ -815,6 +816,13 @@ export async function createRace(
   const ranked = rankEntries(entries);
   const { error: entryErr } = await supabase.from("race_entries").insert(ranked);
   if (entryErr) throw entryErr;
+
+  await saveTickerEvents(
+    supabase,
+    race.id,
+    0,
+    generateRaceStartTickerEvents(raceNumber)
+  );
 
   return race as Race;
 }
