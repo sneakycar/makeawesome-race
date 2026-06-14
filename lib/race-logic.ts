@@ -535,6 +535,21 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   const percentComplete = calculatePercentComplete(startedAt, endsAt, effectiveNow);
   const tickNumber = getTickNumber(startedAt, endsAt, effectiveNow);
 
+  const { count: processedTickCount } = await supabase
+    .from("race_ticker_events")
+    .select("id", { count: "exact", head: true })
+    .eq("race_id", race.id)
+    .eq("tick_number", tickNumber);
+
+  if ((processedTickCount ?? 0) > 0) {
+    logTick("exit: tick already processed", tickNumber);
+    await supabase
+      .from("game_state")
+      .update({ last_tick_at: now.toISOString(), updated_at: now.toISOString() })
+      .eq("id", 1);
+    return;
+  }
+
   if (
     shouldTriggerRaceDelay(
       race.id,
@@ -1943,4 +1958,36 @@ export async function resetToFirstRace(supabase: SupabaseClient): Promise<Race> 
 export async function runTickPipeline(supabase: SupabaseClient): Promise<void> {
   await initializeGameIfNeeded(supabase);
   await tickRace(supabase);
+}
+
+const STALE_TICK_MS = 14 * 60 * 1000;
+
+/** Catch up if cron missed a 15m boundary — safe to call from read paths. */
+export async function ensureRaceTickedIfStale(supabase: SupabaseClient): Promise<void> {
+  try {
+    const { data: race } = await supabase
+      .from("races")
+      .select("id, status, delay_until")
+      .eq("status", "active")
+      .order("race_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!race) return;
+
+    const { data: gs } = await supabase
+      .from("game_state")
+      .select("last_tick_at")
+      .eq("id", 1)
+      .single();
+
+    if (!gs?.last_tick_at) return;
+
+    const staleForMs = Date.now() - new Date(gs.last_tick_at).getTime();
+    if (staleForMs < STALE_TICK_MS) return;
+
+    await tickRace(supabase);
+  } catch (err) {
+    console.error("[ensureRaceTickedIfStale]", err);
+  }
 }

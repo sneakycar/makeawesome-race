@@ -6,6 +6,7 @@ import {
   getActiveStreaks,
   getNextRaceDayBounds,
   initializeGameIfNeeded,
+  ensureRaceTickedIfStale,
 } from "./race-logic";
 import { getRaceClock } from "./race-clock";
 import { getRaceDelayInfo, isRaceDelayed } from "./race-delay";
@@ -36,6 +37,7 @@ export async function fetchHomeState(
   request: Request
 ): Promise<GameStateResponse | null> {
   await initializeGameIfNeeded(supabase);
+  await ensureRaceTickedIfStale(supabase);
 
   const active = await getActiveRaceWithEntries(supabase);
   if (!active) return null;
