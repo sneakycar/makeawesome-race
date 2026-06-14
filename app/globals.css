@@ -256,17 +256,21 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   height: 0.85em;
 }
 
+.race-meta-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.race-meta-progress-label {
+  flex-shrink: 0;
+}
+
 .race-progress-track {
-  --race-progress-width: min(
-    390px,
-    calc(100vw - max(20px, env(safe-area-inset-left) + env(safe-area-inset-right)))
-  );
+  flex: 1 1 auto;
+  min-width: 0;
   display: block;
-  flex: none;
-  width: var(--race-progress-width);
-  max-width: var(--race-progress-width);
-  height: 10px;
-  margin-top: 6px;
+  height: 5px;
   background: #eee;
   border: 1px solid #999;
   border-radius: 999px;
