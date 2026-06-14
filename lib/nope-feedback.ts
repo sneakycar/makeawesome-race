@@ -23,7 +23,6 @@ export function canEncourageVote(options: {
   raceDelayed: boolean;
   encouraging: boolean;
   encouragement: {
-    supportedPlayerId: string | null;
     votesRemaining: number;
     canVote: boolean;
   };
@@ -34,24 +33,16 @@ export function canEncourageVote(options: {
   if (!options.raceActive || options.raceDelayed || options.encouraging) return false;
   if (encouragement.votesRemaining <= 0) return false;
   if (!options.cooldownReady) return false;
-  if (
-    encouragement.supportedPlayerId != null &&
-    encouragement.supportedPlayerId !== options.playerId
-  ) {
-    return false;
-  }
   return true;
 }
 
-export type EncourageButtonPhase = "ready" | "cooldown" | "exhausted" | "hidden" | "blocked";
+export type EncourageButtonPhase = "ready" | "cooldown" | "exhausted" | "hidden";
 
 export function getEncourageButtonPhase(options: {
   raceActive: boolean;
   isInjured: boolean;
   isFighting: boolean;
-  playerId: string;
   encouragement: {
-    supportedPlayerId: string | null;
     votesUsed: number;
     votesMax: number;
     votesRemaining: number;
@@ -61,11 +52,6 @@ export function getEncourageButtonPhase(options: {
   if (!options.raceActive || options.isInjured || options.isFighting) return "hidden";
 
   const { encouragement } = options;
-  const isTarget =
-    encouragement.supportedPlayerId == null ||
-    encouragement.supportedPlayerId === options.playerId;
-
-  if (!isTarget) return "blocked";
 
   if (encouragement.votesRemaining <= 0) return "exhausted";
 

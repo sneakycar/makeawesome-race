@@ -14,7 +14,7 @@ import { getVisitorEncouragementState } from "./support-db";
 import { getVisitorBadMoneyState } from "./bad-money-db";
 import { hashRequestIp, getRequestIp } from "./request-identity";
 import { hashVisitorDeviceId, normalizeDeviceId } from "./visitor-id";
-import { getRecentTickerEvents } from "./ticker-db";
+import { getRecentTickerEvents, getRaceTickLog } from "./ticker-db";
 import type { GameStateResponse } from "./types";
 
 const IDLE_ENCOURAGEMENT = {
@@ -84,6 +84,7 @@ export async function fetchHomeState(
     encouragement,
     badMoney,
     ticker,
+    raceLog,
   ] = await Promise.all([
     getAllTimeTop3(supabase),
     getActiveStreaks(supabase),
@@ -106,6 +107,7 @@ export async function fetchHomeState(
       ? getVisitorBadMoneyState(supabase, race.id, badMoneyIpHash, true)
       : Promise.resolve(IDLE_BAD_MONEY),
     getRecentTickerEvents(supabase, race.id, 12),
+    getRaceTickLog(supabase, race.id),
   ]);
 
   const gameState = gameStateResult.data;
@@ -134,6 +136,7 @@ export async function fetchHomeState(
     encouragement,
     badMoney,
     ticker,
+    raceLog,
     betweenRaces,
     nextRaceNumber,
     nextRaceStartsAt,

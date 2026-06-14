@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRaceClock, type RaceClock } from "@/lib/race-clock";
 import { useCronUpdate } from "@/lib/use-cron-update";
 import { TickBurstOverlay } from "@/app/components/tick-burst-overlay";
-import type { GameStateResponse, LastRaceRecap, Player, TickerEvent } from "@/lib/types";
+import type { GameStateResponse, LastRaceRecap, RaceTickLogEntry, Player, TickerEvent } from "@/lib/types";
 import Link from "next/link";
 import {
   formatRaceBegan,
@@ -475,6 +475,36 @@ function AboutSection() {
   );
 }
 
+function RaceTickLogPanel({
+  entries,
+  serverTime,
+}: {
+  entries: RaceTickLogEntry[];
+  serverTime: string;
+}) {
+  const now = new Date(serverTime);
+
+  return (
+    <details className="race-log-details">
+      <summary className="race-log-summary">&gt; LOG</summary>
+      {entries.length === 0 ? (
+        <p className="race-log-empty">no ticks yet</p>
+      ) : (
+        <ul className="race-log-list">
+          {entries.map((entry) => (
+            <li key={entry.tickNumber} className="race-log-row">
+              <span className="race-log-tag">
+                [tick {entry.tickNumber + 1}] ({formatTickerAge(entry.createdAt, now)})
+              </span>
+              <span className="race-log-msg">{formatTickerForDisplay(entry.message)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </details>
+  );
+}
+
 export default function HomePage() {
   const [state, setState] = useState<GameStateResponse | null>(null);
   const [lastRaceRecap, setLastRaceRecap] = useState<LastRaceRecap | null>(null);
@@ -483,6 +513,7 @@ export default function HomePage() {
   const [nopeShakeId, setNopeShakeId] = useState<string | null>(null);
   const [encourageError, setEncourageError] = useState<string | null>(null);
   const [encouraging, setEncouraging] = useState(false);
+  const [encouragingPlayerId, setEncouragingPlayerId] = useState<string | null>(null);
   const [badMoneyModal, setBadMoneyModal] = useState<{
     playerId: string;
     name: string;
@@ -590,6 +621,7 @@ export default function HomePage() {
     }
 
     setEncouraging(true);
+    setEncouragingPlayerId(playerId);
     setEncourageError(null);
     try {
       const deviceId = getOrCreateDeviceId();
@@ -637,6 +669,7 @@ export default function HomePage() {
       setEncourageError("Could not encourage");
     } finally {
       setEncouraging(false);
+      setEncouragingPlayerId(null);
     }
   };
 
@@ -956,13 +989,13 @@ export default function HomePage() {
               : barMarksById.get(entry.player_id) ?? null;
             const isLeader = barMark === "lead";
             const rankDeltaLabel = formatRankDelta(rankDelta);
+            const isEncouragingThis = encouragingPlayerId === entry.player_id;
             const encouragePhase =
               encouragement &&
               getEncourageButtonPhase({
                 raceActive,
                 isInjured,
                 isFighting,
-                playerId: entry.player_id,
                 encouragement,
                 cooldownReady,
               });
@@ -1030,9 +1063,6 @@ export default function HomePage() {
                       }
                     />
                     {raceActive && !isInjured && !isFighting && encouragePhase !== "hidden" ? (
-                      encouragePhase === "blocked" ? (
-                        <span className="encourage-btn-spacer" aria-hidden="true" />
-                      ) : (
                       <button
                         type="button"
                         className={`encourage-btn${
@@ -1040,15 +1070,18 @@ export default function HomePage() {
                         }${encouragePhase === "cooldown" ? " encourage-btn-cooldown" : ""}${
                           encouragePhase === "exhausted" ? " encourage-btn-exhausted" : ""
                         }${!canEncourage ? " encourage-btn-blocked" : ""}${
-                          nopeShakeId === entry.player_id ? " encourage-btn-nope" : ""
-                        }`}
+                          isEncouragingThis ? " encourage-btn-loading" : ""
+                        }${nopeShakeId === entry.player_id ? " encourage-btn-nope" : ""}`}
                         aria-disabled={!canEncourage}
+                        aria-busy={isEncouragingThis}
                         aria-label={
-                          encouragePhase === "ready"
-                            ? `Encourage +1 (${encouragement?.votesUsed ?? 0}/${encouragement?.votesMax ?? 6})`
-                            : encouragePhase === "cooldown"
-                              ? "Encourage cooldown — check back soon"
-                              : "All encourages used this race"
+                          isEncouragingThis
+                            ? "Sending encourage vote"
+                            : encouragePhase === "ready"
+                              ? `Encourage +1 (${encouragement?.votesUsed ?? 0}/${encouragement?.votesMax ?? 6})`
+                              : encouragePhase === "cooldown"
+                                ? "Encourage cooldown — check back soon"
+                                : "All encourages used this race"
                         }
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1058,13 +1091,18 @@ export default function HomePage() {
                           if (nopeShakeId === entry.player_id) setNopeShakeId(null);
                         }}
                       >
-                        {encouragePhase === "ready" ? (
+                        {isEncouragingThis ? (
+                          <span className="encourage-btn-loading-dots" aria-hidden="true">
+                            <span />
+                            <span />
+                            <span />
+                          </span>
+                        ) : encouragePhase === "ready" ? (
                           "+1"
                         ) : (
                           <FlatIcon id="check" className="race-emoji race-emoji-btn" />
                         )}
                       </button>
-                      )
                     ) : raceActive && (isFighting || isInjured) ? (
                       <span className="encourage-btn-spacer" aria-hidden="true" />
                     ) : null}
@@ -1165,6 +1203,10 @@ export default function HomePage() {
           <div className="divider">{"────────────────────────"}</div>
 
           <div className="home-sections-grid">
+            <div className="home-section-block home-section-block-full">
+              <RaceTickLogPanel entries={state.raceLog ?? []} serverTime={state.serverTime} />
+            </div>
+
             {lastRaceRecap && (
               <div className="home-section-block home-section-block-full">
                 <div className="section-label">LAST RACE RECAP</div>

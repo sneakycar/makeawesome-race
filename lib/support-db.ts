@@ -76,7 +76,7 @@ export function buildEncouragementState(
   now = new Date()
 ): EncouragementState {
   const votesUsed = rows.length;
-  const supportedPlayerId = rows[0]?.player_id ?? null;
+  const supportedPlayerId = rows.at(-1)?.player_id ?? null;
   const lastVoteAt = rows.length ? new Date(rows[rows.length - 1].created_at) : null;
   const nextVoteAt = computeNextVoteAt(lastVoteAt, now);
   const votesRemaining = Math.max(0, MAX_VOTES_PER_VISITOR - votesUsed);
@@ -241,10 +241,6 @@ export async function recordEncouragement(
 
   if (state.nextVoteAt) {
     return { ok: false, error: "Cooldown — try again soon" };
-  }
-
-  if (state.supportedPlayerId && state.supportedPlayerId !== playerId) {
-    return { ok: false, error: "Already backing another racer this race" };
   }
 
   const { data: entry } = await supabase

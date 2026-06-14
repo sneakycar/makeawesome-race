@@ -155,6 +155,13 @@ export interface RaceEntryWithPlayer extends RaceEntry {
   player: Player;
 }
 
+export interface RaceTickLogEntry {
+  tickNumber: number;
+  message: string;
+  createdAt: string;
+  eventType: string;
+}
+
 export interface TickerEventFacts {
   tickNumber: number;
   percentComplete: number;
@@ -327,6 +334,7 @@ export interface GameStateResponse {
   encouragement: EncouragementState;
   badMoney: BadMoneyState;
   ticker: TickerEvent[];
+  raceLog: RaceTickLogEntry[];
   betweenRaces: boolean;
   nextRaceNumber: number | null;
   nextRaceStartsAt: string | null;
