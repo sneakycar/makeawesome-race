@@ -260,7 +260,7 @@ function RaceProgressPipBar({
         style={{ left: `${markerLeft}%` }}
         aria-hidden="true"
       >
-        <span className="race-progress-marker-label">{displayPct}%</span>
+        <span className="race-progress-marker-label">{displayPct}% DONE</span>
         <span className="race-progress-marker-point" />
       </div>
       <div className="race-progress-pip-viewport">
