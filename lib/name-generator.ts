@@ -8,7 +8,7 @@ export const SEED_ACTIVE_NAMES = [
   "BHOLE",
   "LACIE",
   "NOAH",
-  "CHRIS VOGEL",
+  "CHRISMAN",
   "KIMBER",
   "JON PENN",
 ] as const;
