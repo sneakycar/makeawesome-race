@@ -106,7 +106,7 @@ main,
 .ticker-track {
   display: inline-flex;
   white-space: nowrap;
-  animation: ticker-scroll 45s linear infinite;
+  animation: ticker-scroll 90s linear infinite;
   font-size: 12px;
   font-weight: 500;
   color: #222;
