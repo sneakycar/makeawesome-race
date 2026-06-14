@@ -2520,6 +2520,25 @@ body[data-home-theme="night"] .player-sheet .row-score-pip-num {
   color: #f0f0f0;
 }
 
+.racer-score-delta {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a7a45;
+}
+
+.racer-score-delta-loss {
+  color: #c0392b;
+}
+
+.overlay--racer[data-theme="night"] .racer-score-delta {
+  color: #5fd99a;
+}
+
+.overlay--racer[data-theme="night"] .racer-score-delta-loss {
+  color: #f87171;
+}
+
 .racer-field-note {
   display: flex;
   flex-direction: column;
