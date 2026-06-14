@@ -185,12 +185,15 @@ function RaceMetaPanel({
         </div>
         <div className="race-meta-gap" aria-hidden="true" />
         <div className="race-meta-line">{timerLine}</div>
-        <div
-          className={`race-meta-line${
-            nextUpdateMs < 3 * 60 * 1000 ? " race-meta-line-next-soon" : ""
-          }`}
-        >
-          {`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}
+        <div className="race-meta-line">
+          NEXT UPDATE IN:{" "}
+          <span
+            className={
+              nextUpdateMs < 3 * 60 * 1000 ? "race-meta-next-soon" : undefined
+            }
+          >
+            {formatCompactDuration(nextUpdateMs)}
+          </span>
         </div>
       </div>
     </div>

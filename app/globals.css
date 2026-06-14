@@ -281,7 +281,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   display: block;
 }
 
-.race-meta-line-next-soon {
+.race-meta-next-soon {
   color: #c0392b;
   font-weight: 700;
 }
@@ -2256,7 +2256,7 @@ body[data-home-theme="night"] .score-pip-viewport-leader {
     0 0 0 2px rgba(0, 0, 0, 0.65);
 }
 
-body[data-home-theme="night"] .race-meta-line-next-soon {
+body[data-home-theme="night"] .race-meta-next-soon {
   color: #f87171;
 }
 
