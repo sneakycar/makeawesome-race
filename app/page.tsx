@@ -1191,7 +1191,7 @@ export default function HomePage() {
                       isNight={isNight}
                       statusOverlay={pipOverlay}
                     />
-                    {raceActive && !isInjured && !isFighting && (
+                    {raceActive && !isInjured && !isFighting ? (
                       <button
                         type="button"
                         className={`encourage-btn${isSupported ? " supported" : ""}${
@@ -1213,7 +1213,9 @@ export default function HomePage() {
                           "+1"
                         )}
                       </button>
-                    )}
+                    ) : raceActive && (isFighting || isInjured) ? (
+                      <span className="encourage-btn-spacer" aria-hidden="true" />
+                    ) : null}
                     <span
                       className={`row-archetype row-place${
                         rank === 1

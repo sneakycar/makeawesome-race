@@ -712,6 +712,14 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   font-weight: 400;
 }
 
+.encourage-btn-spacer {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  align-self: center;
+  pointer-events: none;
+}
+
 .row-line {
   display: block;
   padding: 2px 0;
@@ -2536,6 +2544,11 @@ body[data-home-theme="night"] .race-weather-fog {
     width: 32px;
     height: 32px;
     font-size: 12px;
+  }
+
+  .encourage-btn-spacer {
+    width: 32px;
+    height: 32px;
   }
 
   .encourage-btn.supported {
