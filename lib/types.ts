@@ -87,6 +87,7 @@ export interface RaceEntry {
   current_rank: number;
   final_rank: number | null;
   last_delta: number;
+  recent_deltas?: number[];
   last_rank_change: number;
   race_score: number;
   peak_race_score: number;

@@ -5,89 +5,132 @@ import { useEffect, useState } from "react";
 import { FlatIcon } from "@/app/components/flat-icons";
 import { formatCompactDuration, formatRaceBegan, formatRacerName } from "@/lib/format";
 import { formatLaneBonus } from "@/lib/lanes";
+import { getScorePipBackground } from "@/lib/score";
+import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
 import type { LeagueCountBar, LeagueStatBar, LeagueStatsResponse } from "@/lib/types";
 
-function InfoBar({
+function StatPipBar({
+  pct,
+  isNight,
+  slots = 20,
+}: {
+  pct: number;
+  isNight: boolean;
+  slots?: number;
+}) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  const filled = Math.round((clamped / 100) * slots);
+
+  return (
+    <div
+      className={`score-pip-track game-stat-pips${isNight ? " is-night" : ""}`}
+      aria-hidden="true"
+    >
+      {Array.from({ length: slots }, (_, i) =>
+        i < filled ? (
+          <span
+            key={i}
+            className="score-pip score-pip-on"
+            style={{ background: getScorePipBackground(i, slots, isNight) }}
+          />
+        ) : (
+          <span key={i} className="score-pip score-pip-dim" />
+        )
+      )}
+    </div>
+  );
+}
+
+function GameStatRow({
   label,
   value,
   pct,
-  color = "#00ff88",
-  suffix = "",
+  sub,
+  isNight,
+  highlight,
 }: {
   label: ReactNode;
-  value: number | string;
+  value: ReactNode;
   pct: number;
-  color?: string;
-  suffix?: string;
+  sub?: ReactNode;
+  isNight: boolean;
+  highlight?: boolean;
 }) {
   return (
-    <div className="info-bar-row">
-      <div className="info-bar-head">
-        <span className="info-bar-label">{label}</span>
-        <span className="info-bar-val">
-          {value}
-          {suffix}
-        </span>
+    <div className={`game-stat-row${highlight ? " is-highlight" : ""}`}>
+      <div className="game-stat-head">
+        <span className="game-stat-label">{label}</span>
+        <span className="game-stat-val">{value}</span>
       </div>
-      <div className="info-bar-track">
-        <div
-          className="info-bar-fill"
-          style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }}
-        />
-      </div>
+      <StatPipBar pct={pct} isNight={isNight} />
+      {sub ? <div className="game-stat-sub">{sub}</div> : null}
     </div>
   );
 }
 
-function AbilityBar({ stat }: { stat: LeagueStatBar }) {
+function GamePanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="info-bar-row">
-      <div className="info-bar-head">
-        <span className="info-bar-label">{stat.label}</span>
-        <span className="info-bar-val">{stat.average}</span>
-      </div>
-      <div className="info-bar-track">
-        <div
-          className="info-bar-fill"
-          style={{
-            width: `${Math.max(0, Math.min(100, stat.average))}%`,
-            background: stat.color,
-          }}
-        />
-      </div>
-      <div className="info-bar-sub">
-        PEAK {stat.leaderValue} · {formatRacerName(stat.leaderName)}
-      </div>
-    </div>
+    <section className="racer-card-panel">
+      <h3 className="racer-card-panel-title">{title}</h3>
+      {children}
+    </section>
   );
 }
 
-function CountSection({
+function CountPanel({
   title,
   items,
   maxPct,
-  color = "#ffd700",
+  isNight,
+  highlight,
 }: {
   title: string;
   items: LeagueCountBar[];
   maxPct?: number;
-  color?: string;
+  isNight: boolean;
+  highlight?: boolean;
 }) {
   if (!items.length) return null;
   const peak = maxPct ?? Math.max(...items.map((i) => i.pct), 1);
+
   return (
-    <div className="retro-box">
-      <div className="retro-box-title">{title}</div>
+    <GamePanel title={title}>
       {items.map((item) => (
-        <InfoBar
+        <GameStatRow
           key={item.label}
-          label={item.label}
-          value={item.value}
+          label={item.label.toLowerCase()}
+          value={
+            <>
+              {item.value}
+              <span className="game-stat-val-muted"> · {item.pct}%</span>
+            </>
+          }
           pct={peak > 0 ? (item.pct / peak) * 100 : 0}
-          color={color}
-          suffix={` · ${item.pct}%`}
+          isNight={isNight}
+          highlight={highlight}
         />
       ))}
+    </GamePanel>
+  );
+}
+
+function GameField({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="racer-field">
+      <span className="racer-field-k">{label}</span>
+      <span className="racer-field-v">{value}</span>
     </div>
   );
 }
@@ -95,6 +138,8 @@ function CountSection({
 export function StatsOverlay({ onClose }: { onClose: () => void }) {
   const [stats, setStats] = useState<LeagueStatsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isNight = useDayNight();
+  useHomeDayNightTheme(isNight);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,177 +173,215 @@ export function StatsOverlay({ onClose }: { onClose: () => void }) {
     null;
 
   return (
-    <div className="overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="stats-title">
-      <div className="overlay-scanlines" aria-hidden="true" />
-      <div className="retro-screen stats-screen" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="retro-dismiss"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          X
+    <div
+      className="overlay overlay--racer"
+      data-theme={isNight ? "night" : "day"}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="stats-title"
+    >
+      <div className="racer-card stats-card" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="racer-card-close" onClick={onClose} aria-label="Close">
+          close
         </button>
-        {error && <p className="retro-error">{error}</p>}
-        {!stats && !error && <p className="retro-loading">LOADING...</p>}
+
+        {error && <p className="racer-card-message racer-card-message--error">{error}</p>}
+        {!stats && !error && <p className="racer-card-message">loading...</p>}
+
         {stats && (
           <>
-            <div className="retro-header retro-header--brand">
-              <span className="retro-header-tag">DATA TERMINAL</span>
-              <h2 id="stats-title" className="retro-name">
-                LEAGUE STATS
-              </h2>
-              <span className="retro-header-badge">
-                RACE {stats.headline.currentRace} · DAY {stats.headline.currentDay}
-              </span>
-            </div>
+            <header className="racer-card-header racer-card-header--league">
+              <span className="racer-card-kicker">league stats</span>
+              <div className="racer-card-head-row">
+                <h2 id="stats-title" className="racer-card-name">
+                  data terminal
+                </h2>
+                <span className="racer-card-ovr">
+                  <span className="racer-card-ovr-label">race {stats.headline.currentRace}</span>
+                  <span className="racer-card-ovr-rank">day {stats.headline.currentDay}</span>
+                </span>
+              </div>
+            </header>
 
-            <div className="info-tile-grid">
-              {stats.tiles.map((tile) => (
-                <div key={tile.label} className="info-tile">
-                  <span className="info-tile-num" style={{ color: tile.accent }}>
-                    {tile.value}
-                  </span>
-                  <span className="info-tile-label">{tile.label}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ ABILITY AVERAGES</div>
-              {stats.abilityAverages.map((stat) => (
-                <AbilityBar key={stat.key} stat={stat} />
-              ))}
-            </div>
-
-            <div className="stats-chart-grid">
-              <CountSection title="▶ ROSTER MIX" items={stats.rosterMix} color="#00ff88" />
-              <CountSection title="▶ OVR SPREAD" items={stats.ovrBuckets} color="#6688ff" />
-            </div>
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ WIN RATE LEADERS</div>
-              {stats.winRateChart.length === 0 ? (
-                <p className="info-empty">NO FINISHED RACES YET</p>
-              ) : (
-                stats.winRateChart.map((row) => (
-                  <InfoBar
-                    key={row.name}
-                    label={formatRacerName(row.name)}
-                    value={`${row.winPct}%`}
-                    pct={(row.winPct / maxWinPct) * 100}
-                    color="#ffd700"
-                    suffix={` · ${row.wins}/${row.races}`}
-                  />
-                ))
-              )}
-            </div>
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ LANE WIN %</div>
-              {stats.laneWinRates.every((l) => l.starts === 0) ? (
-                <p className="info-empty">AWAITING FINALIZED RACES</p>
-              ) : (
-                stats.laneWinRates.map((lane) => (
-                  <InfoBar
-                    key={lane.lane}
-                    label={
-                      <>
-                        L{lane.lane} {lane.label}
-                        {bestLane?.lane === lane.lane ? (
-                          <>
-                            {" "}
-                            <FlatIcon id="star" className="race-emoji race-emoji-star" />
-                          </>
-                        ) : null}
-                      </>
-                    }
-                    value={`${lane.winPct}%`}
-                    pct={lane.barPct}
-                    color={bestLane?.lane === lane.lane ? "#ffd700" : "#ff6600"}
-                    suffix={` · ${lane.wins}/${lane.starts} · ${formatLaneBonus(lane.lane)}`}
-                  />
-                ))
-              )}
-            </div>
-
-            <div className="stats-chart-grid">
-              <CountSection
-                title="▶ FINISH DISTRIBUTION"
-                items={stats.finishDistribution}
-                color="#ff2244"
-              />
-              <CountSection title="▶ ARCHETYPES" items={stats.archetypes} color="#ff44ff" />
-            </div>
-
-            <CountSection title="▶ TRAITS" items={stats.traits} color="#aa55ff" />
-            <CountSection title="▶ TICKER EVENTS" items={stats.tickerEvents} color="#00ccaa" />
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ WEATHER LOG ({stats.weatherTotal})</div>
-              {stats.weatherTotal === 0 ? (
-                <p className="info-empty">NO WEATHER EVENTS LOGGED YET</p>
-              ) : (
-                <>
-                  {stats.weatherByType.map((item) => (
-                    <InfoBar
-                      key={item.label}
-                      label={item.label}
-                      value={item.value}
-                      pct={
-                        stats.weatherTotal > 0
-                          ? (item.value / stats.weatherTotal) * 100
-                          : 0
-                      }
-                      color="#66ccff"
-                      suffix={` · ${item.pct}%`}
-                    />
-                  ))}
-                  <div className="weather-log-list">
-                    {stats.weatherRecent.map((evt) => (
-                      <div key={evt.id} className="weather-log-row">
-                        <span className="weather-log-type">{evt.label}</span>
-                        <span className="weather-log-meta">
-                          R{evt.raceNumber} · {formatRaceBegan(new Date(evt.startedAt))} ·{" "}
-                          {formatCompactDuration(evt.durationSec * 1000)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="retro-box">
-              <div className="retro-box-title">▶ ALL-TIME RECORDS</div>
-              <div className="retro-status-grid">
-                {stats.records.map((rec) => (
-                  <div key={rec.label} className="retro-kv">
-                    <span className="retro-k">{rec.label}</span>
-                    <span className="retro-v">
-                      {formatRacerName(rec.name)} · {rec.value}
-                    </span>
+            <div className="racer-card-body">
+              <div className="game-tile-grid">
+                {stats.tiles.map((tile) => (
+                  <div key={tile.label} className="game-tile">
+                    <span className="game-tile-num">{tile.value}</span>
+                    <span className="game-tile-label">{tile.label.toLowerCase()}</span>
                   </div>
                 ))}
               </div>
-            </div>
 
-            <div className="retro-box">
-              <div className="retro-box-title">▶ CAREER TOTALS</div>
-              {stats.careerTotals.map((item) => (
-                <InfoBar
-                  key={item.label}
-                  label={item.label}
-                  value={item.value}
-                  pct={item.pct}
-                  color="#4466cc"
+              <GamePanel title="ability averages">
+                {stats.abilityAverages.map((stat: LeagueStatBar) => (
+                  <GameStatRow
+                    key={stat.key}
+                    label={stat.label.toLowerCase()}
+                    value={stat.average}
+                    pct={stat.average}
+                    isNight={isNight}
+                    sub={
+                      <>
+                        peak {stat.leaderValue} · {formatRacerName(stat.leaderName)}
+                      </>
+                    }
+                  />
+                ))}
+              </GamePanel>
+
+              <div className="stats-panel-grid">
+                <CountPanel
+                  title="roster mix"
+                  items={stats.rosterMix}
+                  isNight={isNight}
                 />
-              ))}
+                <CountPanel
+                  title="ovr spread"
+                  items={stats.ovrBuckets}
+                  isNight={isNight}
+                />
+              </div>
+
+              <GamePanel title="win rate leaders">
+                {stats.winRateChart.length === 0 ? (
+                  <p className="game-stat-empty">no finished races yet</p>
+                ) : (
+                  stats.winRateChart.map((row) => (
+                    <GameStatRow
+                      key={row.name}
+                      label={formatRacerName(row.name)}
+                      value={
+                        <>
+                          {row.winPct}%
+                          <span className="game-stat-val-muted">
+                            {" "}
+                            · {row.wins}/{row.races}
+                          </span>
+                        </>
+                      }
+                      pct={(row.winPct / maxWinPct) * 100}
+                      isNight={isNight}
+                      highlight={row.winPct === maxWinPct}
+                    />
+                  ))
+                )}
+              </GamePanel>
+
+              <GamePanel title="lane win %">
+                {stats.laneWinRates.every((l) => l.starts === 0) ? (
+                  <p className="game-stat-empty">awaiting finalized races</p>
+                ) : (
+                  stats.laneWinRates.map((lane) => (
+                    <GameStatRow
+                      key={lane.lane}
+                      label={
+                        <>
+                          L{lane.lane} {lane.label.toLowerCase()}
+                          {bestLane?.lane === lane.lane ? (
+                            <>
+                              {" "}
+                              <FlatIcon id="star" className="race-emoji race-emoji-star" />
+                            </>
+                          ) : null}
+                        </>
+                      }
+                      value={
+                        <>
+                          {lane.winPct}%
+                          <span className="game-stat-val-muted">
+                            {" "}
+                            · {lane.wins}/{lane.starts}
+                          </span>
+                        </>
+                      }
+                      pct={lane.barPct}
+                      isNight={isNight}
+                      highlight={bestLane?.lane === lane.lane}
+                      sub={formatLaneBonus(lane.lane)}
+                    />
+                  ))
+                )}
+              </GamePanel>
+
+              <div className="stats-panel-grid">
+                <CountPanel
+                  title="finish distribution"
+                  items={stats.finishDistribution}
+                  isNight={isNight}
+                />
+                <CountPanel title="archetypes" items={stats.archetypes} isNight={isNight} />
+              </div>
+
+              <CountPanel title="traits" items={stats.traits} isNight={isNight} />
+              <CountPanel title="ticker events" items={stats.tickerEvents} isNight={isNight} />
+
+              <GamePanel title={`weather log (${stats.weatherTotal})`}>
+                {stats.weatherTotal === 0 ? (
+                  <p className="game-stat-empty">no weather events logged yet</p>
+                ) : (
+                  <>
+                    {stats.weatherByType.map((item) => (
+                      <GameStatRow
+                        key={item.label}
+                        label={item.label.toLowerCase()}
+                        value={
+                          <>
+                            {item.value}
+                            <span className="game-stat-val-muted"> · {item.pct}%</span>
+                          </>
+                        }
+                        pct={
+                          stats.weatherTotal > 0 ? (item.value / stats.weatherTotal) * 100 : 0
+                        }
+                        isNight={isNight}
+                      />
+                    ))}
+                    <div className="game-log-list">
+                      {stats.weatherRecent.map((evt) => (
+                        <p key={evt.id} className="game-log-line">
+                          <span className="game-log-type">{evt.label.toLowerCase()}</span>
+                          {" · "}
+                          r{evt.raceNumber} · {formatRaceBegan(new Date(evt.startedAt))} ·{" "}
+                          {formatCompactDuration(evt.durationSec * 1000)}
+                        </p>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </GamePanel>
+
+              <GamePanel title="all-time records">
+                <div className="racer-card-grid">
+                  {stats.records.map((rec) => (
+                    <GameField
+                      key={rec.label}
+                      label={rec.label.toLowerCase()}
+                      value={
+                        <>
+                          {formatRacerName(rec.name)} · {rec.value}
+                        </>
+                      }
+                    />
+                  ))}
+                </div>
+              </GamePanel>
+
+              <GamePanel title="career totals">
+                {stats.careerTotals.map((item) => (
+                  <GameStatRow
+                    key={item.label}
+                    label={item.label.toLowerCase()}
+                    value={item.value}
+                    pct={item.pct}
+                    isNight={isNight}
+                  />
+                ))}
+              </GamePanel>
             </div>
 
-            <button type="button" className="retro-close" onClick={onClose}>
-              ◄ PRESS [X] TO CLOSE ►
-            </button>
+            <p className="racer-card-footer">press x or tap outside to close</p>
           </>
         )}
       </div>

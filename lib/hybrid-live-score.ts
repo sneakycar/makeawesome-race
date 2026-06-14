@@ -12,67 +12,116 @@ export function getCronSegmentProgress(
   return Math.max(0, Math.min(1, elapsed / CRON_SEGMENT_MS));
 }
 
-export interface HybridScoreState {
-  /** Animated display score between segment start and confirmed total. */
+export const ROLLING_TICK_WINDOW = 3;
+
+export interface RollingTickAnimationState {
+  /** Animated display score between cron ticks. */
   score: number;
   /** Confirmed total from the last cron tick. */
   confirmedScore: number;
-  /** Signed point change on the last cron tick. */
-  tickDelta: number;
-  /** Score at the start of this 15m segment. */
-  baseScore: number;
+  /** Score before the rolling window of recent deltas. */
+  hardenedScore: number;
+  /** Last N tick deltas (oldest first), max 3. */
+  recentDeltas: number[];
   segmentProgress: number;
+  /** Signed delta currently animating (for +N badge). */
+  animatingDelta: number;
 }
 
-export function getHybridScoreState(
-  raceScore: number,
-  lastDelta: number,
-  segmentProgress: number
-): HybridScoreState {
-  const confirmedScore = clampRaceScore(Number(raceScore));
-  const tickDelta = Number(lastDelta);
-  const baseScore = clampRaceScore(confirmedScore - tickDelta);
+export function normalizeRecentDeltas(
+  recentDeltas: number[] | null | undefined,
+  lastDelta?: number
+): number[] {
+  if (recentDeltas?.length) {
+    return recentDeltas.map(Number).slice(-ROLLING_TICK_WINDOW);
+  }
+  const d = Number(lastDelta ?? 0);
+  return d !== 0 ? [d] : [];
+}
 
-  if (tickDelta === 0 || segmentProgress >= 1) {
+/** Append a tick delta and keep the last 3. */
+export function appendRecentDelta(
+  prev: number[] | null | undefined,
+  delta: number
+): number[] {
+  return [...(prev ?? []), Number(delta)].slice(-ROLLING_TICK_WINDOW);
+}
+
+/**
+ * Between cron ticks: hardened base + each of the last 3 tick gains animates
+ * in sequence over the 15m segment. At segment end, display = confirmed score.
+ */
+export function getRollingTickAnimationState(
+  confirmedScore: number,
+  recentDeltas: number[],
+  segmentProgress: number
+): RollingTickAnimationState {
+  const confirmed = clampRaceScore(Number(confirmedScore));
+  const deltas = recentDeltas.map(Number).slice(-ROLLING_TICK_WINDOW);
+  const deltaSum = deltas.reduce((a, b) => a + b, 0);
+  const hardened = clampRaceScore(confirmed - deltaSum);
+
+  if (deltas.length === 0 || segmentProgress >= 1) {
     return {
-      score: confirmedScore,
-      confirmedScore,
-      tickDelta,
-      baseScore,
-      segmentProgress: 1,
+      score: confirmed,
+      confirmedScore: confirmed,
+      hardenedScore: hardened,
+      recentDeltas: deltas,
+      segmentProgress: deltas.length === 0 ? 1 : segmentProgress,
+      animatingDelta: 0,
     };
   }
 
+  const n = deltas.length;
+  const partSize = 1 / n;
+  let score = hardened;
+  let animatingDelta = 0;
+
+  for (let i = 0; i < n; i++) {
+    const slotStart = i * partSize;
+    const slotEnd = (i + 1) * partSize;
+    if (segmentProgress >= slotEnd) {
+      score += deltas[i];
+    } else if (segmentProgress > slotStart) {
+      const t = (segmentProgress - slotStart) / partSize;
+      score += deltas[i] * t;
+      animatingDelta = Math.round(deltas[i] * t);
+      break;
+    }
+  }
+
   return {
-    score: clampRaceScore(baseScore + tickDelta * segmentProgress),
-    confirmedScore,
-    tickDelta,
-    baseScore,
+    score: clampRaceScore(score),
+    confirmedScore: confirmed,
+    hardenedScore: hardened,
+    recentDeltas: deltas,
     segmentProgress,
+    animatingDelta,
   };
 }
 
 export interface PipFillState {
-  /** Fully lit pip count. */
   bright: number;
-  /** Index of the pip currently filling or draining (if any). */
   partialIndex: number;
-  /** 0–1 fill amount for partialIndex. */
   partial: number;
 }
 
-/** Lit pips for animated score, with trailing pip easing over the segment. */
+/** Lit pips for rolling tick animation score. */
 export function getPipFillState(
   confirmedScore: number,
-  lastDelta: number,
+  recentDeltas: number[],
   segmentProgress: number
 ): PipFillState {
-  const hybrid = getHybridScoreState(confirmedScore, lastDelta, segmentProgress);
-  const animatedTotal = hybrid.score;
+  const rolling = getRollingTickAnimationState(
+    confirmedScore,
+    recentDeltas,
+    segmentProgress
+  );
+  const animatedTotal = rolling.score;
 
-  if (hybrid.tickDelta === 0 || hybrid.segmentProgress >= 1) {
+  if (rolling.recentDeltas.length === 0 || rolling.segmentProgress >= 1) {
     return {
-      bright: Math.round(hybrid.confirmedScore),
+      bright: Math.round(rolling.confirmedScore),
       partialIndex: -1,
       partial: 0,
     };
@@ -89,4 +138,24 @@ export function getPipFillState(
   }
 
   return { bright, partialIndex: -1, partial: 0 };
+}
+
+/** @deprecated use getRollingTickAnimationState */
+export function getHybridScoreState(
+  raceScore: number,
+  lastDelta: number,
+  segmentProgress: number
+) {
+  const rolling = getRollingTickAnimationState(
+    raceScore,
+    normalizeRecentDeltas(null, lastDelta),
+    segmentProgress
+  );
+  return {
+    score: rolling.score,
+    confirmedScore: rolling.confirmedScore,
+    tickDelta: lastDelta,
+    baseScore: rolling.hardenedScore,
+    segmentProgress: rolling.segmentProgress,
+  };
 }

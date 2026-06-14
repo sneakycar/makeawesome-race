@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
 import { TARGET_WINNER_SCORE, clampRaceScore, getPaceCap } from "./score";
+import { appendRecentDelta } from "./hybrid-live-score";
 import { ordinal, slugify } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
 import { processRaceSupports } from "./support-db";
@@ -47,6 +48,7 @@ import {
   calculateFightChance,
   clearEndedFights,
   fightTraitMultiplier,
+  isStillFightingAtRaceEnd,
   pickFightPair,
   shouldStartFight,
 } from "./fights";
@@ -386,6 +388,7 @@ export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<
     displayed_progress: 0,
     current_rank: 1,
     last_delta: 0,
+    recent_deltas: [],
     race_score: 0,
     peak_race_score: 0,
     condition: 0,
@@ -429,12 +432,17 @@ export async function assignLanesForRoster(
   );
 }
 
-function rankEntries<T extends { race_score: number; is_injured?: boolean }>(
+function rankEntries<T extends { race_score: number; is_injured?: boolean; is_disqualified?: boolean }>(
   entries: T[]
 ): (T & { current_rank: number; displayed_progress: number })[] {
-  const healthy = entries.filter((e) => !e.is_injured).sort((a, b) => b.race_score - a.race_score);
+  const healthy = entries
+    .filter((e) => !e.is_injured && !e.is_disqualified)
+    .sort((a, b) => b.race_score - a.race_score);
+  const disqualified = entries
+    .filter((e) => !e.is_injured && e.is_disqualified)
+    .sort((a, b) => b.race_score - a.race_score);
   const injured = entries.filter((e) => e.is_injured).sort((a, b) => b.race_score - a.race_score);
-  const sorted = [...healthy, ...injured];
+  const sorted = [...healthy, ...disqualified, ...injured];
   return sorted.map((e, i) => ({
     ...e,
     current_rank: i + 1,
@@ -631,6 +639,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         progress: newScore,
         displayed_progress: Math.round(newScore),
         last_delta: 0,
+        recent_deltas: appendRecentDelta(entry.recent_deltas, 0),
         event_note: "INJURED",
       });
       continue;
@@ -644,6 +653,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         progress: frozen,
         displayed_progress: Math.round(frozen),
         last_delta: 0,
+        recent_deltas: appendRecentDelta(entry.recent_deltas, 0),
         event_note: "FIGHT",
       });
       continue;
@@ -703,6 +713,10 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
       progress: newScore,
       displayed_progress: Math.round(newScore),
       last_delta: isInjured ? 0 : tickResult.delta,
+      recent_deltas: appendRecentDelta(
+        entry.recent_deltas,
+        isInjured ? 0 : tickResult.delta
+      ),
       event_note: isInjured ? "INJURED" : tickResult.event_note,
       race_score: newScore,
       is_injured: isInjured,
@@ -752,6 +766,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
         displayed_progress: entry.displayed_progress,
         current_rank: entry.current_rank,
         last_delta: entry.last_delta,
+        recent_deltas: entry.recent_deltas ?? [],
         last_rank_change: entry.last_rank_change,
         event_note: entry.event_note,
         race_score: entry.race_score,
@@ -936,12 +951,14 @@ export async function finalizeRace(
 
   const processed = entries.map((entry) => {
     const simEntry = sim.find((s) => s.player_id === entry.player_id)!;
+    const isDisqualified = isStillFightingAtRaceEnd(entry, tickNumber);
     return {
       ...entry,
       player: entry.player as Player,
       progress: simEntry.score,
       race_score: simEntry.score,
       displayed_progress: Math.round(simEntry.score),
+      is_disqualified: isDisqualified,
     };
   });
 
@@ -953,6 +970,9 @@ export async function finalizeRace(
 
   const hadInjuries = ranked.some((e) => e.is_injured);
   const injuredIds = ranked.filter((e) => e.is_injured).map((e) => e.player_id);
+  const dqIds = ranked.filter((e) => e.is_disqualified).map((e) => e.player_id);
+  const hadDqs = dqIds.length > 0;
+  const healthyFinishCount = ranked.filter((e) => !e.is_injured && !e.is_disqualified).length;
 
   const allTimeTop = await getAllTimeTop3(supabase);
   const top3Ids = new Set(allTimeTop.map((p) => p.id));
@@ -962,8 +982,13 @@ export async function finalizeRace(
   for (const entry of ranked) {
     const player = entry.player as Player;
     const finish = entry.final_rank ?? entry.current_rank;
-    const isWinner = !entry.is_injured && finish === 1;
-    const isLast = !hadInjuries && !entry.is_injured && finish === 8;
+    const isWinner = !entry.is_injured && !entry.is_disqualified && finish === 1;
+    const isLast =
+      !hadInjuries &&
+      !hadDqs &&
+      !entry.is_injured &&
+      !entry.is_disqualified &&
+      finish === healthyFinishCount;
 
     const peakScore = Math.max(
       Number(entry.peak_race_score ?? 0),
@@ -985,6 +1010,11 @@ export async function finalizeRace(
         injury_severity: entry.injury_severity ?? null,
         injury_note: entry.injury_note ?? null,
         injury_races_missed: entry.injury_races_missed ?? null,
+        is_fighting: false,
+        fighting_at_tick: null,
+        fight_end_tick: null,
+        fight_partner_id: null,
+        fight_frozen_score: null,
         updated_at: now.toISOString(),
       })
       .eq("id", entry.id);
@@ -1020,6 +1050,23 @@ export async function finalizeRace(
         currentDay,
         "injured",
         `OUT ${racesMissed} RACES`,
+        finish,
+        Math.round(Number(entry.race_score))
+      );
+    } else if (entry.is_disqualified) {
+      updates.status = "holding";
+      updates.eliminations = player.eliminations + 1;
+      updates.holding_days = player.holding_days + 1;
+      updates.total_holding_days = player.total_holding_days + 1;
+      updates.pressure = Math.max(0, (updates.pressure ?? player.pressure) - 8);
+      updates.fatigue = Math.max(0, (updates.fatigue ?? player.fatigue) - 3);
+      await addHistory(
+        supabase,
+        player.id,
+        race.id,
+        currentDay,
+        "eliminated",
+        "DISQUALIFIED — FIGHT AT FINISH",
         finish,
         Math.round(Number(entry.race_score))
       );
@@ -1059,7 +1106,7 @@ export async function finalizeRace(
         finish,
         Math.round(Number(entry.race_score))
       );
-    } else if (!entry.is_injured) {
+    } else if (!entry.is_injured && !entry.is_disqualified) {
       await addHistory(
         supabase,
         player.id,
@@ -1086,8 +1133,12 @@ export async function finalizeRace(
 
   await processRaceSupports(supabase, race, currentDay);
 
-  const winnerEntry = ranked.find((e) => e.final_rank === 1 && !e.is_injured);
-  const lastHealthy = [...ranked].reverse().find((e) => !e.is_injured);
+  const winnerEntry = ranked.find(
+    (e) => e.final_rank === 1 && !e.is_injured && !e.is_disqualified
+  );
+  const lastHealthy = [...ranked]
+    .reverse()
+    .find((e) => !e.is_injured && !e.is_disqualified);
   if (winnerEntry && lastHealthy) {
     const finalizeMessages = generateFinalizeTickerEvents(
       (winnerEntry.player as Player).name,
@@ -1099,8 +1150,8 @@ export async function finalizeRace(
     await saveTickerEvents(supabase, race.id, TICKS_PER_RACE, finalizeMessages);
   }
 
-  const slotsNeeded = injuredIds.length + (hadInjuries ? 0 : 1);
-  const excludeIds = new Set(injuredIds);
+  const slotsNeeded = injuredIds.length + dqIds.length + (hadInjuries || hadDqs ? 0 : 1);
+  const excludeIds = new Set([...injuredIds, ...dqIds]);
 
   if (!createNextRace) {
     await supabase
@@ -1380,6 +1431,7 @@ export async function createRace(
     displayed_progress: 0,
     current_rank: 1,
     last_delta: 0,
+    recent_deltas: [],
     race_score: 0,
     peak_race_score: 0,
     condition: 0,

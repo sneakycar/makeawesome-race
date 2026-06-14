@@ -85,29 +85,3 @@ export function getRaceWeather(raceId: string, now = new Date()): RaceWeatherSta
   if (now < evt.startedAt || now > evt.endedAt) return null;
   return { type: evt.type, label: evt.label };
 }
-
-export const WEATHER_ART: Record<
-  RaceWeatherType,
-  { layerA: string; layerB: string }
-> = {
-  rain: {
-    layerA: "' | ' | ' | ' | ' | ' | ' | ' |",
-    layerB: " . / . \\ . / . \\ . / . \\ . / .",
-  },
-  wind: {
-    layerA: "≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈",
-    layerB: "  ~~~~>>  ~~~~>>  ~~~~>>  ~~~~>>",
-  },
-  storm: {
-    layerA: "' / \\ | ' / \\ | ' / \\ | ' / \\ |",
-    layerB: " . | . \\ . | . / . | . \\ . | . /",
-  },
-  heat: {
-    layerA: "~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~",
-    layerB: "  ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~",
-  },
-  fog: {
-    layerA: "·   ·    ·   ·    ·   ·    ·   ·",
-    layerB: "   ·    ·   ·    ·   ·    ·   ·",
-  },
-};

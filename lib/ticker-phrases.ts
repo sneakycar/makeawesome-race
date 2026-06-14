@@ -20,6 +20,65 @@ export function pickTickerPhrase(
   return fillTickerPhrase(template, vars);
 }
 
+function extractTemplateVars(template: string): string[] {
+  return [...template.matchAll(/\{([a-zA-Z_]+)\}/g)].map((m) => m[1]!);
+}
+
+export function isCompleteTickerMessage(message: string): boolean {
+  const trimmed = message.trim();
+  return trimmed.length > 0 && !/\{[a-zA-Z_]+\}/.test(trimmed);
+}
+
+export function pickGatedTickerPhrase(
+  seed: string,
+  phrases: readonly string[],
+  vars: TickerPhraseVars
+): string | null {
+  if (!phrases.length) return null;
+  const eligible = phrases.filter((template) => phraseVarsAreValid(template, vars));
+  if (!eligible.length) return null;
+  return pickTickerPhrase(seed, eligible, vars);
+}
+
+function phraseVarsAreValid(template: string, vars: TickerPhraseVars): boolean {
+  for (const key of extractTemplateVars(template)) {
+    const val = vars[key];
+    if (val === undefined || val === null || val === "") return false;
+    if (key === "loss" || key === "gain" || key === "delta" || key === "gap") {
+      const n = Number(val);
+      if (!Number.isFinite(n) || n < 1) return false;
+    }
+    if (key === "rank") {
+      const n = Number(val);
+      if (!Number.isInteger(n) || n < 1 || n > 8) return false;
+    }
+  }
+  return true;
+}
+
+export const SCORE_COLLAPSE_PHRASES = [
+  "{name} COLLAPSE — {delta} PTS LOST!",
+  "POINT COLLAPSE FOR {name} — MINUS {delta}!",
+  "{name} BLEW UP — {delta} POINTS GONE!",
+  "SCORE DISASTER — {name} LOST {delta} PTS!",
+  "{name} MELTED {delta} POINTS OFF THE BOARD!",
+  "BRUTAL TICK FOR {name} — DOWN {delta} PTS!",
+  "{name} GAVE BACK {delta} POINTS!",
+  "THE WHEELS CAME OFF — {name} MINUS {delta}!",
+  "{name} UNRAVELING — {delta} PT DROP!",
+  "COLLAPSE ON THE SCOREBOARD — {name} -{delta}!",
+  "{name} LOST {delta} IN ONE SWING!",
+  "POINTS EVAPORATED FOR {name} — {delta} GONE!",
+  "{name} TOOK A {delta}-POINT HIT!",
+  "SCORE FADE — {name} DOWN {delta}!",
+  "{name} IS CRUMBLING — {delta} PTS LOST!",
+  "DISASTER ON POINTS — {name} -{delta}!",
+  "{name} DROPPED {delta} ON THE SCOREBOARD!",
+  "COLLAPSE CONFIRMED — {name} -{delta} PTS!",
+  "{name} LOST THE PLOT — {delta} POINTS!",
+  "HARD FALL ON POINTS — {name} MINUS {delta}!",
+] as const;
+
 export const LEAD_CHANGE_PHRASES = [
   "OH! {name} TAKES THE LEAD — {prev} DROPPED!",
   "LEAD CHANGE! {name} IS OUT FRONT NOW!",

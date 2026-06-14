@@ -606,6 +606,14 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   display: block;
 }
 
+.race-meta-line:first-child {
+  margin-bottom: 5px;
+}
+
+.race-meta-line:last-child {
+  margin-bottom: 5px;
+}
+
 .race-meta-next-soon {
   color: #c0392b;
   font-weight: 700;
@@ -773,7 +781,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   box-sizing: border-box;
 }
 
-.score-pip-viewport-leader {
+.score-pip-on-leader {
   box-shadow:
     0 0 0 1px #c9a100,
     0 0 0 2px rgba(0, 0, 0, 0.35);
@@ -842,16 +850,17 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .tap-hint {
-  margin: 0 0 22px;
-  font-size: 11px;
+  margin: -5px 0 17px;
+  font-size: 9px;
   color: #555;
+  opacity: 0.8;
   font-style: italic;
 }
 
 .race-standings {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
   margin-bottom: 0;
   position: relative;
   z-index: 2;
@@ -860,6 +869,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .race-standings-wrap {
   position: relative;
   margin-bottom: 10px;
+  margin-top: -5px;
 }
 
 .row-line-leader .row-name {
@@ -882,85 +892,194 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   z-index: 1;
   pointer-events: none;
   overflow: hidden;
-  opacity: 0.22;
-  font-size: 10px;
-  line-height: 1.1;
-  letter-spacing: 0.12em;
-  color: #555;
+  border-radius: 2px;
 }
 
-.race-weather-label {
+.race-weather-sky {
   position: absolute;
-  top: 0;
-  right: 0;
-  font-size: 8px;
-  letter-spacing: 0.14em;
-  opacity: 0.7;
+  inset: 0;
+  pointer-events: none;
 }
 
-.race-weather-layer {
+.race-weather--rain .race-weather-sky {
+  background: linear-gradient(
+    180deg,
+    rgba(120, 160, 210, 0.14) 0%,
+    rgba(80, 120, 170, 0.06) 55%,
+    transparent 100%
+  );
+}
+
+.race-weather--wind .race-weather-sky {
+  background: linear-gradient(
+    90deg,
+    rgba(140, 150, 160, 0.1) 0%,
+    transparent 40%,
+    rgba(140, 150, 160, 0.08) 100%
+  );
+}
+
+.race-weather--storm .race-weather-sky {
+  background: linear-gradient(
+    180deg,
+    rgba(30, 40, 60, 0.38) 0%,
+    rgba(50, 60, 80, 0.18) 100%
+  );
+}
+
+.race-weather--heat .race-weather-sky {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 190, 90, 0.2) 0%,
+    rgba(255, 130, 50, 0.08) 100%
+  );
+}
+
+.race-weather--fog .race-weather-sky {
+  background: rgba(200, 210, 220, 0.12);
+}
+
+.race-weather-canvas {
   position: absolute;
-  left: 0;
-  right: 0;
-  margin: 0;
-  white-space: pre;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  color: inherit;
-  background: transparent;
-  border: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
-.race-weather-layer-a {
+.race-weather-mist {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  height: 42%;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 50%,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.08) 55%,
+    transparent 72%
+  );
+  filter: blur(10px);
+  opacity: 0.55;
+}
+
+.race-weather-mist-a {
   top: 8%;
-  animation: race-weather-drift-a 7s linear infinite;
+  animation: race-weather-mist-drift-a 18s ease-in-out infinite;
 }
 
-.race-weather-layer-b {
-  top: 38%;
-  animation: race-weather-drift-b 9s linear infinite;
+.race-weather-mist-b {
+  top: 32%;
+  opacity: 0.42;
+  animation: race-weather-mist-drift-b 24s ease-in-out infinite;
 }
 
-@keyframes race-weather-drift-a {
-  0% {
+.race-weather-mist-c {
+  top: 58%;
+  opacity: 0.35;
+  animation: race-weather-mist-drift-a 28s ease-in-out infinite reverse;
+}
+
+@keyframes race-weather-mist-drift-a {
+  0%,
+  100% {
     transform: translateX(0);
   }
-  100% {
-    transform: translateX(-12%);
+  50% {
+    transform: translateX(8%);
   }
 }
 
-@keyframes race-weather-drift-b {
-  0% {
+@keyframes race-weather-mist-drift-b {
+  0%,
+  100% {
+    transform: translateX(4%);
+  }
+  50% {
     transform: translateX(-6%);
   }
-  100% {
-    transform: translateX(6%);
-  }
 }
 
-.race-weather-storm {
-  animation: race-weather-storm-flash 4.5s steps(2, end) infinite;
+.race-weather-heat-wave {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 200, 100, 0) 0px,
+    rgba(255, 200, 100, 0.04) 3px,
+    rgba(255, 200, 100, 0) 6px
+  );
+  animation: race-weather-heat-shimmer 3.5s ease-in-out infinite;
+  mix-blend-mode: soft-light;
 }
 
-@keyframes race-weather-storm-flash {
+@keyframes race-weather-heat-shimmer {
   0%,
-  88%,
   100% {
-    opacity: 0.22;
+    opacity: 0.35;
+    transform: translateY(0);
   }
-  90% {
-    opacity: 0.38;
+  50% {
+    opacity: 0.65;
+    transform: translateY(-3px);
   }
 }
 
-.race-weather-fog {
-  opacity: 0.16;
+.race-weather-lightning {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0);
+  animation: race-weather-lightning-flash 7s linear infinite;
+  pointer-events: none;
 }
 
-.race-weather-wind {
-  opacity: 0.18;
+@keyframes race-weather-lightning-flash {
+  0%,
+  91%,
+  93%,
+  100% {
+    background: rgba(255, 255, 255, 0);
+  }
+  92% {
+    background: rgba(255, 255, 255, 0.22);
+  }
+}
+
+.race-weather-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #333;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.race-weather-badge-icon {
+  font-size: 9px;
+  line-height: 1;
+  filter: grayscale(0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .race-weather-mist,
+  .race-weather-heat-wave,
+  .race-weather-lightning {
+    animation: none;
+  }
 }
 
 .encourage-btn {
@@ -1182,27 +1301,27 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   display: inline-block;
   line-height: 1;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 11px;
   filter: grayscale(1);
   -webkit-filter: grayscale(1);
 }
 
 .race-emoji-btn {
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .race-emoji-inline {
-  font-size: 10px;
+  font-size: 9px;
   vertical-align: -1px;
   margin-right: 3px;
 }
 
 .race-emoji-overlay {
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .race-emoji-star {
-  font-size: 9px;
+  font-size: 8px;
   vertical-align: -1px;
 }
 
@@ -1335,7 +1454,7 @@ body[data-home-theme="night"] .row-mark-slot {
 }
 
 .row-scoreboard-overlay-emoji {
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1;
 }
 
@@ -1369,7 +1488,7 @@ body[data-home-theme="night"] .row-mark-slot {
 }
 
 .score-pip-overlay-emoji {
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1;
 }
 
@@ -1395,7 +1514,13 @@ body[data-home-theme="night"] .row-mark-slot {
 }
 
 .row-place-1 {
+  display: inline-block;
+  padding: 1px 4px;
+  line-height: 1.2;
   color: #c9a100;
+  border: 1px solid #c9a100;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .row-place-2 {
@@ -1408,6 +1533,12 @@ body[data-home-theme="night"] .row-mark-slot {
 
 .row-place-rest {
   color: #888;
+}
+
+.row-place-fighting {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  opacity: 0.55;
 }
 
 .score-pip-empty {
@@ -1436,7 +1567,7 @@ body[data-home-theme="night"] .row-mark-slot {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 16px;
-  margin: 18px 0 10px;
+  margin: 23px 0 10px;
   font-size: 10px;
   color: #555;
   letter-spacing: 0.04em;
@@ -2015,7 +2146,103 @@ body[data-home-theme="night"] .row-mark-slot {
   }
 }
 
-/* player card — same world as race page */
+/* player card — race page broadcast language */
+
+.player-sheet-overlay {
+  z-index: 100;
+  align-items: flex-start;
+  justify-content: center;
+  padding:
+    max(10px, env(safe-area-inset-top))
+    max(10px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left));
+  background: rgba(250, 250, 250, 0.97);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+body[data-home-theme="night"] .player-sheet-overlay {
+  background: rgba(17, 17, 17, 0.97);
+}
+
+.player-sheet {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.player-sheet-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.player-sheet .row-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.player-sheet-tags {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.player-sheet-meta {
+  margin: 0 0 4px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #888;
+  letter-spacing: 0.02em;
+}
+
+.player-sheet-sig {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.player-sheet-panel {
+  margin: 10px 0;
+}
+
+.player-sheet-ability {
+  margin-bottom: 2px;
+}
+
+.player-sheet-ability .row-head {
+  margin-bottom: 0;
+}
+
+.player-sheet-ability-pips {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  height: 10px;
+}
+
+.player-sheet-ability-sig .row-archetype:first-child {
+  color: #9a3b00;
+}
+
+body[data-home-theme="night"] .player-sheet-ability-sig .row-archetype:first-child {
+  color: #ffd700;
+}
+
+.player-sheet-foot {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+body[data-home-theme="night"] .player-sheet-meta {
+  color: #888;
+}
+
+body[data-home-theme="night"] .player-sheet .row-score-pip-num {
+  color: #ddd;
+}
+
+/* player card + league stats — game sheet (stats overlay) */
 
 .overlay--racer {
   z-index: 100;
@@ -2434,11 +2661,214 @@ body[data-home-theme="night"] .row-mark-slot {
   }
 }
 
-/* league stats overlay — infographic charts */
+.racer-card-header--league {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.22);
+  background-color: #cc0000;
+  background-image: linear-gradient(
+    90deg,
+    #7a0000 0%,
+    #7a0000 12%,
+    #cc0000 12%,
+    #cc0000 88%,
+    #7a0000 88%,
+    #7a0000 100%
+  );
+}
 
-.stats-screen {
+.stats-card {
   max-width: 440px;
 }
+
+.game-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.game-tile {
+  padding: 8px 6px;
+  text-align: center;
+  border: 1px dashed #bbb;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 4px;
+}
+
+.overlay--racer[data-theme="night"] .game-tile {
+  border-color: #444;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.game-tile-num {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: #111;
+  margin-bottom: 4px;
+}
+
+.overlay--racer[data-theme="night"] .game-tile-num {
+  color: #f0f0f0;
+}
+
+.game-tile-label {
+  display: block;
+  font-size: 8px;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888;
+}
+
+.game-stat-row {
+  margin-bottom: 10px;
+}
+
+.game-stat-row:last-child {
+  margin-bottom: 0;
+}
+
+.game-stat-row.is-highlight .game-stat-label {
+  color: #9a3b00;
+  font-weight: 700;
+}
+
+.overlay--racer[data-theme="night"] .game-stat-row.is-highlight .game-stat-label {
+  color: #ffd700;
+}
+
+.game-stat-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.game-stat-label {
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  color: #444;
+  text-transform: lowercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay--racer[data-theme="night"] .game-stat-label {
+  color: #ccc;
+}
+
+.game-stat-val {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #111;
+}
+
+.overlay--racer[data-theme="night"] .game-stat-val {
+  color: #f0f0f0;
+}
+
+.game-stat-val-muted {
+  font-weight: 600;
+  color: #888;
+}
+
+.game-stat-sub {
+  margin-top: 3px;
+  font-size: 9px;
+  line-height: 1.35;
+  color: #888;
+  font-style: italic;
+}
+
+.overlay--racer[data-theme="night"] .game-stat-sub {
+  color: #aaa;
+}
+
+.game-stat-pips {
+  height: 10px;
+}
+
+.game-stat-empty {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #888;
+  font-style: italic;
+}
+
+.stats-panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+
+.game-log-list {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #bbb;
+  max-height: 220px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.overlay--racer[data-theme="night"] .game-log-list {
+  border-top-color: #444;
+}
+
+.game-log-line {
+  margin: 0 0 6px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #555;
+  word-break: break-word;
+}
+
+.game-log-line:last-child {
+  margin-bottom: 0;
+}
+
+.overlay--racer[data-theme="night"] .game-log-line {
+  color: #bbb;
+}
+
+.game-log-type {
+  color: #111;
+  font-weight: 600;
+}
+
+.overlay--racer[data-theme="night"] .game-log-type {
+  color: #f0f0f0;
+}
+
+@media (max-width: 380px) {
+  .stats-panel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .game-tile-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 720px) {
+  .stats-card {
+    max-width: 520px;
+  }
+
+  .game-tile-num {
+    font-size: 17px;
+  }
+}
+
+/* league stats link on home page */
 
 .stats-link {
   display: block;
@@ -2464,151 +2894,6 @@ body[data-home-theme="night"] .row-mark-slot {
   background: rgba(0, 0, 0, 0.04);
 }
 
-.info-tile-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.info-tile {
-  padding: 8px 4px;
-  text-align: center;
-  background: rgba(0, 0, 0, 0.45);
-  border: 2px solid #4466cc;
-  box-shadow: inset 0 0 8px rgba(0, 80, 255, 0.12);
-}
-
-.info-tile-num {
-  display: block;
-  font-size: 13px;
-  line-height: 1.2;
-  font-weight: 700;
-  text-shadow: 2px 2px 0 #000;
-  margin-bottom: 4px;
-}
-
-.info-tile-label {
-  display: block;
-  font-size: 5px;
-  color: #aac;
-  letter-spacing: 0.08em;
-}
-
-.info-bar-row {
-  margin-bottom: 8px;
-}
-
-.info-bar-row:last-child {
-  margin-bottom: 0;
-}
-
-.info-bar-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 3px;
-}
-
-.info-bar-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 6px;
-  color: #ccd6ff;
-  letter-spacing: 0.04em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.info-bar-val {
-  flex-shrink: 0;
-  font-size: 6px;
-  color: #ffd700;
-  font-variant-numeric: tabular-nums;
-}
-
-.info-bar-sub {
-  margin-top: 2px;
-  font-size: 5px;
-  color: #8899cc;
-  letter-spacing: 0.03em;
-}
-
-.info-bar-track {
-  height: 8px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid #335;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
-}
-
-.info-bar-fill {
-  height: 100%;
-  min-width: 2px;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.25);
-  transition: width 0.2s ease-out;
-}
-
-.info-empty {
-  margin: 0;
-  font-size: 6px;
-  color: #8899cc;
-  text-align: center;
-  padding: 6px 0;
-}
-
-.weather-log-list {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 2px dashed #4466cc;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.weather-log-row {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 4px 2px;
-  font-size: 6px;
-  line-height: 1.5;
-  letter-spacing: 0.04em;
-}
-
-.weather-log-type {
-  color: #66ccff;
-  font-weight: 700;
-  text-shadow: 1px 1px 0 #000;
-}
-
-.weather-log-meta {
-  color: #aaccee;
-  font-size: 5px;
-  letter-spacing: 0.03em;
-}
-
-.stats-chart-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 8px;
-}
-
-@media (max-width: 380px) {
-  .stats-chart-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .info-tile-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 body[data-home-theme="night"] .stats-nav-link {
   border-color: #666;
   background: rgba(255, 255, 255, 0.04);
@@ -2625,8 +2910,8 @@ body[data-home-theme="night"] .stats-link {
 
 body[data-home-theme="night"] .stats-link:hover,
 body[data-home-theme="night"] .stats-link:active {
-  border-color: #ffd700;
-  background: rgba(255, 215, 0, 0.06);
+  border-color: #ccc;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 /* race delay overlay — semi-translucent freeze screen */
@@ -2899,6 +3184,7 @@ body[data-home-theme="night"] .race-progress-fill {
 
 body[data-home-theme="night"] .tap-hint {
   color: #aaa;
+  opacity: 0.8;
 }
 
 body[data-home-theme="night"] .encourage-btn {
@@ -3004,7 +3290,7 @@ body[data-home-theme="night"] .row-score-pip-delta-loss {
   color: #f87171;
 }
 
-body[data-home-theme="night"] .score-pip-viewport-leader {
+body[data-home-theme="night"] .score-pip-on-leader {
   box-shadow:
     0 0 0 1px #ffd700,
     0 0 0 2px rgba(0, 0, 0, 0.65);
@@ -3022,6 +3308,8 @@ body[data-home-theme="night"] .score-pip-dim {
 
 body[data-home-theme="night"] .row-place-1 {
   color: #ffd700;
+  border-color: #ffd700;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 body[data-home-theme="night"] .row-place-2 {
@@ -3156,28 +3444,65 @@ body[data-home-theme="night"] .row-line-leader .row-name {
   }
 }
 
-body[data-home-theme="night"] .race-weather {
-  color: #aaa;
-  opacity: 0.2;
+body[data-home-theme="night"] .race-weather--rain .race-weather-sky {
+  background: linear-gradient(
+    180deg,
+    rgba(80, 110, 160, 0.22) 0%,
+    rgba(40, 60, 100, 0.1) 55%,
+    transparent 100%
+  );
 }
 
-body[data-home-theme="night"] .race-weather-storm {
-  animation: race-weather-storm-flash-night 4.5s steps(2, end) infinite;
+body[data-home-theme="night"] .race-weather--storm .race-weather-sky {
+  background: linear-gradient(
+    180deg,
+    rgba(10, 15, 30, 0.55) 0%,
+    rgba(30, 40, 60, 0.28) 100%
+  );
 }
 
-@keyframes race-weather-storm-flash-night {
+body[data-home-theme="night"] .race-weather--heat .race-weather-sky {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 160, 60, 0.16) 0%,
+    rgba(200, 80, 30, 0.08) 100%
+  );
+}
+
+body[data-home-theme="night"] .race-weather--fog .race-weather-sky {
+  background: rgba(180, 190, 200, 0.08);
+}
+
+body[data-home-theme="night"] .race-weather-mist {
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 50%,
+    rgba(220, 230, 240, 0.35) 0%,
+    rgba(200, 210, 220, 0.06) 55%,
+    transparent 72%
+  );
+}
+
+body[data-home-theme="night"] .race-weather-badge {
+  color: #eee;
+  background: rgba(20, 20, 20, 0.78);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+body[data-home-theme="night"] .race-weather-lightning {
+  animation: race-weather-lightning-flash-night 7s linear infinite;
+}
+
+@keyframes race-weather-lightning-flash-night {
   0%,
-  88%,
+  91%,
+  93%,
   100% {
-    opacity: 0.2;
+    background: rgba(255, 255, 255, 0);
   }
-  90% {
-    opacity: 0.36;
+  92% {
+    background: rgba(220, 230, 255, 0.18);
   }
-}
-
-body[data-home-theme="night"] .race-weather-fog {
-  opacity: 0.14;
 }
 
 /* desktop / wide web — centered column, usable row width */
@@ -3251,8 +3576,8 @@ body[data-home-theme="night"] .race-weather-fog {
   }
 
   .tap-hint {
-    font-size: 12px;
-    margin-bottom: 24px;
+    font-size: 10px;
+    margin: -5px 0 19px;
   }
 
   .race-progress-pip-viewport {
@@ -3369,12 +3694,7 @@ body[data-home-theme="night"] .race-weather-fog {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
   }
 
-  .overlay .retro-screen {
-    max-width: 520px;
-    font-size: 9px;
-  }
-
-  .stats-screen {
+  .stats-card {
     max-width: 560px;
   }
 }

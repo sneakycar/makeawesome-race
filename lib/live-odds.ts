@@ -106,16 +106,18 @@ function bookiePower(
   percentComplete: number,
   entry: RaceEntryWithPlayer,
   leaderScore: number,
+  liveScore: number,
+  liveRank: number,
   ovr?: OvrRanking
 ): number {
   const player = entry.player;
   let power = 0;
 
-  // Book trusts position more than points.
-  power += (9 - entry.current_rank) * 3.1;
-  power += Number(entry.race_score) * 0.028;
+  // Book trusts position more than points — use live rank/score when provided.
+  power += (9 - liveRank) * 3.1;
+  power += liveScore * 0.028;
 
-  const gap = leaderScore - Number(entry.race_score);
+  const gap = leaderScore - liveScore;
   power -= gap * 0.045;
 
   if (ovr) {
@@ -160,15 +162,15 @@ function bookiePower(
   else if (entry.is_fighting) power -= 2.2;
 
   if (player.archetype === "STAR") power -= player.pressure * 0.12;
-  if (player.archetype === "GAMBLER" && entry.current_rank >= 5) power += 2.4;
-  if (player.archetype === "COMEBACKER" && entry.current_rank >= 6) power += 1.8;
+  if (player.archetype === "GAMBLER" && liveRank >= 5) power += 2.4;
+  if (player.archetype === "COMEBACKER" && liveRank >= 6) power += 1.8;
   if (player.archetype === "DOOMED" && percentComplete > 55) power -= 2.5;
 
   // Late race — book clings to pre-race chalk.
-  if (percentComplete > 65 && entry.current_rank > 3) {
+  if (percentComplete > 65 && liveRank > 3) {
     power -= (percentComplete - 65) * 0.06;
   }
-  if (percentComplete > 50 && entry.current_rank === 1) {
+  if (percentComplete > 50 && liveRank === 1) {
     power += 1.2;
   }
 
@@ -196,6 +198,7 @@ export function calculateLiveOdds(
   percentComplete: number,
   entries: RaceEntryWithPlayer[],
   scoresByPlayerId: Map<string, number>,
+  ranksByPlayerId: Map<string, number>,
   ovrByPlayerId: Record<string, OvrRanking>,
   snapshotKey: string
 ): LiveOddsLine[] {
@@ -205,9 +208,20 @@ export function calculateLiveOdds(
     ...entries.map((e) => scoresByPlayerId.get(e.player_id) ?? Number(e.race_score))
   );
 
-  const powers = entries.map((entry) =>
-    bookiePower(raceId, dayNumber, percentComplete, entry, leaderScore, ovrByPlayerId[entry.player_id])
-  );
+  const powers = entries.map((entry) => {
+    const liveScore = scoresByPlayerId.get(entry.player_id) ?? Number(entry.race_score);
+    const liveRank = ranksByPlayerId.get(entry.player_id) ?? entry.current_rank;
+    return bookiePower(
+      raceId,
+      dayNumber,
+      percentComplete,
+      entry,
+      leaderScore,
+      liveScore,
+      liveRank,
+      ovrByPlayerId[entry.player_id]
+    );
+  });
 
   const temperature = 1.52;
   const maxPower = Math.max(...powers);
@@ -223,7 +237,7 @@ export function calculateLiveOdds(
     playerId: entry.player_id,
     name: entry.player.name,
     slug: entry.player.slug,
-    rank: entry.current_rank,
+    rank: ranksByPlayerId.get(entry.player_id) ?? entry.current_rank,
     american: formatAmerican(implied[i]),
     impliedPct: Math.round(implied[i] * 1000) / 10,
     isFavorite: false,

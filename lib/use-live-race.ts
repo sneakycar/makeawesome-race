@@ -5,15 +5,15 @@ import { getRaceClock } from "./race-clock";
 import { isRaceDelayed } from "./race-delay";
 import {
   getCronSegmentProgress,
-  getHybridScoreState,
-  type HybridScoreState,
+  getRollingTickAnimationState,
+  normalizeRecentDeltas,
+  type RollingTickAnimationState,
 } from "./hybrid-live-score";
-import { calculatePrecisePercentComplete, simulateLiveEntries } from "./live-progress";
+import { calculatePrecisePercentComplete } from "./live-progress";
 import type { GameStateResponse } from "./types";
 
-export interface LiveEntryState extends HybridScoreState {
+export interface LiveEntryState extends RollingTickAnimationState {
   player_id: string;
-  current_rank: number;
 }
 
 export interface LiveRaceSnapshot {
@@ -58,8 +58,6 @@ export function useLiveRace(
       }
 
       const segmentProgress = getCronSegmentProgress(state.gameState.last_tick_at, now);
-      const simulated = simulateLiveEntries(state.race, state.entries, now);
-      const simById = new Map(simulated.map((entry) => [entry.player_id, entry]));
       const entries = new Map<string, LiveEntryState>();
 
       for (const entry of state.entries) {
@@ -72,29 +70,27 @@ export function useLiveRace(
             player_id: entry.player_id,
             score: frozen,
             confirmedScore: frozen,
-            tickDelta: 0,
-            baseScore: frozen,
+            hardenedScore: frozen,
+            recentDeltas: [],
             segmentProgress: 1,
-            current_rank: entry.current_rank,
+            animatingDelta: 0,
           });
           continue;
         }
 
-        const hybrid = getHybridScoreState(
+        const recentDeltas = normalizeRecentDeltas(
+          entry.recent_deltas,
+          Number(entry.last_delta)
+        );
+        const rolling = getRollingTickAnimationState(
           Number(entry.race_score),
-          Number(entry.last_delta),
+          recentDeltas,
           segmentProgress
         );
-        const sim = simById.get(entry.player_id);
 
         entries.set(entry.player_id, {
           player_id: entry.player_id,
-          score: sim?.score ?? hybrid.score,
-          confirmedScore: hybrid.confirmedScore,
-          tickDelta: hybrid.tickDelta,
-          baseScore: hybrid.baseScore,
-          segmentProgress: hybrid.segmentProgress,
-          current_rank: sim?.current_rank ?? entry.current_rank,
+          ...rolling,
         });
       }
 

@@ -23,9 +23,10 @@ import { useLiveRace } from "@/lib/use-live-race";
 import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
 import { useRaceWeather } from "@/lib/use-race-weather";
 import { formatRankDelta, useLiveRankDelta } from "@/lib/use-live-rank-delta";
-import { WEATHER_ART, type RaceWeatherState } from "@/lib/race-weather";
+import { RaceWeatherOverlay } from "@/app/components/race-weather-overlay";
 import { canEncourageVote, vibrateNope } from "@/lib/nope-feedback";
 import { calculateLiveOdds } from "@/lib/live-odds";
+import { buildLiveScoreMap, computeLiveRanks } from "@/lib/live-standings";
 import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 
@@ -294,16 +295,14 @@ function RaceProgressPipBar({
 
 function ScorePipTrack({
   score,
-  lastDelta,
-  segmentProgress,
+  animatingDelta,
   leaderScore,
   isLeader,
   isNight,
   statusOverlay,
 }: {
   score: number;
-  lastDelta: number;
-  segmentProgress: number;
+  animatingDelta: number;
   leaderScore: number;
   isLeader: boolean;
   isNight: boolean;
@@ -315,16 +314,12 @@ function ScorePipTrack({
   const pipBright = Math.floor(livePoints);
   const pipPartial = livePoints - pipBright;
   const displayPoints = Math.round(livePoints);
-  const animatingDelta =
-    lastDelta !== 0 && segmentProgress < 1
-      ? Math.round(lastDelta * segmentProgress)
-      : 0;
   const behind = leader - displayPoints;
   const colorSpan = Math.max(1, leader);
 
   return (
     <div
-      className={`score-pip-viewport${isLeader ? " score-pip-viewport-leader" : ""}${
+      className={`score-pip-viewport${
         statusOverlay ? " score-pip-viewport-paused" : ""
       }${isNight ? " is-night" : ""}`}
       aria-label={
@@ -348,7 +343,7 @@ function ScorePipTrack({
             return (
               <span
                 key={i}
-                className="score-pip score-pip-on"
+                className={`score-pip score-pip-on${isLeader ? " score-pip-on-leader" : ""}`}
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
                 }}
@@ -360,7 +355,9 @@ function ScorePipTrack({
             return (
               <span
                 key={i}
-                className="score-pip score-pip-on score-pip-partial"
+                className={`score-pip score-pip-on score-pip-partial${
+                  isLeader ? " score-pip-on-leader" : ""
+                }`}
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
                   opacity: Math.max(0.15, pipPartial),
@@ -418,20 +415,8 @@ function LiveOddsBoard({
   const lines = useMemo(() => {
     if (!raceActive || state.race.status !== "active") return [];
 
-    const scores = new Map<string, number>();
-    for (const entry of state.entries) {
-      if (entry.is_injured) {
-        scores.set(entry.player_id, Math.round(Number(entry.race_score)));
-      } else if (entry.is_fighting) {
-        scores.set(
-          entry.player_id,
-          Math.round(Number(entry.fight_frozen_score ?? entry.race_score))
-        );
-      } else {
-        const live = liveRace?.entries.get(entry.player_id);
-        scores.set(entry.player_id, Math.round(live?.score ?? Number(entry.race_score)));
-      }
-    }
+    const scores = buildLiveScoreMap(state.entries, liveRace?.entries);
+    const ranks = computeLiveRanks(state.entries, scores);
 
     return calculateLiveOdds(
       state.race.id,
@@ -439,6 +424,7 @@ function LiveOddsBoard({
       state.race.percent_complete,
       state.entries,
       scores,
+      ranks,
       state.ovrByPlayerId,
       state.gameState.last_tick_at ?? state.serverTime
     );
@@ -465,20 +451,6 @@ function LiveOddsBoard({
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function RaceWeatherOverlay({ weather }: { weather: RaceWeatherState }) {
-  const art = WEATHER_ART[weather.type];
-  return (
-    <div
-      className={`race-weather race-weather-${weather.type}`}
-      aria-hidden="true"
-    >
-      <span className="race-weather-label">{weather.label}</span>
-      <pre className="race-weather-layer race-weather-layer-a">{art.layerA}</pre>
-      <pre className="race-weather-layer race-weather-layer-b">{art.layerB}</pre>
     </div>
   );
 }
@@ -681,15 +653,20 @@ export default function HomePage() {
   const isNight = useDayNight();
   useHomeDayNightTheme(isNight);
   const raceWeather = useRaceWeather(state?.race.id, raceActive && !raceDelayed);
-  const rankDeltaById = useLiveRankDelta(state, raceActive && !raceDelayed);
+  const rankDeltaById = useLiveRankDelta(state, raceActive && !raceDelayed, liveRace);
+
+  const liveScoreMap = useMemo(
+    () => (state ? buildLiveScoreMap(state.entries, liveRace?.entries) : new Map()),
+    [state, liveRace]
+  );
+
+  const liveRankMap = useMemo(
+    () => (state ? computeLiveRanks(state.entries, liveScoreMap) : new Map()),
+    [state, liveScoreMap]
+  );
 
   const entryScorePoints =
-    state?.entries.map((e) => {
-      if (e.is_injured) return Math.round(Number(e.race_score));
-      if (e.is_fighting) return Math.round(Number(e.fight_frozen_score ?? e.race_score));
-      const live = liveRace?.entries.get(e.player_id);
-      return Math.round(live?.score ?? Number(e.race_score));
-    }) ?? [];
+    state?.entries.map((e) => liveScoreMap.get(e.player_id) ?? 0) ?? [];
 
   const leaderScorePoints = entryScorePoints.length
     ? Math.max(...entryScorePoints)
@@ -698,19 +675,24 @@ export default function HomePage() {
   const selectedEntry = selectedSlug
     ? state?.entries.find((e) => e.player.slug === selectedSlug)
     : undefined;
-  const selectedLiveScore =
-    selectedEntry && liveRace
-      ? liveRace.entries.get(selectedEntry.player_id)?.score
-      : undefined;
 
-  const winner = state?.entries.find(
-    (e) => (e.final_rank === 1 || e.current_rank === 1) && !e.is_injured
-  );
+  const healthyEntryCount =
+    state?.entries.filter((e) => !e.is_injured).length ?? 0;
+
+  const winner = state?.entries.find((e) => {
+    if (e.is_injured) return false;
+    const rank = liveRankMap.get(e.player_id) ?? e.current_rank;
+    return e.final_rank === 1 || rank === 1;
+  });
   const raceInjured = state?.entries.filter((e) => e.is_injured) ?? [];
   const hadRaceInjuries = raceInjured.length > 0;
   const eliminated =
     !hadRaceInjuries &&
-    state?.entries.find((e) => e.final_rank === 8 || e.current_rank === 8);
+    state?.entries.find((e) => {
+      if (e.is_injured || e.is_fighting) return false;
+      const rank = liveRankMap.get(e.player_id) ?? e.current_rank;
+      return e.final_rank === healthyEntryCount || rank === healthyEntryCount;
+    });
 
   const handleDevAction = async (path: string) => {
     setDevBusy(true);
@@ -803,23 +785,25 @@ export default function HomePage() {
 
           <div className={`race-standings-wrap${raceDelayed ? " race-standings-frozen" : ""}`}>
             {raceWeather && raceActive && !raceDelayed && (
-              <RaceWeatherOverlay weather={raceWeather} />
+              <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
             )}
             <div className="race-standings" key={state.serverTime}>
           {[...state.entries]
             .sort((a, b) => a.lane - b.lane)
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
-            const rank = entry.current_rank;
-            const pipLastDelta = live?.tickDelta ?? Number(entry.last_delta);
-            const pipSegmentProgress = live?.segmentProgress ?? 1;
+            const rank = liveRankMap.get(entry.player_id) ?? entry.current_rank;
             const pipConfirmedScore =
               live?.confirmedScore ?? Math.round(Number(entry.race_score));
+            const pipAnimatingDelta = live?.animatingDelta ?? 0;
             const isInjured = entry.is_injured;
             const isFighting = entry.is_fighting;
-            const isComeback = !isInjured && !isFighting && entry.last_rank_change >= 2;
+            const rankDelta = rankDeltaById.get(entry.player_id) ?? 0;
+            const isComeback = !isInjured && !isFighting && rankDelta >= 2;
+            const displayScore = liveScoreMap.get(entry.player_id) ?? pipConfirmedScore;
             const isLeader = !isInjured && !isFighting && rank === 1;
-            const isLast = !isInjured && !isFighting && rank === 8;
+            const isLast =
+              !isInjured && !isFighting && rank === healthyEntryCount;
             const pipOverlay = isInjured
               ? { icon: "injured" as const, label: "INJURED" }
               : isFighting
@@ -834,7 +818,6 @@ export default function HomePage() {
                   : isComeback
                     ? "comeback"
                     : null;
-            const rankDelta = rankDeltaById.get(entry.player_id) ?? 0;
             const rankDeltaLabel = formatRankDelta(rankDelta);
             const isSupported = supportedId === entry.player_id;
             const canEncourage = canEncourageVote({
@@ -886,16 +869,15 @@ export default function HomePage() {
                               : isLast
                                 ? "Last place"
                                 : isComeback
-                                  ? `Up ${entry.last_rank_change} spots since last update`
+                                  ? `Up ${rankDelta} spots since last update`
                                   : undefined
                       }
                     >
                       {barMark ? <FlatIcon id={barMark} className="race-emoji" /> : null}
                     </span>
                     <ScorePipTrack
-                      score={live?.score ?? pipConfirmedScore}
-                      lastDelta={pipLastDelta}
-                      segmentProgress={pipSegmentProgress}
+                      score={displayScore}
+                      animatingDelta={pipAnimatingDelta}
                       leaderScore={leaderScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
@@ -935,7 +917,7 @@ export default function HomePage() {
                             : rank === 3
                               ? " row-place-3"
                               : " row-place-rest"
-                      }`}
+                      }${isFighting ? " row-place-fighting" : ""}`}
                     >
                       {ordinal(rank).toLowerCase()}
                     </span>
@@ -1047,15 +1029,29 @@ export default function HomePage() {
 
       {state?.raceDelay?.active && <RaceDelayOverlay delay={state.raceDelay} />}
 
-      {selectedSlug && (
+      {selectedSlug && selectedEntry && (
         <PlayerCardOverlay
           slug={selectedSlug}
-          liveScore={selectedLiveScore}
-          ovrInfo={
-            selectedEntry
-              ? state?.ovrByPlayerId[selectedEntry.player_id]
-              : undefined
+          liveScore={
+            liveScoreMap.get(selectedEntry.player_id) ??
+            Math.round(Number(selectedEntry.race_score))
           }
+          liveRank={
+            liveRankMap.get(selectedEntry.player_id) ?? selectedEntry.current_rank
+          }
+          animatingDelta={
+            liveRace?.entries.get(selectedEntry.player_id)?.animatingDelta ?? 0
+          }
+          leaderScore={leaderScorePoints}
+          lane={selectedEntry.lane}
+          isFighting={selectedEntry.is_fighting}
+          isInjured={selectedEntry.is_injured}
+          isLeader={
+            !selectedEntry.is_injured &&
+            !selectedEntry.is_fighting &&
+            (liveRankMap.get(selectedEntry.player_id) ?? selectedEntry.current_rank) === 1
+          }
+          ovrInfo={state?.ovrByPlayerId[selectedEntry.player_id]}
           isNight={isNight}
           onClose={() => setSelectedSlug(null)}
         />

@@ -64,6 +64,15 @@ export function pickFightPair(
   };
 }
 
+export function isStillFightingAtRaceEnd(
+  entry: Pick<RaceEntry, "is_fighting" | "fighting_at_tick" | "fight_end_tick">,
+  lastTick: number
+): boolean {
+  if (!entry.is_fighting) return false;
+  if (entry.fighting_at_tick == null || entry.fight_end_tick == null) return false;
+  return entry.fighting_at_tick <= lastTick && lastTick < entry.fight_end_tick;
+}
+
 export function clearEndedFights<T extends RaceEntry>(entries: T[], tickNumber: number): T[] {
   return entries.map((entry) => {
     if (

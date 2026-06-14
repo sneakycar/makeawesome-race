@@ -81,6 +81,7 @@ create table if not exists race_entries (
   current_rank integer not null,
   final_rank integer,
   last_delta numeric not null default 0,
+  recent_deltas numeric[] not null default '{}',
   last_rank_change integer not null default 0,
   race_score numeric not null default 0,
   peak_race_score numeric not null default 0,
