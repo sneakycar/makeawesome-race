@@ -62,25 +62,23 @@ export function formatRaceScore(score: number): string {
   return scoreFormatter.format(Math.round(clampRaceScore(score)));
 }
 
-/** Smooth left→right fill for the score bar (single layer, no micro-pip ribbing). */
-export function getScoreTrackFillGradient(points: number, night = false): string {
-  const t = Math.max(0, Math.min(1, points / HARD_SCORE_CAP));
-  const hue = night ? 210 : 225;
-  const sat = Math.round(12 + t * 76);
-  const start = night ? 58 : 42;
-  const end = night ? 70 : 52;
-  const from = Math.round(start + t * (end - start) * 0.35);
-  const to = Math.round(start + t * (end - start));
-  return `linear-gradient(90deg, hsl(${hue} ${Math.max(8, sat - 12)}% ${from}%) 0%, hsl(${hue} ${sat}% ${to}%) 100%)`;
-}
-
-/** @deprecated race rows use getScoreTrackFillGradient — kept for any legacy callers */
+/** Per-pip fill: desaturated at low scores, richer saturation as points climb. */
 export function getScorePipBackground(index: number, count: number, night = false): string {
   const t = count <= 1 ? 1 : index / (count - 1);
-  const sat = Math.round(10 + t * 78);
+  const sat = Math.round(8 + t * 82);
   const hue = night ? 210 : 225;
-  const light = night ? Math.round(64 - t * 12) : Math.round(46 - t * 18);
-  return `hsl(${hue} ${sat}% ${light}%)`;
+
+  if (night) {
+    const top = Math.round(74 - t * 16);
+    const mid = Math.round(68 - t * 18);
+    const bot = Math.round(62 - t * 20);
+    return `linear-gradient(165deg, hsl(${hue} ${sat}% ${top + 4}%) 0%, hsl(${hue} ${sat}% ${mid}%) 45%, hsl(${hue} ${sat}% ${bot}%) 100%)`;
+  }
+
+  const top = Math.round(56 - t * 22);
+  const mid = Math.round(48 - t * 26);
+  const bot = Math.round(40 - t * 28);
+  return `linear-gradient(165deg, hsl(${hue} ${sat}% ${top + 4}%) 0%, hsl(${hue} ${sat}% ${mid}%) 45%, hsl(${hue} ${sat}% ${bot}%) 100%)`;
 }
 
 export const SCORE_PIP_SLOTS = 20;
