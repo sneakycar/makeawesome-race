@@ -2,8 +2,7 @@ import type { LastRaceRecap, LastRaceRecapSegment } from "./types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatRacerName, ordinal } from "./format";
 import { formatRaceScore } from "./score";
-import type { RaceWeatherType } from "./race-weather";
-import { pickGatedRecapPhrase } from "./recap-grammar-gate";
+import { pickGatedRecapPhrase, validateRecapParagraph } from "./recap-grammar-gate";
 import {
   RECAP_CHAOS_SURGE_PHRASES,
   RECAP_COLLAPSE_PHRASES,
@@ -16,8 +15,6 @@ import {
   RECAP_MARGIN_PHRASES,
   RECAP_OPENERS,
   RECAP_QUIET_PHRASES,
-  RECAP_QUOTE_PHRASES,
-  RECAP_RANK_SURGE_PHRASES,
   RECAP_STALL_PHRASES,
   RECAP_UNDERDOG_PHRASES,
   RECAP_WEATHER_PHRASES,
@@ -45,7 +42,6 @@ interface RecapContext {
   runnerUp: RecapStanding | null;
   margin: number;
   eventCounts: Map<string, number>;
-  weatherCounts: Map<RaceWeatherType, number>;
   weatherTotal: number;
   injuryCount: number;
   fightPairs: RecapFightPair[];
@@ -53,14 +49,6 @@ interface RecapContext {
   hadGodScore: boolean;
   notableLines: string[];
 }
-
-const WEATHER_HYPE: Record<RaceWeatherType, string> = {
-  storm: "violent electrical storms",
-  rain: "relentless rain squalls",
-  wind: "savage gust fronts",
-  heat: "punishing heat waves",
-  fog: "blinding fog banks",
-};
 
 function text(value: string): LastRaceRecapSegment {
   return { kind: "text", value };
@@ -78,17 +66,10 @@ function pickOpener(raceNumber: number): string {
   return RECAP_OPENERS[raceNumber % RECAP_OPENERS.length]!;
 }
 
-function formatWeatherJoined(counts: Map<RaceWeatherType, number>): string | null {
-  const ranked = [...counts.entries()]
-    .filter(([, n]) => n > 0)
-    .sort((a, b) => b[1] - a[1]);
+const MAX_CHAOS_CLAUSES = 1;
 
-  if (!ranked.length) return null;
-
-  const top = ranked.slice(0, 3).map(([type, n]) => `${n} ${WEATHER_HYPE[type]}`);
-  if (top.length === 1) return top[0]!;
-  if (top.length === 2) return `${top[0]} and ${top[1]}`;
-  return `${top[0]}, ${top[1]}, and ${top[2]}`;
+function stripClauseEnd(line: string): string {
+  return line.replace(/[.;!?]+$/g, "").trim();
 }
 
 function pushGatedLine(
@@ -98,7 +79,120 @@ function pushGatedLine(
   fallback: string,
   target: string[]
 ): void {
-  target.push(pickGatedRecapPhrase(seed, phrases, vars) ?? fallback);
+  const line = pickGatedRecapPhrase(seed, phrases, vars) ?? fallback;
+  target.push(stripClauseEnd(line));
+}
+
+interface ChaosCandidate {
+  priority: number;
+  seed: string;
+  phrases: readonly string[];
+  vars: Record<string, string | number>;
+  fallback: string;
+}
+
+function pickChaosHighlights(ctx: RecapContext, limit: number): string[] {
+  const candidates: ChaosCandidate[] = [];
+
+  if (ctx.injuryCount > 0) {
+    candidates.push({
+      priority: 1,
+      seed: `${ctx.raceId}:injury`,
+      phrases: RECAP_INJURY_PHRASES,
+      vars: { count: ctx.injuryCount, injuryWord: ctx.injuryCount === 1 ? "y" : "ies" },
+      fallback: `${ctx.injuryCount} injury${ctx.injuryCount === 1 ? "" : "ies"} forced racers off the track`,
+    });
+  }
+
+  if (ctx.delayTitle) {
+    candidates.push({
+      priority: 2,
+      seed: `${ctx.raceId}:delay`,
+      phrases: RECAP_DELAY_PHRASES,
+      vars: { title: ctx.delayTitle.toLowerCase() },
+      fallback: `the race went dark during ${ctx.delayTitle.toLowerCase()} — full delay`,
+    });
+  }
+
+  if (ctx.hadGodScore) {
+    candidates.push({
+      priority: 3,
+      seed: `${ctx.raceId}:god`,
+      phrases: RECAP_GOD_SCORE_PHRASES,
+      vars: {},
+      fallback: "somebody touched the forbidden 240 — GOD SCORE territory",
+    });
+  }
+
+  const chaosSurges = ctx.eventCounts.get("chaos_surge") ?? 0;
+  if (chaosSurges > 0) {
+    candidates.push({
+      priority: 4,
+      seed: `${ctx.raceId}:chaos`,
+      phrases: RECAP_CHAOS_SURGE_PHRASES,
+      vars: { count: chaosSurges, plural: chaosSurges === 1 ? "" : "s" },
+      fallback: `${chaosSurges} chaos surge${chaosSurges === 1 ? "" : "s"} ripped through the field`,
+    });
+  }
+
+  const collapses = ctx.eventCounts.get("collapse") ?? 0;
+  if (collapses > 0) {
+    candidates.push({
+      priority: 5,
+      seed: `${ctx.raceId}:collapse`,
+      phrases: RECAP_COLLAPSE_PHRASES,
+      vars: { count: collapses, plural: collapses === 1 ? "" : "s" },
+      fallback: `${collapses} collapse${collapses === 1 ? "" : "s"} gutted the back half`,
+    });
+  }
+
+  const stalls = ctx.eventCounts.get("stall") ?? 0;
+  if (stalls >= 12) {
+    candidates.push({
+      priority: 6,
+      seed: `${ctx.raceId}:stall`,
+      phrases: RECAP_STALL_PHRASES,
+      vars: { count: stalls },
+      fallback: `${stalls} long stalls froze the field`,
+    });
+  }
+
+  if (ctx.weatherTotal >= 12) {
+    candidates.push({
+      priority: 7,
+      seed: `${ctx.raceId}:weather`,
+      phrases: RECAP_WEATHER_PHRASES,
+      vars: { total: ctx.weatherTotal },
+      fallback: `the sky went wild — ${ctx.weatherTotal} weather bursts`,
+    });
+  }
+
+  const underdogs = ctx.eventCounts.get("underdog") ?? 0;
+  if (underdogs >= 3) {
+    candidates.push({
+      priority: 8,
+      seed: `${ctx.raceId}:underdog`,
+      phrases: RECAP_UNDERDOG_PHRASES,
+      vars: { count: underdogs, plural: underdogs === 1 ? "" : "s" },
+      fallback: `underdog pressure flared ${underdogs} times`,
+    });
+  }
+
+  candidates.sort((a, b) => a.priority - b.priority);
+
+  const lines: string[] = [];
+  for (const candidate of candidates) {
+    if (lines.length >= limit) break;
+    pushGatedLine(
+      candidate.seed,
+      candidate.phrases,
+      candidate.vars,
+      candidate.fallback,
+      lines
+    );
+  }
+
+  return lines;
 }
 
 function pushNameSplit(
@@ -135,9 +229,9 @@ function fightBeatSegments(ctx: RecapContext): LastRaceRecapSegment[] | null {
       ];
     }
     if (template.includes("scrapped")) {
-      return [racer(pair.a), text(" and "), racer(pair.b), text(" scrapped in the middle of the pack.")];
+      return [racer(pair.a), text(" and "), racer(pair.b), text(" scrapped in the middle of the pack")];
     }
-    return [racer(pair.a), text(" and "), racer(pair.b), text(" threw down mid-race.")];
+    return [racer(pair.a), text(" and "), racer(pair.b), text(" threw down mid-race")];
   }
 
   const first = `${formatRacerName(ctx.fightPairs[0]!.a)} vs ${formatRacerName(ctx.fightPairs[0]!.b)}`;
@@ -153,7 +247,7 @@ function fightBeatSegments(ctx: RecapContext): LastRaceRecapSegment[] | null {
   return [text(line)];
 }
 
-function composeRecapParagraph(ctx: RecapContext): LastRaceRecapSegment[] {
+function composeRecapParagraph(ctx: RecapContext, maxChaos = MAX_CHAOS_CLAUSES): LastRaceRecapSegment[] {
   const segments: LastRaceRecapSegment[] = [];
 
   segments.push(text(`Race ${ctx.raceNumber} ${pickOpener(ctx.raceNumber)}. `));
@@ -186,128 +280,20 @@ function composeRecapParagraph(ctx: RecapContext): LastRaceRecapSegment[] {
     `${ctx.loser.name} finished last at ${formatRaceScore(ctx.loser.score)} and was eliminated to holding.`;
   pushNameSplit(segments, lastLine, ctx.loser.name);
 
-  const chaosLines: string[] = [];
   const fightSegments = fightBeatSegments(ctx);
-
-  if (ctx.injuryCount > 0) {
-    pushGatedLine(
-      `${ctx.raceId}:injury`,
-      RECAP_INJURY_PHRASES,
-      { count: ctx.injuryCount, injuryWord: ctx.injuryCount === 1 ? "y" : "ies" },
-      `${ctx.injuryCount} injury${ctx.injuryCount === 1 ? "" : "ies"} forced racers off the track`,
-      chaosLines
-    );
-  }
-
-  if (ctx.delayTitle) {
-    pushGatedLine(
-      `${ctx.raceId}:delay`,
-      RECAP_DELAY_PHRASES,
-      { title: ctx.delayTitle.toLowerCase() },
-      `the race went dark during ${ctx.delayTitle.toLowerCase()} — full delay`,
-      chaosLines
-    );
-  }
-
-  if (ctx.hadGodScore) {
-    pushGatedLine(
-      `${ctx.raceId}:god`,
-      RECAP_GOD_SCORE_PHRASES,
-      {},
-      "somebody touched the forbidden 240 — GOD SCORE territory",
-      chaosLines
-    );
-  }
-
-  const chaosSurges = ctx.eventCounts.get("chaos_surge") ?? 0;
-  if (chaosSurges > 0) {
-    pushGatedLine(
-      `${ctx.raceId}:chaos`,
-      RECAP_CHAOS_SURGE_PHRASES,
-      { count: chaosSurges, plural: chaosSurges === 1 ? "" : "s" },
-      `${chaosSurges} chaos surge${chaosSurges === 1 ? "" : "s"} ripped through the field`,
-      chaosLines
-    );
-  }
-
-  const stalls = ctx.eventCounts.get("stall") ?? 0;
-  if (stalls >= 8) {
-    pushGatedLine(
-      `${ctx.raceId}:stall`,
-      RECAP_STALL_PHRASES,
-      { count: stalls },
-      `${stalls} stall events stopped racers cold`,
-      chaosLines
-    );
-  }
-
-  const surges = ctx.eventCounts.get("rank_surge") ?? 0;
-  if (surges >= 3) {
-    pushGatedLine(
-      `${ctx.raceId}:surge`,
-      RECAP_RANK_SURGE_PHRASES,
-      { count: surges },
-      `${surges} rank surges shook the standings`,
-      chaosLines
-    );
-  }
-
-  const collapses = ctx.eventCounts.get("collapse") ?? 0;
-  if (collapses > 0) {
-    pushGatedLine(
-      `${ctx.raceId}:collapse`,
-      RECAP_COLLAPSE_PHRASES,
-      { count: collapses },
-      `${collapses} late collapses torched the leaderboard`,
-      chaosLines
-    );
-  }
-
-  const underdogs = ctx.eventCounts.get("underdog") ?? 0;
-  if (underdogs > 0) {
-    pushGatedLine(
-      `${ctx.raceId}:underdog`,
-      RECAP_UNDERDOG_PHRASES,
-      { count: underdogs, plural: underdogs === 1 ? "" : "s" },
-      `underdog pressure flared ${underdogs} time${underdogs === 1 ? "" : "s"}`,
-      chaosLines
-    );
-  }
-
-  const weatherJoined = formatWeatherJoined(ctx.weatherCounts);
-  if (weatherJoined && ctx.weatherTotal > 0) {
-    pushGatedLine(
-      `${ctx.raceId}:weather`,
-      RECAP_WEATHER_PHRASES,
-      { total: ctx.weatherTotal, joined: weatherJoined },
-      `The elements went feral — ${ctx.weatherTotal} weather bursts, including ${weatherJoined}.`,
-      chaosLines
-    );
-  }
-
-  if (ctx.notableLines.length > 0) {
-    const quote = ctx.notableLines[0].replace(/\s+/g, " ").trim().toLowerCase();
-    if (quote.length > 0) {
-      pushGatedLine(
-        `${ctx.raceId}:quote`,
-        RECAP_QUOTE_PHRASES,
-        { quote },
-        `the broadcast desk lost it: "${quote}"`,
-        chaosLines
-      );
-    }
-  }
+  const chaosLines = pickChaosHighlights(ctx, maxChaos);
 
   if (fightSegments || chaosLines.length > 0) {
     segments.push(text(" "));
     if (fightSegments) {
       segments.push(...fightSegments);
-      if (chaosLines.length > 0) segments.push(text("; "));
     }
     if (chaosLines.length > 0) {
-      segments.push(text(chaosLines.join("; ")));
+      const prefix = fightSegments ? "; " : "";
+      segments.push(text(`${prefix}${chaosLines.join("; ")}.`));
+    } else {
+      segments.push(text("."));
     }
-    segments.push(text("."));
   } else {
     const quiet =
       pickGatedRecapPhrase(`${ctx.raceId}:quiet`, RECAP_QUIET_PHRASES, {}) ??
@@ -452,13 +438,9 @@ export async function getLastRaceRecap(
 
   const fightPairs = await loadFightPairs(supabase, race.id);
 
-  const weatherCounts = new Map<RaceWeatherType, number>();
-  for (const row of weatherRows ?? []) {
-    const type = row.weather_type as RaceWeatherType;
-    weatherCounts.set(type, (weatherCounts.get(type) ?? 0) + 1);
-  }
+  const weatherTotal = weatherRows?.length ?? 0;
 
-  const segments = composeRecapParagraph({
+  const recapCtx: RecapContext = {
     raceId: race.id,
     raceNumber: race.race_number,
     winner,
@@ -466,18 +448,24 @@ export async function getLastRaceRecap(
     runnerUp,
     margin: runnerUp ? Math.max(0, winner.score - runnerUp.score) : 0,
     eventCounts,
-    weatherCounts,
-    weatherTotal: weatherRows?.length ?? 0,
+    weatherTotal,
     injuryCount: injuryRows?.length ?? 0,
     fightPairs,
     delayTitle,
     hadGodScore,
     notableLines,
-  });
+  };
+
+  let segments = composeRecapParagraph(recapCtx);
+  let paragraph = segmentsToParagraph(segments);
+  if (!validateRecapParagraph(paragraph).ok) {
+    segments = composeRecapParagraph(recapCtx, 0);
+    paragraph = segmentsToParagraph(segments);
+  }
 
   return {
     raceNumber: race.race_number,
-    paragraph: segmentsToParagraph(segments),
+    paragraph,
     segments,
   };
 }

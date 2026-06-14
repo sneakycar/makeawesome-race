@@ -23,6 +23,9 @@ const ALLOWED_ALL_CAPS = new Set(["GOD", "II", "III", "IV"]);
 export function cleanRecapLine(text: string): string {
   let result = text.replace(/\s+/g, " ").trim();
   result = result.replace(/ \./g, ".").replace(/ ,/g, ",");
+  result = result.replace(/;\s*\./g, ";").replace(/\.\s*;/g, ";");
+  result = result.replace(/;{2,}/g, ";");
+  result = result.replace(/\.{2,}/g, ".");
   return result;
 }
 
@@ -32,6 +35,9 @@ export function validateRecapLine(text: string): RecapGrammarResult {
   if (cleaned.includes("  ")) return { ok: false, reason: "duplicate spaces" };
   if (cleaned.includes("..") || cleaned.includes(",,") || cleaned.includes(";;")) {
     return { ok: false, reason: "doubled punctuation" };
+  }
+  if (/[.;!?]{2,}/.test(cleaned) || cleaned.includes(".;") || cleaned.includes(";.")) {
+    return { ok: false, reason: "broken punctuation sequence" };
   }
   if (/\{[a-zA-Z_]+\}/.test(cleaned)) {
     return { ok: false, reason: "unfilled template" };
@@ -54,6 +60,13 @@ export function validateRecapLine(text: string): RecapGrammarResult {
 
   if (hasDuplicateWords(cleaned)) {
     return { ok: false, reason: "duplicate words" };
+  }
+
+  if (/\b1 \w+s\b/i.test(cleaned) && !/\b1 (points|times|hours|minutes|seconds|racers)\b/i.test(cleaned)) {
+    const badSingularPlural = /\b1 (collapses|stalls|surges|injuries|fights|bursts)\b/i;
+    if (badSingularPlural.test(cleaned)) {
+      return { ok: false, reason: "singular count with plural noun" };
+    }
   }
 
   for (const word of cleaned.split(/\s+/)) {

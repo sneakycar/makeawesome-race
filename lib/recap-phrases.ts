@@ -21,9 +21,9 @@ export const RECAP_LAST_PHRASES = [
 ] as const;
 
 export const RECAP_WEATHER_PHRASES = [
-  "The elements went feral — {total} weather bursts, including {joined}.",
-  "Mother nature lost it: {total} bursts of {joined}.",
-  "The sky would not quit — {total} weather hits, led by {joined}.",
+  "the sky went wild — {total} weather bursts",
+  "Mother Nature unloaded {total} weather bursts",
+  "the elements hit {total} times",
 ] as const;
 
 export const RECAP_FIGHT_PHRASES = [
@@ -58,8 +58,8 @@ export const RECAP_RANK_SURGE_PHRASES = [
 ] as const;
 
 export const RECAP_COLLAPSE_PHRASES = [
-  "{count} late collapses torched the leaderboard",
-  "{count} collapses gutted the back half",
+  "{count} late collapse{plural} torched the leaderboard",
+  "{count} collapse{plural} gutted the back half",
 ] as const;
 
 export const RECAP_UNDERDOG_PHRASES = [
