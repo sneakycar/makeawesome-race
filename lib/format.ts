@@ -12,6 +12,16 @@ export function formatRemainingTime(ms: number): string {
   return `${hours}h ${minutes}m ${seconds}s`;
 }
 
+export function formatCompactDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
 export function formatPips(value: number): string {
   const clamped = Math.max(1, Math.min(100, Math.round(value)));
   let filled: number;

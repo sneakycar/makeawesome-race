@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getRaceClock, type RaceClock } from "@/lib/race-clock";
+import { getRaceClock, getMsUntilNextUpdate, type RaceClock } from "@/lib/race-clock";
 import type { GameStateResponse, Player, PlayerProfileResponse, TickerEvent } from "@/lib/types";
 import {
   formatRaceBegan,
   formatRemainingTime,
+  formatCompactDuration,
   formatNextRaceBegin,
   formatPips,
   formatStreak,
@@ -27,6 +28,7 @@ function RaceMetaPanel({
   const [clock, setClock] = useState<RaceClock>(() =>
     getRaceClock(new Date(state.race.started_at), new Date(state.race.ends_at))
   );
+  const [nextUpdateMs, setNextUpdateMs] = useState(() => getMsUntilNextUpdate());
 
   useEffect(() => {
     const startedAt = new Date(state.race.started_at);
@@ -34,6 +36,7 @@ function RaceMetaPanel({
 
     const tick = () => {
       setClock(getRaceClock(startedAt, endsAt, new Date()));
+      setNextUpdateMs(getMsUntilNextUpdate());
     };
 
     tick();
@@ -72,6 +75,8 @@ function RaceMetaPanel({
         {`${beganLabel}\n`}
         {`PROGRESS: ${clock.percentComplete}%\n`}
         {timerLine}
+        {"\n"}
+        {`NEXT UPDATE IN: ${formatCompactDuration(nextUpdateMs)}`}
       </div>
       <div className="race-progress-track" aria-hidden="true">
         <div

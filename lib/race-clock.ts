@@ -46,3 +46,14 @@ export function getRaceClock(
     startsInMs: 0,
   };
 }
+
+const TICK_INTERVAL_MS = 15 * 60 * 1000;
+
+/** Ms until the next :00/:15/:30/:45 UTC cron tick. */
+export function getMsUntilNextUpdate(now: Date = new Date()): number {
+  const min = now.getUTCMinutes();
+  const sec = now.getUTCSeconds();
+  const ms = now.getUTCMilliseconds();
+  const msPastQuarter = ((min % 15) * 60 + sec) * 1000 + ms;
+  return TICK_INTERVAL_MS - msPastQuarter;
+}
