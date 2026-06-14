@@ -44,6 +44,15 @@ import {
   getSupportRecoveryBonus,
 } from "./injuries";
 import {
+  clearExpiredRaceDelay,
+  getRaceEffectiveNow,
+  isRaceDelayed,
+  shouldTriggerRaceDelay,
+  startRaceDelay,
+} from "./race-delay";
+import { assignLanesBySkill, getLanePerformanceMultiplier } from "./lanes";
+import { calculatePlayerOvr } from "./ovr";
+import {
   applySimTick,
   buildRaceSim,
   replaySimToTick,
@@ -84,6 +93,7 @@ export interface TickDeltaInput {
   currentRank: number;
   leaderScore: number;
   chaosBurstUsed: boolean;
+  lane: number;
 }
 
 export interface TickDeltaResult {
@@ -227,6 +237,8 @@ export function calculateTickDelta(input: TickDeltaInput): TickDeltaResult {
 
   delta = Math.max(0, Math.min(getMaxTickDelta(player), delta));
 
+  delta *= getLanePerformanceMultiplier(input.lane);
+
   // Soft pace cap — tempo sets the night (cold ~50, hot ~200)
   const expectedScore = (percentComplete / 100) * TARGET_WINNER_SCORE * raceTempo;
   const paceLeash = 42 + player.burst * 0.14 + player.luck * 0.1 + player.chaos * 0.06;
@@ -333,11 +345,26 @@ export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<
 
   if (raceErr) throw raceErr;
 
-  const shuffledIds = shuffleLanes(activeIds, 1);
-  const entries = shuffledIds.map((playerId, idx) => ({
+  const { data: rosterPlayers, error: rosterErr } = await supabase
+    .from("players")
+    .select("id, grit, chaos, nerve, luck, burst, drag, rating")
+    .in("id", activeIds);
+
+  if (rosterErr) throw rosterErr;
+
+  const laneByPlayer = assignLanesBySkill(
+    (rosterPlayers ?? []).map((p) => ({
+      id: p.id,
+      ovr: calculatePlayerOvr(p),
+    })),
+    1,
+    1
+  );
+
+  const entries = activeIds.map((playerId) => ({
     race_id: race.id,
     player_id: playerId,
-    lane: idx + 1,
+    lane: laneByPlayer.get(playerId) ?? 1,
     progress: 0,
     displayed_progress: 0,
     current_rank: 1,
@@ -362,13 +389,27 @@ export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<
   return true;
 }
 
-export function shuffleLanes(playerIds: string[], dayNumber: number): string[] {
-  const arr = [...playerIds];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = seededInt(`${dayNumber}:lane-shuffle:${i}`, 0, i);
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
+export async function assignLanesForRoster(
+  supabase: SupabaseClient,
+  rosterIds: string[],
+  dayNumber: number,
+  raceNumber: number
+): Promise<Map<string, number>> {
+  const { data: players, error } = await supabase
+    .from("players")
+    .select("id, grit, chaos, nerve, luck, burst, drag, rating")
+    .in("id", rosterIds);
+
+  if (error) throw error;
+
+  return assignLanesBySkill(
+    (players ?? []).map((p) => ({
+      id: p.id,
+      ovr: calculatePlayerOvr(p),
+    })),
+    dayNumber,
+    raceNumber
+  );
 }
 
 function rankEntries<T extends { race_score: number; is_injured?: boolean }>(
@@ -386,7 +427,7 @@ function rankEntries<T extends { race_score: number; is_injured?: boolean }>(
 
 export async function tickRace(supabase: SupabaseClient): Promise<void> {
   const now = new Date();
-  const { data: race, error: raceErr } = await supabase
+  let { data: race, error: raceErr } = await supabase
     .from("races")
     .select("*")
     .eq("status", "active")
@@ -397,16 +438,46 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   if (raceErr) throw raceErr;
   if (!race) return;
 
+  const cleared = await clearExpiredRaceDelay(supabase, race as Race, now);
+  if (cleared) {
+    race = cleared;
+  }
+
   const startedAt = new Date(race.started_at);
-  const endsAt = new Date(race.ends_at);
+  let endsAt = new Date(race.ends_at);
+
+  if (isRaceDelayed(race as Race, now)) {
+    await supabase
+      .from("game_state")
+      .update({ last_tick_at: now.toISOString(), updated_at: now.toISOString() })
+      .eq("id", 1);
+    return;
+  }
 
   if (now > endsAt) {
     await finalizeRace(supabase, race as Race);
     return;
   }
 
-  const percentComplete = calculatePercentComplete(startedAt, endsAt, now);
-  const tickNumber = getTickNumber(startedAt, endsAt, now);
+  const effectiveNow = getRaceEffectiveNow(race as Race, now);
+  const percentComplete = calculatePercentComplete(startedAt, endsAt, effectiveNow);
+  const tickNumber = getTickNumber(startedAt, endsAt, effectiveNow);
+
+  if (
+    shouldTriggerRaceDelay(
+      race.id,
+      tickNumber,
+      percentComplete,
+      Boolean(race.delay_until)
+    )
+  ) {
+    await startRaceDelay(supabase, race as Race, tickNumber, percentComplete, now);
+    await supabase
+      .from("game_state")
+      .update({ last_tick_at: now.toISOString(), updated_at: now.toISOString() })
+      .eq("id", 1);
+    return;
+  }
 
   const { data: entries, error: entriesErr } = await supabase
     .from("race_entries")
@@ -427,6 +498,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     entries.map((entry) => ({
       player_id: entry.player_id,
       player: entry.player as Player,
+      lane: entry.lane,
       is_injured: Boolean(entry.is_injured),
       injured_at_tick: entry.injured_at_tick as number | null,
       race_score: entry.race_score,
@@ -741,6 +813,7 @@ export async function finalizeRace(
     entries.map((entry) => ({
       player_id: entry.player_id,
       player: entry.player as Player,
+      lane: entry.lane,
       is_injured: Boolean(entry.is_injured),
       injured_at_tick: entry.injured_at_tick as number | null,
       race_score: entry.race_score,
@@ -1182,11 +1255,17 @@ export async function createRace(
 
   if (raceErr) throw raceErr;
 
-  const shuffled = shuffleLanes(rosterIds, dayNumber);
-  const entries = shuffled.map((playerId, idx) => ({
+  const laneByPlayer = await assignLanesForRoster(
+    supabase,
+    rosterIds,
+    dayNumber,
+    raceNumber
+  );
+
+  const entries = rosterIds.map((playerId) => ({
     race_id: race.id,
     player_id: playerId,
-    lane: idx + 1,
+    lane: laneByPlayer.get(playerId) ?? 1,
     progress: 0,
     displayed_progress: 0,
     current_rank: 1,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getClientIp, hashIp } from "@/lib/ip-hash";
 import { getActiveRaceWithEntries } from "@/lib/race-logic";
+import { isRaceDelayed } from "@/lib/race-delay";
 import { recordEncouragement } from "@/lib/support-db";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,10 @@ export async function POST(request: Request) {
 
     if (!active || active.race.status !== "active") {
       return NextResponse.json({ error: "No active race" }, { status: 400 });
+    }
+
+    if (isRaceDelayed(active.race, new Date())) {
+      return NextResponse.json({ error: "Race is delayed" }, { status: 409 });
     }
 
     const ipHash = hashIp(getClientIp(request));

@@ -26,11 +26,13 @@ export type TickerEventType =
   | "race_start"
   | "status_pulse"
   | "race_won"
-  | "eliminated";
+  | "eliminated"
+  | "race_delay"
+  | "race_resumed";
 
 export interface TickerEventDraft {
   eventType: TickerEventType;
-  playerId: string;
+  playerId: string | null;
   message: string;
   facts: TickerEventFacts;
   priority: number;

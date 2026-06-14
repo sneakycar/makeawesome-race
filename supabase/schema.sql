@@ -61,6 +61,11 @@ create table if not exists races (
   ends_at timestamptz not null,
   finalized_at timestamptz,
   percent_complete integer not null default 0,
+  delay_until timestamptz,
+  delay_started_at timestamptz,
+  delay_title text,
+  delay_body text,
+  delay_frozen_percent integer,
   created_at timestamptz default now()
 );
 

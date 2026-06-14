@@ -10,8 +10,10 @@ import {
   initializeGameIfNeeded,
 } from "@/lib/race-logic";
 import { getRaceClock } from "@/lib/race-clock";
+import { getRaceDelayInfo, isRaceDelayed } from "@/lib/race-delay";
 import { getVisitorSupportForRace } from "@/lib/support-db";
 import { getRecentTickerEvents } from "@/lib/ticker-db";
+import { getLaneWinStats } from "@/lib/lane-stats";
 import { getOvrRankings, ovrRankingsToRecord } from "@/lib/ovr";
 import type { GameStateResponse } from "@/lib/types";
 
@@ -31,6 +33,11 @@ export async function GET(request: Request) {
     const now = new Date();
     const startedAt = new Date(race.started_at);
     const endsAt = new Date(race.ends_at);
+    const delayActive = race.status === "active" && isRaceDelayed(race, now);
+    const delayOpts =
+      delayActive && race.delay_until && race.delay_frozen_percent != null
+        ? { delayUntil: race.delay_until, frozenPercent: race.delay_frozen_percent }
+        : null;
     const clock =
       race.status === "finalized"
         ? {
@@ -39,11 +46,19 @@ export async function GET(request: Request) {
             remainingMs: 0,
             startsInMs: 0,
           }
-        : getRaceClock(startedAt, endsAt, now);
+        : getRaceClock(startedAt, endsAt, now, delayOpts);
+
+    const raceDelay =
+      race.status === "active" ? getRaceDelayInfo(race, now) : null;
+    const effectivePercent =
+      delayActive && race.delay_frozen_percent != null
+        ? race.delay_frozen_percent
+        : clock.percentComplete;
 
     const allTime = await getAllTimeTop3(supabase);
     const streaks = await getActiveStreaks(supabase);
     const ovrRankings = ovrRankingsToRecord(await getOvrRankings(supabase));
+    const laneStats = await getLaneWinStats(supabase);
 
     const { data: holding } = await supabase
       .from("players")
@@ -76,7 +91,7 @@ export async function GET(request: Request) {
       : null;
 
     const body: GameStateResponse = {
-      race: { ...race, percent_complete: clock.percentComplete },
+      race: { ...race, percent_complete: effectivePercent },
       entries,
       allTime: allTime || [],
       streaks,
@@ -87,7 +102,9 @@ export async function GET(request: Request) {
       remainingMs: clock.remainingMs,
       startsInMs: clock.startsInMs,
       racePhase: clock.phase,
-      percentComplete: clock.percentComplete,
+      percentComplete: effectivePercent,
+      raceDelay: raceDelay?.active ? raceDelay : null,
+      laneStats,
       gameState: gameState!,
       encouragement: { supportedPlayerId },
       ticker,

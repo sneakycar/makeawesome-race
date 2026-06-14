@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { getRaceClock, type RaceClock } from "@/lib/race-clock";
 import { useCronUpdate } from "@/lib/use-cron-update";
-import type { GameStateResponse, Player, PlayerProfileResponse, TickerEvent } from "@/lib/types";
+import type { GameStateResponse, LaneWinStat, Player, PlayerProfileResponse, TickerEvent } from "@/lib/types";
+import { formatLaneBonus } from "@/lib/lanes";
 import {
   formatRaceBegan,
   formatRemainingTime,
@@ -23,7 +24,66 @@ import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
 import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
 import { useRaceWeather } from "@/lib/use-race-weather";
+import { formatRankDelta, useLiveRankDelta } from "@/lib/use-live-rank-delta";
 import { WEATHER_ART, type RaceWeatherState } from "@/lib/race-weather";
+
+function RaceDelayOverlay({
+  delay,
+}: {
+  delay: NonNullable<GameStateResponse["raceDelay"]>;
+}) {
+  const [resumesInMs, setResumesInMs] = useState(delay.resumesInMs ?? 0);
+
+  useEffect(() => {
+    if (!delay.until) return;
+    const tick = () => {
+      setResumesInMs(Math.max(0, new Date(delay.until!).getTime() - Date.now()));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [delay.until]);
+
+  return (
+    <div
+      className="delay-overlay"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="delay-title"
+    >
+      <div className="delay-overlay-scanlines" aria-hidden="true" />
+      <div className="retro-screen delay-screen">
+        <div className="retro-header">
+          <span className="retro-header-tag">OFFICIAL NOTICE</span>
+          <h2 id="delay-title" className="retro-name">
+            {delay.title}
+          </h2>
+          <span className="retro-header-badge delay-badge">DELAYED</span>
+        </div>
+        <div className="retro-box">
+          <div className="retro-box-title">▶ REASON</div>
+          <p className="delay-body">{delay.body}</p>
+        </div>
+        <div className="retro-box">
+          <div className="retro-box-title">▶ STATUS</div>
+          <div className="retro-status-grid">
+            <div className="retro-kv retro-kv-wide">
+              <span className="retro-k">RESUMES IN</span>
+              <span className="retro-v">{formatRemainingTime(resumesInMs)}</span>
+            </div>
+            {delay.frozenPercent != null && (
+              <div className="retro-kv">
+                <span className="retro-k">PROGRESS</span>
+                <span className="retro-v">{`${delay.frozenPercent}%`}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <p className="delay-wait">◄ STAND BY ►</p>
+      </div>
+    </div>
+  );
+}
 
 function RaceMetaPanel({
   state,
@@ -31,15 +91,27 @@ function RaceMetaPanel({
   raceActive,
   liveRaceProgress,
   nextUpdateMs,
+  raceDelay,
 }: {
   state: GameStateResponse;
   betweenRaces: boolean;
   raceActive: boolean;
   liveRaceProgress: number | null;
   nextUpdateMs: number;
+  raceDelay: GameStateResponse["raceDelay"];
 }) {
+  const delayOpts =
+    raceDelay?.active && raceDelay.until && raceDelay.frozenPercent != null
+      ? { delayUntil: raceDelay.until, frozenPercent: raceDelay.frozenPercent }
+      : null;
+
   const [clock, setClock] = useState<RaceClock>(() =>
-    getRaceClock(new Date(state.race.started_at), new Date(state.race.ends_at))
+    getRaceClock(
+      new Date(state.race.started_at),
+      new Date(state.race.ends_at),
+      new Date(),
+      delayOpts
+    )
   );
 
   useEffect(() => {
@@ -47,13 +119,20 @@ function RaceMetaPanel({
     const endsAt = new Date(state.race.ends_at);
 
     const tick = () => {
-      setClock(getRaceClock(startedAt, endsAt, new Date()));
+      setClock(getRaceClock(startedAt, endsAt, new Date(), delayOpts));
     };
 
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [state.race.started_at, state.race.ends_at, state.race.status]);
+  }, [
+    state.race.started_at,
+    state.race.ends_at,
+    state.race.status,
+    raceDelay?.until,
+    raceDelay?.frozenPercent,
+    raceDelay?.active,
+  ]);
 
   if (betweenRaces) {
     return (
@@ -71,7 +150,9 @@ function RaceMetaPanel({
       : `BEGAN: ${formatRaceBegan(new Date(state.race.started_at))}`;
 
   let timerLine = "";
-  if (clock.phase === "upcoming") {
+  if (clock.phase === "delayed") {
+    timerLine = `RESUMES IN: ${formatRemainingTime(clock.remainingMs)}`;
+  } else if (clock.phase === "upcoming") {
     timerLine = `STARTS IN: ${formatRemainingTime(clock.startsInMs)}`;
   } else if (raceActive && clock.phase === "live") {
     timerLine = `TIME REMAINING: ${formatRemainingTime(clock.remainingMs)}`;
@@ -80,10 +161,18 @@ function RaceMetaPanel({
   }
 
   const progressDisplay = `${Math.round(
-    liveRaceProgress != null ? liveRaceProgress : clock.percentComplete
+    clock.phase === "delayed" && raceDelay?.frozenPercent != null
+      ? raceDelay.frozenPercent
+      : liveRaceProgress != null
+        ? liveRaceProgress
+        : clock.percentComplete
   )}%`;
   const progressBarWidth =
-    liveRaceProgress != null ? liveRaceProgress : clock.percentComplete;
+    clock.phase === "delayed" && raceDelay?.frozenPercent != null
+      ? raceDelay.frozenPercent
+      : liveRaceProgress != null
+        ? liveRaceProgress
+        : clock.percentComplete;
 
   return (
     <div className="race-meta-block">
@@ -498,6 +587,36 @@ function PlayerOverlay({
   );
 }
 
+function LaneStatsSection({ stats }: { stats: LaneWinStat[] }) {
+  const withStarts = stats.filter((s) => s.starts > 0);
+  const best =
+    withStarts.length > 0
+      ? [...withStarts].sort((a, b) => b.winPct - a.winPct || a.lane - b.lane)[0]
+      : null;
+
+  return (
+    <>
+      <div className="section-label">LANE WIN %</div>
+      {withStarts.length === 0 ? (
+        <p className="lane-stat-empty">
+          Awaiting results — pole favored, best OVR gets inside lanes
+        </p>
+      ) : (
+        <div className="lane-stat-list">
+          {stats.map((s) => (
+            <div
+              key={s.lane}
+              className={`lane-stat-row${best && s.lane === best.lane ? " lane-stat-best" : ""}`}
+            >
+              L{s.lane} {s.label} — {s.winPct}% ({s.wins}/{s.starts}) · {formatLaneBonus(s.lane)}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function StreakSection({ streaks }: { streaks: GameStateResponse["streaks"] }) {
   if (streaks.length === 0) {
     return <p className="streak-empty">No active streaks yet</p>;
@@ -657,11 +776,13 @@ export default function HomePage() {
 
   const supportedId = state?.encouragement.supportedPlayerId ?? null;
   const raceActive = state?.race.status === "active";
+  const raceDelayed = Boolean(state?.raceDelay?.active);
   const betweenRaces = state?.betweenRaces ?? false;
-  const liveRace = useLiveRace(state, raceActive);
+  const liveRace = useLiveRace(state, raceActive && !raceDelayed);
   const isNight = useDayNight();
   useHomeDayNightTheme(isNight);
-  const raceWeather = useRaceWeather(state?.race.id, raceActive);
+  const raceWeather = useRaceWeather(state?.race.id, raceActive && !raceDelayed);
+  const rankDeltaById = useLiveRankDelta(state, liveRace, raceActive && !raceDelayed);
 
   const entryScorePoints =
     state?.entries.map((e) => {
@@ -762,12 +883,15 @@ export default function HomePage() {
             raceActive={raceActive}
             liveRaceProgress={liveRace?.raceProgress ?? null}
             nextUpdateMs={nextUpdateMs}
+            raceDelay={state.raceDelay}
           />
 
           <p className="tap-hint">tap to see player&apos;s stats</p>
 
-          <div className="race-standings-wrap">
-            {raceWeather && raceActive && <RaceWeatherOverlay weather={raceWeather} />}
+          <div className={`race-standings-wrap${raceDelayed ? " race-standings-frozen" : ""}`}>
+            {raceWeather && raceActive && !raceDelayed && (
+              <RaceWeatherOverlay weather={raceWeather} />
+            )}
             <div className="race-standings" key={state.serverTime}>
           {[...state.entries]
             .sort((a, b) => a.lane - b.lane)
@@ -790,11 +914,13 @@ export default function HomePage() {
                   : isComeback
                     ? "👀"
                     : null;
+            const rankDelta = rankDeltaById.get(entry.player_id) ?? 0;
+            const rankDeltaLabel = formatRankDelta(rankDelta);
             const isSupported = supportedId === entry.player_id;
             const hasSupported = supportedId != null;
 
             let buttonDisabled =
-              !raceActive || encouraging || hasSupported || isInjured;
+              !raceActive || raceDelayed || encouraging || hasSupported || isInjured;
 
             return (
               <div key={entry.id} className={`row-line${isLeader ? " row-line-leader" : ""}`}>
@@ -810,8 +936,18 @@ export default function HomePage() {
                   tabIndex={0}
                 >
                   <div className="row-head">
-                    <span className="row-lane">Lane {entry.lane}</span>
+                    <span className="row-lane-tag">L{entry.lane}</span>
+                    <span className="row-rank-pos">{rank}]</span>
                     <span className="row-name">{formatRacerName(entry.player.name)}</span>
+                    {rankDeltaLabel && (
+                      <span
+                        className={`row-rank-delta${
+                          rankDelta > 0 ? " row-rank-delta-up" : " row-rank-delta-down"
+                        }`}
+                      >
+                        {rankDeltaLabel}
+                      </span>
+                    )}
                     {entry.player.archetype && entry.player.archetype !== "UNKNOWN" && (
                       <span className="row-archetype">{entry.player.archetype}</span>
                     )}
@@ -878,6 +1014,8 @@ export default function HomePage() {
             </span>
           </div>
 
+          <LaneStatsSection stats={state.laneStats} />
+
           <div className="divider">{"────────────────────────"}</div>
 
           <div className="section-label">ALL-TIME</div>
@@ -933,6 +1071,8 @@ export default function HomePage() {
         </>
       )}
       </div>
+
+      {state?.raceDelay?.active && <RaceDelayOverlay delay={state.raceDelay} />}
 
       {selectedSlug && (
         <PlayerOverlay

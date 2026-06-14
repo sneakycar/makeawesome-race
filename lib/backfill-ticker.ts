@@ -116,6 +116,7 @@ export async function backfillRaceTicker(
   const sim: RaceSimEntry[] = typedEntries.map((entry) => ({
     player_id: entry.player_id,
     player: entry.player,
+    lane: entry.lane,
     score: 0,
     is_injured: false,
     injured_at_tick: entry.injured_at_tick as number | null,

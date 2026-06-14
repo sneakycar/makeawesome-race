@@ -1,4 +1,5 @@
 import { getRaceClock } from "./race-clock";
+import { getRaceEffectiveNow, isRaceDelayed } from "./race-delay";
 import { TICKS_PER_RACE, getRaceTickIntervalMs } from "./race-logic";
 import {
   applySimTick,
@@ -28,13 +29,23 @@ export function calculatePrecisePercentComplete(
 
 /** Replay the seeded tick engine up to `now`, with smooth sub-tick interpolation. */
 export function simulateLiveEntries(
-  race: Pick<Race, "id" | "day_number" | "started_at" | "ends_at">,
+  race: Pick<
+    Race,
+    | "id"
+    | "day_number"
+    | "started_at"
+    | "ends_at"
+    | "delay_until"
+    | "delay_started_at"
+    | "delay_frozen_percent"
+  >,
   entries: RaceEntryWithPlayer[],
   now: Date = new Date()
 ): LiveEntryState[] {
   const startedAt = new Date(race.started_at);
   const endsAt = new Date(race.ends_at);
-  const nowMs = now.getTime();
+  const effectiveNow = getRaceEffectiveNow(race, now);
+  const nowMs = effectiveNow.getTime();
   const startMs = startedAt.getTime();
   const endMs = endsAt.getTime();
 
@@ -63,6 +74,7 @@ export function simulateLiveEntries(
     entries.map((entry) => ({
       player_id: entry.player_id,
       player: entry.player,
+      lane: entry.lane,
       is_injured: entry.is_injured,
       injured_at_tick: entry.injured_at_tick,
       race_score: entry.race_score,
@@ -101,14 +113,33 @@ export function simulateLiveEntries(
 }
 
 export function liveEntriesById(
-  race: Pick<Race, "id" | "day_number" | "started_at" | "ends_at" | "status">,
+  race: Pick<
+    Race,
+    | "id"
+    | "day_number"
+    | "started_at"
+    | "ends_at"
+    | "status"
+    | "delay_until"
+    | "delay_started_at"
+    | "delay_frozen_percent"
+  >,
   entries: RaceEntryWithPlayer[],
   now: Date = new Date()
 ): Map<string, LiveEntryState> | null {
   if (race.status !== "active") return null;
 
-  const clock = getRaceClock(new Date(race.started_at), new Date(race.ends_at), now);
-  if (clock.phase !== "live") return null;
+  const delayOpts =
+    race.delay_until && race.delay_frozen_percent != null
+      ? { delayUntil: race.delay_until, frozenPercent: race.delay_frozen_percent }
+      : null;
+  const clock = getRaceClock(
+    new Date(race.started_at),
+    new Date(race.ends_at),
+    now,
+    isRaceDelayed(race, now) ? delayOpts : null
+  );
+  if (clock.phase !== "live" && clock.phase !== "delayed") return null;
 
   const live = simulateLiveEntries(race, entries, now);
   return new Map(live.map((entry) => [entry.player_id, entry]));

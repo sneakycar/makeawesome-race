@@ -10,6 +10,7 @@ import type { Player, Race } from "./types";
 export interface RaceSimEntry {
   player_id: string;
   player: Player;
+  lane: number;
   score: number;
   is_injured: boolean;
   injured_at_tick: number | null;
@@ -28,6 +29,7 @@ export function buildRaceSim(
   entries: Array<{
     player_id: string;
     player: Player;
+    lane: number;
     is_injured?: boolean;
     injured_at_tick?: number | null;
     race_score?: number;
@@ -36,6 +38,7 @@ export function buildRaceSim(
   return entries.map((entry) => ({
     player_id: entry.player_id,
     player: entry.player,
+    lane: entry.lane,
     score: entry.is_injured ? Number(entry.race_score ?? 0) : 0,
     is_injured: Boolean(entry.is_injured),
     injured_at_tick: entry.injured_at_tick ?? null,
@@ -117,6 +120,7 @@ export function applySimTick(
       currentRank: rank,
       leaderScore,
       chaosBurstUsed: chaosUsed.get(entry.player_id) ?? false,
+      lane: entry.lane,
     });
 
     if (entry.restart_pending) {

@@ -1,4 +1,4 @@
-export type RacePhase = "upcoming" | "live" | "ended";
+export type RacePhase = "upcoming" | "live" | "ended" | "delayed";
 
 export interface RaceClock {
   phase: RacePhase;
@@ -7,11 +7,29 @@ export interface RaceClock {
   startsInMs: number;
 }
 
+export interface RaceClockDelayOptions {
+  delayUntil: string;
+  frozenPercent: number;
+}
+
 export function getRaceClock(
   startedAt: Date,
   endsAt: Date,
-  now: Date = new Date()
+  now: Date = new Date(),
+  delay?: RaceClockDelayOptions | null
 ): RaceClock {
+  if (delay) {
+    const untilMs = new Date(delay.delayUntil).getTime();
+    if (now.getTime() < untilMs) {
+      return {
+        phase: "delayed",
+        percentComplete: delay.frozenPercent,
+        remainingMs: Math.max(0, untilMs - now.getTime()),
+        startsInMs: 0,
+      };
+    }
+  }
+
   const startMs = startedAt.getTime();
   const endMs = endsAt.getTime();
   const nowMs = now.getTime();

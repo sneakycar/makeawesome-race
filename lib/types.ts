@@ -59,7 +59,21 @@ export interface Race {
   ends_at: string;
   finalized_at: string | null;
   percent_complete: number;
+  delay_until: string | null;
+  delay_started_at: string | null;
+  delay_title: string | null;
+  delay_body: string | null;
+  delay_frozen_percent: number | null;
   created_at: string;
+}
+
+export interface RaceDelayInfo {
+  active: boolean;
+  until: string | null;
+  title: string | null;
+  body: string | null;
+  frozenPercent: number | null;
+  resumesInMs: number | null;
 }
 
 export interface RaceEntry {
@@ -163,6 +177,15 @@ export interface StreakEntry {
   updated_at: string;
 }
 
+export interface LaneWinStat {
+  lane: number;
+  label: string;
+  wins: number;
+  starts: number;
+  winPct: number;
+  performanceBonus: number;
+}
+
 export interface GameStateResponse {
   race: Race;
   entries: RaceEntryWithPlayer[];
@@ -174,8 +197,10 @@ export interface GameStateResponse {
   serverTime: string;
   remainingMs: number;
   startsInMs: number;
-  racePhase: "upcoming" | "live" | "ended";
+  racePhase: "upcoming" | "live" | "ended" | "delayed";
   percentComplete: number;
+  raceDelay: RaceDelayInfo | null;
+  laneStats: LaneWinStat[];
   gameState: GameState;
   encouragement: {
     supportedPlayerId: string | null;
