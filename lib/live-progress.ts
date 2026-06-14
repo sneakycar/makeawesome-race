@@ -3,11 +3,10 @@ import {
   TICKS_PER_RACE,
   calculatePercentComplete,
   calculateTickDelta,
+  getRaceTickIntervalMs,
 } from "./race-logic";
 import { seededRange } from "./seeded-rng";
 import type { Race, RaceEntryWithPlayer } from "./types";
-
-const TICK_MS = 15 * 60 * 1000;
 
 export interface LiveEntryState {
   player_id: string;
@@ -55,8 +54,9 @@ export function simulateLiveEntries(
   }
 
   const elapsedMs = nowMs - startMs;
-  const completedTicks = Math.min(TICKS_PER_RACE, Math.floor(elapsedMs / TICK_MS));
-  const subTick = (elapsedMs % TICK_MS) / TICK_MS;
+  const tickMs = getRaceTickIntervalMs(startedAt, endsAt);
+  const completedTicks = Math.min(TICKS_PER_RACE, Math.floor(elapsedMs / tickMs));
+  const subTick = (elapsedMs % tickMs) / tickMs;
 
   const sim = entries.map((entry) => ({
     player_id: entry.player_id,
@@ -69,7 +69,7 @@ export function simulateLiveEntries(
   const applyTick = (tickNumber: number, fraction: number) => {
     if (fraction <= 0 || tickNumber >= TICKS_PER_RACE) return;
 
-    const tickTime = new Date(startMs + tickNumber * TICK_MS + fraction * TICK_MS);
+    const tickTime = new Date(startMs + tickNumber * tickMs + fraction * tickMs);
     const percentComplete = calculatePercentComplete(startedAt, endsAt, tickTime);
 
     const deltas = sim.map((entry) => {

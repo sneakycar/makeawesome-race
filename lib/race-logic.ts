@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getNextRaceDayBounds, getRaceDayBounds, getRaceOneBounds } from "./eastern-time";
+import { getNextRaceDayBounds, getRaceDayBounds, getFirstRaceLiveBounds } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
 import { ordinal, slugify } from "./format";
 import { seededBool, seededInt, seededRange } from "./seeded-rng";
@@ -18,12 +18,17 @@ export const TICKS_PER_RACE = 48;
 export const TICKS_PER_DAY = TICKS_PER_RACE;
 export const EXPECTED_DELTA = 100 / TICKS_PER_RACE;
 
-export { getRaceDayBounds, getNextRaceDayBounds, getRaceOneBounds } from "./eastern-time";
+export { getRaceDayBounds, getNextRaceDayBounds, getFirstRaceLiveBounds, getRaceOneBounds } from "./eastern-time";
 
-export function getTickNumber(startedAt: Date, now: Date = new Date()): number {
+export function getRaceTickIntervalMs(startedAt: Date, endsAt: Date): number {
+  const durationMs = Math.max(1, endsAt.getTime() - startedAt.getTime());
+  return durationMs / TICKS_PER_RACE;
+}
+
+export function getTickNumber(startedAt: Date, endsAt: Date, now: Date = new Date()): number {
   const elapsedMs = now.getTime() - startedAt.getTime();
   if (elapsedMs <= 0) return 0;
-  const tickMs = 15 * 60 * 1000;
+  const tickMs = getRaceTickIntervalMs(startedAt, endsAt);
   return Math.min(TICKS_PER_RACE - 1, Math.floor(elapsedMs / tickMs));
 }
 
@@ -213,7 +218,7 @@ export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<
   const { data: existing } = await supabase.from("game_state").select("id").eq("id", 1).maybeSingle();
   if (existing) return false;
 
-  const { startedAt, endsAt } = getRaceOneBounds();
+  const { startedAt, endsAt } = getFirstRaceLiveBounds();
   const existingSlugs = new Set<string>();
 
   const activePlayers = SEED_ACTIVE_NAMES.map((name, i) => {
@@ -322,7 +327,7 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   }
 
   const percentComplete = calculatePercentComplete(startedAt, endsAt, now);
-  const tickNumber = getTickNumber(startedAt, now);
+  const tickNumber = getTickNumber(startedAt, endsAt, now);
 
   const { data: entries, error: entriesErr } = await supabase
     .from("race_entries")
@@ -989,9 +994,15 @@ export async function resetToFirstRace(supabase: SupabaseClient): Promise<Race> 
     .gte("day_number", 0);
   if (histErr) throw histErr;
 
+  const now = new Date();
+
   const { error: holdingDelErr } = await supabase
     .from("players")
-    .delete()
+    .update({
+      status: "active",
+      holding_days: 0,
+      updated_at: now.toISOString(),
+    })
     .eq("status", "holding");
   if (holdingDelErr) throw holdingDelErr;
 
@@ -1008,8 +1019,6 @@ export async function resetToFirstRace(supabase: SupabaseClient): Promise<Race> 
   if (rosterIds.length !== 8) {
     throw new Error(`Expected 8 active racers, found ${rosterIds.length}`);
   }
-
-  const now = new Date();
 
   for (const { id } of actives) {
     const { error: resetErr } = await supabase
@@ -1039,7 +1048,7 @@ export async function resetToFirstRace(supabase: SupabaseClient): Promise<Race> 
     if (resetErr) throw resetErr;
   }
 
-  const { startedAt, endsAt } = getRaceOneBounds();
+  const { startedAt, endsAt } = getFirstRaceLiveBounds();
 
   const race = await createRace(supabase, 1, 1, rosterIds, startedAt, endsAt);
   const percentComplete = calculatePercentComplete(startedAt, endsAt, now);

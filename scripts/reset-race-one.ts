@@ -12,9 +12,13 @@ async function main() {
   console.log("[reset-race-one] starting...");
   const supabase = createAdminClient();
   const race = await resetToFirstRace(supabase);
+  const started = new Date(race.started_at);
+  const ends = new Date(race.ends_at);
+  const remainingH = Math.max(0, (ends.getTime() - Date.now()) / 3600000);
   console.log(
-    `[reset-race-one] fresh race ${race.race_number} created (${race.percent_complete}% complete)`
+    `[reset-race-one] race ${race.race_number} live (${race.percent_complete}% complete, ~${remainingH.toFixed(1)}h remaining)`
   );
+  console.log(`[reset-race-one] ${started.toISOString()} → ${ends.toISOString()}`);
   console.log("[reset-race-one] complete.");
 }
 

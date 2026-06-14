@@ -87,7 +87,18 @@ export function getNextRaceDayBounds(afterDate: Date): { startedAt: Date; endsAt
   return getRaceDayBoundsForDate(next.year, next.month, next.day);
 }
 
-/** Race 1 anchor — June 13, 2026, 9:00 AM Eastern */
+/** First race window: today 9:00 AM → tomorrow 9:00 AM Eastern (24h). */
+export function getFirstRaceLiveBounds(now: Date = new Date()): { startedAt: Date; endsAt: Date } {
+  const { year, month, day } = getEasternCalendarDate(now);
+  const startedAt = easternWallClockToDate(year, month, day, RACE_START_HOUR, 0, 0);
+  const anchor = easternWallClockToDate(year, month, day, 12, 0, 0);
+  const nextDay = new Date(anchor.getTime() + 24 * 60 * 60 * 1000);
+  const next = getEasternCalendarDate(nextDay);
+  const endsAt = easternWallClockToDate(next.year, next.month, next.day, RACE_START_HOUR, 0, 0);
+  return { startedAt, endsAt };
+}
+
+/** Race 1 anchor — June 13, 2026, 9:00 AM Eastern (legacy 12h window) */
 export function getRaceOneBounds(): { startedAt: Date; endsAt: Date } {
   return getRaceDayBoundsForDate(2026, 6, 13);
 }

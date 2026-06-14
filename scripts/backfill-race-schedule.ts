@@ -8,8 +8,8 @@ config({ path: resolve(process.cwd(), ".env") });
 import { createAdminClient } from "../lib/supabase/admin";
 import {
   calculatePercentComplete,
+  getFirstRaceLiveBounds,
   getNextRaceDayBounds,
-  getRaceOneBounds,
 } from "../lib/race-logic";
 
 async function main() {
@@ -35,7 +35,7 @@ async function main() {
     let endsAt: Date;
 
     if (race.race_number === 1) {
-      ({ startedAt, endsAt } = getRaceOneBounds());
+      ({ startedAt, endsAt } = getFirstRaceLiveBounds(now));
     } else if (previousEndsAt) {
       ({ startedAt, endsAt } = getNextRaceDayBounds(previousEndsAt));
     } else {
