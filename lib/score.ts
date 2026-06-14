@@ -12,6 +12,25 @@ export function formatRaceScore(score: number): string {
   return scoreFormatter.format(Math.round(Math.max(0, score)));
 }
 
+/** Per-pip fill: desaturated at low scores, richer saturation as points climb. */
+export function getScorePipBackground(index: number, count: number, night = false): string {
+  const t = count <= 1 ? 1 : index / (count - 1);
+  const sat = Math.round(8 + t * 82);
+  const hue = night ? 210 : 225;
+
+  if (night) {
+    const top = Math.round(74 - t * 16);
+    const mid = Math.round(68 - t * 18);
+    const bot = Math.round(62 - t * 20);
+    return `linear-gradient(180deg, hsl(${hue} ${sat}% ${top}%) 0%, hsl(${hue} ${sat}% ${mid}%) 55%, hsl(${hue} ${sat}% ${bot}%) 100%)`;
+  }
+
+  const top = Math.round(56 - t * 22);
+  const mid = Math.round(48 - t * 26);
+  const bot = Math.round(40 - t * 28);
+  return `linear-gradient(180deg, hsl(${hue} ${sat}% ${top}%) 0%, hsl(${hue} ${sat}% ${mid}%) 55%, hsl(${hue} ${sat}% ${bot}%) 100%)`;
+}
+
 /** @deprecated use formatRaceScore */
 export function formatLiveScore(score: number): string {
   return formatRaceScore(score);

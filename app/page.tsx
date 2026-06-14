@@ -17,7 +17,7 @@ import {
   formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
-import { formatRaceScore } from "@/lib/score";
+import { formatRaceScore, getScorePipBackground } from "@/lib/score";
 import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
@@ -139,10 +139,12 @@ function ScorePipTrack({
   score,
   leaderScore,
   isLeader,
+  isNight,
 }: {
   score: number;
   leaderScore: number;
   isLeader: boolean;
+  isNight: boolean;
 }) {
   const count = Math.max(0, Math.round(score));
   const leader = Math.max(count, Math.round(leaderScore));
@@ -164,7 +166,12 @@ function ScorePipTrack({
       }
     >
       {Array.from({ length: count }, (_, i) => (
-        <span key={`on-${i}`} className="score-pip score-pip-on" aria-hidden="true" />
+        <span
+          key={`on-${i}`}
+          className="score-pip score-pip-on"
+          style={{ background: getScorePipBackground(i, count, isNight) }}
+          aria-hidden="true"
+        />
       ))}
       {Array.from({ length: dimCount }, (_, i) => (
         <span key={`dim-${i}`} className="score-pip score-pip-dim" aria-hidden="true" />
@@ -785,7 +792,12 @@ export default function HomePage() {
                     >
                       {isInjured ? "🏥" : barMark}
                     </span>
-                    <ScorePipTrack score={score} leaderScore={leaderScore} isLeader={isLeader} />
+                    <ScorePipTrack
+                      score={score}
+                      leaderScore={leaderScore}
+                      isLeader={isLeader}
+                      isNight={isNight}
+                    />
                     <span className="row-score">{formatRaceScore(score)}</span>
                     {raceActive && !isInjured && (
                       <button
