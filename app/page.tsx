@@ -17,7 +17,7 @@ import {
   formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
-import { formatRaceScore, getScorePipBackground } from "@/lib/score";
+import { formatRaceScore, getScorePipBackground, SCORE_PIP_SLOTS } from "@/lib/score";
 import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
@@ -146,36 +146,40 @@ function ScorePipTrack({
   isLeader: boolean;
   isNight: boolean;
 }) {
-  const count = Math.max(0, Math.round(score));
-  const leader = Math.max(count, Math.round(leaderScore));
-  const dimCount = isLeader ? 0 : Math.max(0, leader - count);
-  const behind = dimCount;
+  const points = Math.max(0, Math.round(score));
+  const leader = Math.max(1, Math.round(leaderScore));
+  const behind = isLeader ? 0 : Math.max(0, leader - points);
 
   return (
     <div
-      className="score-pip-track"
+      className="score-pip-viewport"
       aria-label={
         isLeader
-          ? `${count} points, race leader`
-          : `${count} points, ${behind} behind leader`
+          ? `${points} points, race leader`
+          : `${points} points, ${behind} behind leader`
       }
       title={
-        isLeader
-          ? `${count} points`
-          : `${count} pts · ${behind} behind lead`
+        isLeader ? `${points} points` : `${points} pts · ${behind} behind lead`
       }
     >
-      {Array.from({ length: count }, (_, i) => (
-        <span
-          key={`on-${i}`}
-          className="score-pip score-pip-on"
-          style={{ background: getScorePipBackground(i, count, isNight) }}
-          aria-hidden="true"
-        />
-      ))}
-      {Array.from({ length: dimCount }, (_, i) => (
-        <span key={`dim-${i}`} className="score-pip score-pip-dim" aria-hidden="true" />
-      ))}
+      <div className="score-pip-track">
+        {Array.from({ length: SCORE_PIP_SLOTS }, (_, i) => {
+          if (i < points) {
+            return (
+              <span
+                key={i}
+                className="score-pip score-pip-on"
+                style={{ background: getScorePipBackground(i, points, isNight) }}
+                aria-hidden="true"
+              />
+            );
+          }
+          if (!isLeader && i < leader) {
+            return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
+          }
+          return <span key={i} className="score-pip score-pip-empty" aria-hidden="true" />;
+        })}
+      </div>
     </div>
   );
 }
@@ -630,6 +634,18 @@ export default function HomePage() {
   const isNight = useDayNight();
   useHomeDayNightTheme(isNight);
 
+  const leaderScorePoints =
+    state && state.entries.length
+      ? Math.max(
+          1,
+          ...state.entries.map((e) => {
+            if (e.is_injured) return Math.round(Number(e.race_score));
+            const live = liveRace?.entries.get(e.player_id);
+            return Math.round(live?.score ?? Number(e.race_score));
+          })
+        )
+      : 1;
+
   const selectedEntry = selectedSlug
     ? state?.entries.find((e) => e.player.slug === selectedSlug)
     : undefined;
@@ -725,17 +741,9 @@ export default function HomePage() {
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
             const rank = live?.current_rank ?? entry.current_rank;
-            const score = entry.is_injured
-              ? Number(entry.race_score)
-              : (live?.score ?? Number(entry.race_score));
-            const leaderScore = Math.max(
-              ...state.entries.map((e) => {
-                const liveEntry = liveRace?.entries.get(e.player_id);
-                if (e.is_injured) return Number(e.race_score);
-                return liveEntry?.score ?? Number(e.race_score);
-              }),
-              1
-            );
+            const scorePoints = entry.is_injured
+              ? Math.round(Number(entry.race_score))
+              : Math.round(live?.score ?? Number(entry.race_score));
             const isInjured = entry.is_injured;
             const isComeback = !isInjured && entry.last_rank_change >= 2;
             const isLeader = !isInjured && rank === 1;
@@ -793,12 +801,12 @@ export default function HomePage() {
                       {isInjured ? "🏥" : barMark}
                     </span>
                     <ScorePipTrack
-                      score={score}
-                      leaderScore={leaderScore}
+                      score={scorePoints}
+                      leaderScore={leaderScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
                     />
-                    <span className="row-score">{formatRaceScore(score)}</span>
+                    <span className="row-score">{formatRaceScore(scorePoints)}</span>
                     {raceActive && !isInjured && (
                       <button
                         type="button"

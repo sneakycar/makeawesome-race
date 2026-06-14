@@ -12,7 +12,8 @@ export function formatRaceScore(score: number): string {
   return scoreFormatter.format(Math.round(Math.max(0, score)));
 }
 
-/** Per-pip fill: desaturated at low scores, richer saturation as points climb. */
+/** Fixed pip track length — matches max race score scale. */
+export const SCORE_PIP_SLOTS = MAX_WINNER_SCORE;
 export function getScorePipBackground(index: number, count: number, night = false): string {
   const t = count <= 1 ? 1 : index / (count - 1);
   const sat = Math.round(8 + t * 82);
