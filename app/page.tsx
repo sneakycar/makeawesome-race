@@ -18,7 +18,11 @@ import {
   formatTickerForDisplay,
   ordinal,
 } from "@/lib/format";
-import { formatRaceScore, getScorePipBackground, SCORE_PIP_SLOTS } from "@/lib/score";
+import { formatRaceScore, SCORE_PIP_SLOTS } from "@/lib/score";
+import {
+  getRaceProgressBitmapStyle,
+  getRaceProgressFillStyle,
+} from "@/lib/race-progress-art";
 import { formatOvrRank } from "@/lib/ovr";
 import { formatTraitsDisplay, getIdentityText } from "@/lib/identity";
 import { useLiveRace } from "@/lib/use-live-race";
@@ -28,6 +32,7 @@ import { formatRankDelta, useLiveRankDelta } from "@/lib/use-live-rank-delta";
 import { WEATHER_ART, type RaceWeatherState } from "@/lib/race-weather";
 import { canEncourageVote, vibrateNope } from "@/lib/nope-feedback";
 import { calculateLiveOdds } from "@/lib/live-odds";
+import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 
 function RaceDelayOverlay({
   delay,
@@ -236,36 +241,27 @@ function RaceProgressPipBar({
   isNight: boolean;
 }) {
   const clamped = Math.max(0, Math.min(100, percent));
-  const filled = Math.max(
-    0,
-    Math.min(SCORE_PIP_SLOTS, Math.round((clamped / 100) * SCORE_PIP_SLOTS))
-  );
 
   return (
     <div className="race-progress-pip-viewport" aria-hidden="true">
-      <div className="race-progress-pip-pill">
-        <div className="race-progress-pip-track">
-          {Array.from({ length: SCORE_PIP_SLOTS }, (_, i) => {
-            const isOn = i < filled;
-            return (
-              <span
-                key={i}
-                className={`race-progress-pip${isOn ? " race-progress-pip-on" : " race-progress-pip-dim"}`}
-                style={
-                  isOn
-                    ? {
-                        background: getScorePipBackground(
-                          i,
-                          Math.max(1, filled),
-                          isNight
-                        ),
-                      }
-                    : undefined
-                }
-              />
-            );
-          })}
+      <div className={`race-progress-pip-pill${isNight ? " is-night" : ""}`}>
+        <div className="race-progress-pip-track-bg" />
+        <div
+          className="race-progress-pip-fill"
+          style={getRaceProgressFillStyle(clamped)}
+        >
+          <div
+            className="race-progress-pip-bitmap"
+            style={getRaceProgressBitmapStyle(isNight)}
+          />
+          <div className="race-progress-pip-bitmap-shine" />
         </div>
+        <div className="race-progress-pip-dividers">
+          {Array.from({ length: SCORE_PIP_SLOTS - 1 }, (_, i) => (
+            <span key={i} className="race-progress-pip-divider" />
+          ))}
+        </div>
+        <div className="race-progress-pip-bezel" />
       </div>
     </div>
   );
@@ -284,7 +280,7 @@ function ScoreReadout({
   segmentProgress: number;
   isLeader: boolean;
   isNight: boolean;
-  statusOverlay?: { emoji: string; label: string };
+  statusOverlay?: { icon: RaceIconId; label: string };
 }) {
   const points = Math.max(0, Math.round(displayPoints));
   const tickDelta = Math.max(0, lastDelta);
@@ -316,7 +312,7 @@ function ScoreReadout({
       )}
       {statusOverlay && (
         <div className="row-scoreboard-overlay" aria-hidden="true">
-          <span className="row-scoreboard-overlay-emoji">{statusOverlay.emoji}</span>
+          <FlatIcon id={statusOverlay.icon} className="flat-icon flat-icon-overlay" />
           <span className="row-scoreboard-overlay-label">{statusOverlay.label}</span>
         </div>
       )}
@@ -511,7 +507,10 @@ function PlayerOverlay({
                   <>
                     <div className="retro-kv retro-kv-wide">
                       <span className="retro-k">RACE STATUS</span>
-                      <span className="retro-v">🏥 INJURED</span>
+                      <span className="retro-v retro-v-icon">
+                        <FlatIcon id="injured" className="flat-icon flat-icon-inline" />
+                        INJURED
+                      </span>
                     </div>
                     {profile.raceInjury.injury_name && (
                       <div className="retro-kv retro-kv-wide">
@@ -996,18 +995,18 @@ export default function HomePage() {
             const isLeader = !isInjured && !isFighting && rank === 1;
             const isLast = !isInjured && !isFighting && rank === 8;
             const pipOverlay = isInjured
-              ? { emoji: "🏥", label: "INJURED" }
+              ? { icon: "injured" as const, label: "INJURED" }
               : isFighting
-                ? { emoji: "👊", label: "FIGHT" }
+                ? { icon: "fight" as const, label: "FIGHT" }
                 : undefined;
-            const barMark = isInjured
+            const barMark: RaceIconId | null = isInjured
               ? null
               : isLeader
-                ? "🏆"
+                ? "lead"
                 : isLast
-                  ? "💀"
+                  ? "last"
                   : isComeback
-                    ? "👀"
+                    ? "comeback"
                     : null;
             const rankDelta = rankDeltaById.get(entry.player_id) ?? 0;
             const rankDeltaLabel = formatRankDelta(rankDelta);
@@ -1065,7 +1064,7 @@ export default function HomePage() {
                                   : undefined
                       }
                     >
-                      {barMark}
+                      {barMark ? <FlatIcon id={barMark} className="flat-icon" /> : null}
                     </span>
                     <ScoreReadout
                       displayPoints={scorePoints}
@@ -1091,7 +1090,11 @@ export default function HomePage() {
                           if (nopeShakeId === entry.player_id) setNopeShakeId(null);
                         }}
                       >
-                        {isSupported ? "✓" : "+1"}
+                        {isSupported ? (
+                          <FlatIcon id="check" className="flat-icon flat-icon-btn" />
+                        ) : (
+                          "+1"
+                        )}
                       </button>
                     )}
                     <span
@@ -1117,19 +1120,27 @@ export default function HomePage() {
 
           <div className="race-legend">
             <span className="legend-key">
-              <span className="row-mark-slot" aria-hidden="true">🏆</span>
+              <span className="row-mark-slot" aria-hidden="true">
+                <FlatIcon id="lead" className="flat-icon" />
+              </span>
               LEAD
             </span>
             <span className="legend-key">
-              <span className="row-mark-slot" aria-hidden="true">👀</span>
+              <span className="row-mark-slot" aria-hidden="true">
+                <FlatIcon id="comeback" className="flat-icon" />
+              </span>
               COMEBACK
             </span>
             <span className="legend-key">
-              <span className="row-mark-slot" aria-hidden="true">💀</span>
+              <span className="row-mark-slot" aria-hidden="true">
+                <FlatIcon id="last" className="flat-icon" />
+              </span>
               LAST
             </span>
             <span className="legend-key">
-              <span className="score-pip-overlay-legend" aria-hidden="true">👊</span>
+              <span className="row-mark-slot" aria-hidden="true">
+                <FlatIcon id="fight" className="flat-icon" />
+              </span>
               FIGHT
             </span>
           </div>

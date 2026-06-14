@@ -1,6 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { FlatIcon } from "@/app/components/flat-icons";
 import { formatCompactDuration, formatRaceBegan, formatRacerName } from "@/lib/format";
 import { formatLaneBonus } from "@/lib/lanes";
 import type { LeagueCountBar, LeagueStatBar, LeagueStatsResponse } from "@/lib/types";
@@ -12,7 +14,7 @@ function InfoBar({
   color = "#00ff88",
   suffix = "",
 }: {
-  label: string;
+  label: ReactNode;
   value: number | string;
   pct: number;
   color?: string;
@@ -200,7 +202,17 @@ export function StatsOverlay({ onClose }: { onClose: () => void }) {
                 stats.laneWinRates.map((lane) => (
                   <InfoBar
                     key={lane.lane}
-                    label={`L${lane.lane} ${lane.label}${bestLane?.lane === lane.lane ? " ★" : ""}`}
+                    label={
+                      <>
+                        L{lane.lane} {lane.label}
+                        {bestLane?.lane === lane.lane ? (
+                          <>
+                            {" "}
+                            <FlatIcon id="star" className="flat-icon flat-icon-star" />
+                          </>
+                        ) : null}
+                      </>
+                    }
                     value={`${lane.winPct}%`}
                     pct={lane.barPct}
                     color={bestLane?.lane === lane.lane ? "#ffd700" : "#ff6600"}

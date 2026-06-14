@@ -73,7 +73,7 @@ export default function PlayerPage({
           )}
           {profile!.raceInjury?.is_injured && (
             <>
-              {"\n"}RACE STATUS: 🏥 INJURED
+              {"\n"}RACE STATUS: [INJURED]
               {profile!.raceInjury.injury_name && (
                 <>
                   {"\n"}INJURY: {profile!.raceInjury.injury_name}
