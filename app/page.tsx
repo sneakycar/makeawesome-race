@@ -17,7 +17,7 @@ import {
   formatTickerAge,
   ordinal,
 } from "@/lib/format";
-import { formatRaceScore, getScorePipBackground, HARD_SCORE_CAP, SCORE_PIP_SLOTS } from "@/lib/score";
+import { formatRaceScore, getScorePipBackground, SCORE_PIP_SLOTS } from "@/lib/score";
 import { getRaceProgressPipSurfaceStyle } from "@/lib/race-progress-art";
 import { useLiveRace } from "@/lib/use-live-race";
 import { useDayNight, useHomeDayNightTheme } from "@/lib/use-day-night";
@@ -28,6 +28,7 @@ import { canEncourageVote, vibrateNope } from "@/lib/nope-feedback";
 import { calculateLiveOdds } from "@/lib/live-odds";
 import { buildLiveScoreMap, computeLiveRanks } from "@/lib/live-standings";
 import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
+import { ScorePipTrack } from "@/app/components/score-pip-track";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 
 function RaceDelayOverlay({
@@ -289,102 +290,6 @@ function RaceProgressPipBar({
           <div className="race-progress-pip-bezel" />
         </div>
       </div>
-    </div>
-  );
-}
-
-function ScorePipTrack({
-  score,
-  animatingDelta,
-  leaderScore,
-  isLeader,
-  isNight,
-  statusOverlay,
-}: {
-  score: number;
-  animatingDelta: number;
-  leaderScore: number;
-  isLeader: boolean;
-  isNight: boolean;
-  statusOverlay?: { icon: RaceIconId; label: string };
-}) {
-  const leader = Math.max(1, Math.min(HARD_SCORE_CAP, Math.round(leaderScore)));
-  const slots = leader;
-  const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, score));
-  const pipBright = Math.floor(livePoints);
-  const pipPartial = livePoints - pipBright;
-  const displayPoints = Math.round(livePoints);
-  const behind = leader - displayPoints;
-  const colorSpan = Math.max(1, leader);
-
-  return (
-    <div
-      className={`score-pip-viewport${
-        statusOverlay ? " score-pip-viewport-paused" : ""
-      }${isNight ? " is-night" : ""}`}
-      aria-label={
-        statusOverlay
-          ? `${statusOverlay.label} — ${displayPoints} points`
-          : isLeader
-            ? `${displayPoints} points, race leader`
-            : `${displayPoints} points, ${behind} behind leader`
-      }
-      title={
-        statusOverlay
-          ? `${statusOverlay.label} — ${displayPoints} pts`
-          : isLeader
-            ? `${displayPoints} points`
-            : `${displayPoints} pts · ${behind} behind lead`
-      }
-    >
-      <div className={`score-pip-track${isLeader ? " score-pip-track-leader" : ""}`}>
-        {Array.from({ length: slots }, (_, i) => {
-          if (i < pipBright) {
-            return (
-              <span
-                key={i}
-                className="score-pip score-pip-on"
-                style={{
-                  background: getScorePipBackground(i, colorSpan, isNight),
-                }}
-                aria-hidden="true"
-              />
-            );
-          }
-          if (i === pipBright && pipPartial > 0.001) {
-            return (
-              <span
-                key={i}
-                className="score-pip score-pip-on score-pip-partial"
-                style={{
-                  background: getScorePipBackground(i, colorSpan, isNight),
-                  opacity: Math.max(0.15, pipPartial),
-                }}
-                aria-hidden="true"
-              />
-            );
-          }
-          return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
-        })}
-      </div>
-      <span className="row-score-pip-num">{formatRaceScore(displayPoints)}</span>
-      {animatingDelta !== 0 && (
-        <span
-          className={`row-score-pip-delta${
-            animatingDelta < 0 ? " row-score-pip-delta-loss" : ""
-          }`}
-          aria-hidden="true"
-        >
-          {animatingDelta > 0 ? "+" : ""}
-          {formatRaceScore(animatingDelta)}
-        </span>
-      )}
-      {statusOverlay && (
-        <div className="row-scoreboard-overlay" aria-hidden="true">
-          <FlatIcon id={statusOverlay.icon} className="race-emoji race-emoji-overlay" />
-          <span className="row-scoreboard-overlay-label">{statusOverlay.label}</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -1040,6 +945,8 @@ export default function HomePage() {
             liveRace?.entries.get(selectedEntry.player_id)?.animatingDelta ?? 0
           }
           leaderScore={leaderScorePoints}
+          rankDelta={rankDeltaById.get(selectedEntry.player_id) ?? 0}
+          healthyEntryCount={healthyEntryCount}
           lane={selectedEntry.lane}
           isFighting={selectedEntry.is_fighting}
           isInjured={selectedEntry.is_injured}
