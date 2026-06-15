@@ -711,7 +711,8 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .race-meta-weather-row {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-end;
+  width: 100%;
   min-height: 14px;
   margin: 4px 0 6px;
   line-height: 1;
