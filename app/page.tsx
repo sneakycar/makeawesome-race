@@ -521,8 +521,8 @@ function RaceTickLogPanel({
   raceStartedAt: string;
   now: Date;
 }) {
-  const latest = entries.at(-1) ?? null;
-  const older = entries.length > 1 ? entries.slice(0, -1) : [];
+  const latest = entries[0] ?? null;
+  const older = entries.length > 1 ? entries.slice(1) : [];
 
   if (!latest) {
     return <p className="race-log-empty">no ticks yet</p>;

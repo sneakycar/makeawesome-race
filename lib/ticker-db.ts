@@ -147,5 +147,5 @@ export async function getRaceTickLog(
     }
   }
 
-  return [...byTick.values()].sort((a, b) => a.tickNumber - b.tickNumber);
+  return [...byTick.values()].sort((a, b) => b.tickNumber - a.tickNumber);
 }
