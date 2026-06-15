@@ -1067,18 +1067,20 @@ export default function HomePage() {
                   <div className="row-head">
                     <span className="row-archetype">L{entry.lane}</span>
                     <span className="row-name">{formatRacerName(entry.player.name)}</span>
-                    {rankDeltaLabel && (
-                      <span
-                        className={`row-rank-delta${
-                          rankDelta > 0 ? " row-rank-delta-up" : " row-rank-delta-down"
-                        }`}
-                      >
-                        {rankDeltaLabel}
-                      </span>
-                    )}
-                    {entry.player.archetype && entry.player.archetype !== "UNKNOWN" && (
-                      <span className="row-archetype">{entry.player.archetype}</span>
-                    )}
+                    <span className="row-head-tags">
+                      {entry.player.archetype && entry.player.archetype !== "UNKNOWN" && (
+                        <span className="row-archetype">{entry.player.archetype}</span>
+                      )}
+                      {rankDeltaLabel && (
+                        <span
+                          className={`row-rank-delta${
+                            rankDelta > 0 ? " row-rank-delta-up" : " row-rank-delta-down"
+                          }`}
+                        >
+                          {rankDeltaLabel}
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <div className="row-track">
                     <span className="row-mark-slot" aria-hidden={!barMark}>

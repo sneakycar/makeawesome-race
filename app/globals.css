@@ -1656,6 +1656,14 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   line-height: 1;
 }
 
+.row-head-tags {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .row-lane {
   font-size: 8px;
   line-height: 1;
