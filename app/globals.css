@@ -2876,7 +2876,7 @@ body[data-home-theme="night"] .player-sheet-ability-desc {
   flex-shrink: 0;
 }
 
-/* 8-bit sports stat bars — chunky pixels, hard edges, per-stat color */
+/* Ability stat bars — light track on day theme, chunky pixels at night */
 .ability-pip-track {
   display: flex;
   align-items: stretch;
@@ -2885,11 +2885,9 @@ body[data-home-theme="night"] .player-sheet-ability-desc {
   min-width: 0;
   height: 14px;
   padding: 2px;
-  background: #0a0a0a;
-  border: 2px solid #111;
-  box-shadow:
-    inset 0 0 0 1px #333,
-    2px 2px 0 #000;
+  background: #ececec;
+  border: 1px solid #c8c8c8;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
   image-rendering: pixelated;
 }
 
@@ -2902,31 +2900,29 @@ body[data-home-theme="night"] .player-sheet-ability-desc {
 }
 
 .ability-pip-off {
-  background-color: #12121a;
-  box-shadow: inset 0 -1px 0 #060608;
+  background-color: #d4d4d4;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
   opacity: 1;
 }
 
 .ability-pip-on {
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(0, 0, 0, 0.65);
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .ability-pip-track--sig {
-  border-color: #664400;
+  border-color: #c9a227;
   box-shadow:
-    inset 0 0 0 1px #ffd700,
-    2px 2px 0 #000,
-    0 0 6px rgba(255, 204, 0, 0.35);
+    inset 0 0 0 1px rgba(255, 215, 0, 0.4),
+    0 0 4px rgba(255, 204, 0, 0.12);
 }
 
 .ability-pip-track.is-night {
-  background: #050508;
-  border-color: #222;
+  background: #0a0a0a;
+  border: 2px solid #111;
   box-shadow:
-    inset 0 0 0 1px #444,
+    inset 0 0 0 1px #333,
     2px 2px 0 #000;
 }
 
