@@ -171,7 +171,7 @@ function WeatherCanvas({
   return <canvas ref={canvasRef} className="race-weather-canvas" aria-hidden="true" />;
 }
 
-const WEATHER_ICONS: Record<RaceWeatherType, string> = {
+const WEATHER_ICONS: Partial<Record<RaceWeatherType, string>> = {
   rain: "🌧",
   wind: "💨",
   storm: "⛈",
@@ -180,9 +180,13 @@ const WEATHER_ICONS: Record<RaceWeatherType, string> = {
 };
 
 export function RaceWeatherBadge({ weather }: { weather: RaceWeatherState }) {
+  const icon = WEATHER_ICONS[weather.type];
   return (
-    <div className="race-weather-badge" aria-label={`Weather: ${weather.label}`}>
-      <span className="race-weather-badge-icon">{WEATHER_ICONS[weather.type]}</span>
+    <div
+      className={`race-weather-badge${weather.type === "clear" ? " race-weather-badge--clear" : ""}`}
+      aria-label={`Weather: ${weather.label}`}
+    >
+      {icon ? <span className="race-weather-badge-icon">{icon}</span> : null}
       <span>{weather.label}</span>
     </div>
   );

@@ -206,11 +206,9 @@ function RaceMetaPanel({
             <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
           </div>
         </div>
-        <div className="race-meta-gap" aria-hidden={weatherBadge ? undefined : true}>
-          {weatherBadge ? (
-            <div className="race-meta-weather-slot">{weatherBadge}</div>
-          ) : null}
-        </div>
+        {weatherBadge ? (
+          <div className="race-meta-line race-meta-weather-row">{weatherBadge}</div>
+        ) : null}
         <div className="race-meta-line">{timerLine}</div>
         <div className="race-meta-line">
           NEXT UPDATE IN:{" "}
@@ -925,17 +923,17 @@ export default function HomePage() {
           isNight={isNight}
         />
       )}
+      {raceWeather && raceWeather.type !== "clear" && raceActive && !raceDelayed && (
+        <div className="race-weather-fullscreen" aria-hidden="true">
+          <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
+        </div>
+      )}
       <div
         className={`race-update-shell${tickBurst ? " is-tick-bursting" : ""}${
           tickBurst?.phase === "explode" ? " is-tick-burst-reveal" : ""
         }`}
         aria-busy={Boolean(tickBurst)}
       >
-      {raceWeather && raceActive && !raceDelayed && (
-        <div className="race-weather-fullscreen" aria-hidden="true">
-          <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
-        </div>
-      )}
       <div className="home-content">
       {state && (
         <ScrollingTicker

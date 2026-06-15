@@ -1,6 +1,8 @@
 import { seededBool, seededInt, seededPick } from "./seeded-rng";
 
-export type RaceWeatherType = "rain" | "wind" | "storm" | "heat" | "fog";
+export type RaceWeatherType = "rain" | "wind" | "storm" | "heat" | "fog" | "clear";
+
+type ActiveRaceWeatherType = Exclude<RaceWeatherType, "clear">;
 
 export interface RaceWeatherState {
   type: RaceWeatherType;
@@ -11,13 +13,13 @@ export interface RaceWeatherState {
 
 export interface RaceWeatherEventRecord {
   slot: number;
-  type: RaceWeatherType;
+  type: ActiveRaceWeatherType;
   label: string;
   startedAt: Date;
   endedAt: Date;
 }
 
-const WEATHER_LABELS: Record<RaceWeatherType, string> = {
+const WEATHER_LABELS: Record<ActiveRaceWeatherType, string> = {
   rain: "RAIN",
   wind: "GUSTS",
   storm: "STORM",
@@ -25,7 +27,7 @@ const WEATHER_LABELS: Record<RaceWeatherType, string> = {
   fog: "FOG",
 };
 
-const WEATHER_TYPES: RaceWeatherType[] = ["rain", "wind", "storm", "heat", "fog"];
+const WEATHER_TYPES: ActiveRaceWeatherType[] = ["rain", "wind", "storm", "heat", "fog"];
 
 import { getRaceTickIntervalMs, TICKS_PER_RACE } from "./race-logic";
 
@@ -149,6 +151,12 @@ export function enumerateRaceWeatherEvents(
   return events;
 }
 
+const CLEAR_WEATHER: RaceWeatherState = {
+  type: "clear",
+  label: "CLEAR",
+  opacity: 0,
+};
+
 /** Deterministic race weather — multi-tick episodes with smooth fade at edges. */
 export function getRaceWeather(
   raceId: string,
@@ -168,10 +176,10 @@ export function getRaceWeather(
 
     const progress = (nowMs - startMs) / (endMs - startMs);
     const opacity = weatherOpacityForEpisodeProgress(progress);
-    if (opacity <= 0) return null;
+    if (opacity <= 0) continue;
 
     return { type: episode.type, label: episode.label, opacity };
   }
 
-  return null;
+  return CLEAR_WEATHER;
 }
