@@ -317,17 +317,28 @@ export function RacerFactReveal({
   const exiting = phase === "exiting";
 
   return (
-    <button
-      type="button"
-      className={`factReveal${visible && !exiting ? " factRevealVisible" : ""}${
-        exiting ? " factRevealExiting" : ""
+    <div
+      className={`factRevealOverlay${visible && !exiting ? " factRevealOverlayVisible" : ""}${
+        exiting ? " factRevealOverlayExiting" : ""
       }`}
+      role="presentation"
       onClick={dismiss}
-      aria-live="polite"
     >
-      <div className="factRevealTitle">{title}</div>
-      <div className="factRevealName">{playerName}</div>
-      <div className="factRevealText">{typedFact || factText}</div>
-    </button>
+      <button
+        type="button"
+        className={`factReveal${visible && !exiting ? " factRevealVisible" : ""}${
+          exiting ? " factRevealExiting" : ""
+        }`}
+        onClick={(e) => {
+          e.stopPropagation();
+          dismiss();
+        }}
+        aria-live="polite"
+      >
+        <div className="factRevealTitle">{title}</div>
+        <div className="factRevealName">{playerName}</div>
+        <div className="factRevealText">{typedFact || factText}</div>
+      </button>
+    </div>
   );
 }

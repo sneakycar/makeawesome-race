@@ -1268,12 +1268,47 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 /* racer fact reveal — inspection slip overlay */
 
-.factReveal {
+.factRevealOverlay {
   position: fixed;
-  left: 50%;
-  bottom: 22%;
-  transform: translateX(-50%) translateY(8px) scale(0.98);
-  width: min(320px, calc(100vw - 32px));
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0);
+  -webkit-backdrop-filter: blur(0);
+  opacity: 0;
+  pointer-events: auto;
+  transition:
+    opacity 180ms ease,
+    background 180ms ease,
+    backdrop-filter 180ms ease,
+    -webkit-backdrop-filter 180ms ease;
+}
+
+.factRevealOverlayVisible {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.factRevealOverlayExiting {
+  opacity: 0;
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0);
+  -webkit-backdrop-filter: blur(0);
+}
+
+.factReveal {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: translateY(10px) scale(0.98);
+  width: min(320px, 100%);
   background: rgba(0, 0, 0, 0.94);
   color: #e8e2d0;
   border: 1px solid #e8e2d0;
@@ -1281,7 +1316,6 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   font-family: inherit;
   font-size: 12px;
   line-height: 1.35;
-  z-index: 50;
   opacity: 0;
   pointer-events: auto;
   cursor: pointer;
@@ -1295,12 +1329,12 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 .factRevealVisible {
   opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
+  transform: translateY(0) scale(1);
 }
 
 .factRevealExiting {
   opacity: 0;
-  transform: translateX(-50%) translateY(6px) scale(0.98);
+  transform: translateY(8px) scale(0.98);
 }
 
 .factRevealTitle {
@@ -1324,17 +1358,27 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .factRevealOverlay {
+    transition: opacity 80ms ease;
+  }
+
+  .factRevealOverlayVisible {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
   .factReveal {
     transition: opacity 80ms ease;
-    transform: translateX(-50%);
+    transform: none;
   }
 
   .factRevealVisible {
-    transform: translateX(-50%);
+    transform: none;
   }
 
   .factRevealExiting {
-    transform: translateX(-50%);
+    transform: none;
   }
 }
 
