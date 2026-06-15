@@ -160,6 +160,7 @@ export interface RaceTickLogEntry {
   message: string;
   createdAt: string;
   eventType: string;
+  facts?: TickerEventFacts;
 }
 
 export interface TickerEventFacts {

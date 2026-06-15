@@ -1,4 +1,5 @@
 import { CRON_SEGMENT_MS } from "./race-clock";
+import type { TickerEventFacts } from "./types";
 
 export function formatRacerName(name: string): string {
   return name.trim().replace(/\s+/g, " ");
@@ -12,10 +13,116 @@ export function stripRaceFromTickerMessage(message: string): string {
     .trim();
 }
 
-export function formatTickerForDisplay(message: string): string {
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function namePattern(name: string): RegExp {
+  const escaped = escapeRegExp(name.trim()).replace(/\s+/g, "\\s+");
+  return new RegExp(`(?<![A-Za-z0-9])${escaped}(?![A-Za-z0-9])`, "gi");
+}
+
+function sentenceCaseName(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((word) =>
+      word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : word
+    )
+    .join(" ");
+}
+
+function collectDisplayNames(
+  facts?: Partial<TickerEventFacts> | null,
+  knownNames?: string[]
+): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+
+  const add = (name: string | undefined | null) => {
+    const trimmed = name?.trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    names.push(trimmed);
+  };
+
+  add(facts?.playerName);
+  add(facts?.previousLeaderName);
+  add(facts?.fightPartnerName);
+  add(facts?.winnerName);
+  add(facts?.eliminatedName);
+  for (const name of knownNames ?? []) add(name);
+
+  return names.sort((a, b) => b.length - a.length);
+}
+
+/** Log/ticker copy: sentence case, saved racer names, sentence-case first name only. */
+export function formatLogMessageForDisplay(
+  message: string,
+  facts?: Partial<TickerEventFacts> | null,
+  knownNames?: string[]
+): string {
   const stripped = stripRaceFromTickerMessage(message);
+  const names = collectDisplayNames(facts, knownNames);
+
+  if (!names.length) {
+    const lower = stripped.toLowerCase();
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  }
+
   const lower = stripped.toLowerCase();
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
+  const lead = lower.match(/^(\s*)/)?.[1]?.length ?? 0;
+  const body = lower.slice(lead);
+
+  let startName: string | null = null;
+  for (const name of names) {
+    const nameLower = name.toLowerCase();
+    if (!body.startsWith(nameLower)) continue;
+    const next = body[nameLower.length];
+    if (!next || !/[a-z0-9]/.test(next)) {
+      startName = name;
+      break;
+    }
+  }
+
+  let result = lower;
+
+  if (startName) {
+    const nameLower = startName.toLowerCase();
+    const prefix = result.slice(0, lead);
+    const afterStart = result.slice(lead + nameLower.length);
+    result = prefix + sentenceCaseName(startName) + afterStart;
+
+    for (const name of names) {
+      if (name.toLowerCase() === nameLower) {
+        const head = prefix + sentenceCaseName(startName);
+        const tail = result.slice(head.length);
+        result = head + tail.replace(namePattern(name), name);
+      } else {
+        result = result.replace(namePattern(name), name);
+      }
+    }
+  } else {
+    for (const name of names) {
+      result = result.replace(namePattern(name), name);
+    }
+    const prefix = result.match(/^(\s*)/)?.[1] ?? "";
+    const rest = result.slice(prefix.length);
+    if (rest) {
+      result = prefix + rest.charAt(0).toUpperCase() + rest.slice(1);
+    }
+  }
+
+  return result;
+}
+
+export function formatTickerForDisplay(
+  message: string,
+  facts?: Partial<TickerEventFacts> | null,
+  knownNames?: string[]
+): string {
+  return formatLogMessageForDisplay(message, facts, knownNames);
 }
 
 export function formatProgressBar(percent: number, width = 14): string {

@@ -150,5 +150,6 @@ export async function getRaceTickLog(
     message: row.message,
     createdAt: row.created_at,
     eventType: row.event_type,
+    facts: (row.facts ?? {}) as TickerEventFacts,
   }));
 }

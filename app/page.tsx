@@ -14,6 +14,7 @@ import {
   formatStreak,
   formatRacerName,
   formatTickerForDisplay,
+  formatLogMessageForDisplay,
   formatTickerAge,
   formatTickAge,
   ordinal,
@@ -227,26 +228,28 @@ function ScrollingTicker({
   raceNumber,
   fallback,
   now,
+  knownNames,
 }: {
   events: TickerEvent[];
   raceStartedAt: string;
   raceNumber: number;
   fallback: string;
   now: Date;
+  knownNames: string[];
 }) {
   const recent = events.slice(0, TICKER_EVENT_COUNT);
   const line = recent.length
     ? recent
         .map(
           (e) =>
-            `${formatTickerForDisplay(e.message)} (${formatTickAge(
+            `${formatTickerForDisplay(e.message, e.facts, knownNames)} (${formatTickAge(
               raceStartedAt,
               e.tick_number,
               now
             )})`
         )
         .join(" · ")
-    : formatTickerForDisplay(fallback);
+    : formatTickerForDisplay(fallback, null, knownNames);
 
   return (
     <div className="ticker-wrap" aria-live="polite">
@@ -520,10 +523,12 @@ function RaceTickLogRow({
   entry,
   raceStartedAt,
   now,
+  knownNames,
 }: {
   entry: RaceTickLogEntry;
   raceStartedAt: string;
   now: Date;
+  knownNames: string[];
 }) {
   return (
     <div className="race-log-row">
@@ -531,7 +536,9 @@ function RaceTickLogRow({
         [tick {entry.tickNumber + 1}] (
         {formatTickAge(raceStartedAt, entry.tickNumber, now)})
       </span>
-      <span className="race-log-msg">{formatTickerForDisplay(entry.message)}</span>
+      <span className="race-log-msg">
+        {formatLogMessageForDisplay(entry.message, entry.facts, knownNames)}
+      </span>
     </div>
   );
 }
@@ -540,10 +547,12 @@ function RaceTickLogPanel({
   entries,
   raceStartedAt,
   now,
+  knownNames,
 }: {
   entries: RaceTickLogEntry[];
   raceStartedAt: string;
   now: Date;
+  knownNames: string[];
 }) {
   const latest = entries[0] ?? null;
   const older = entries.length > 1 ? entries.slice(1) : [];
@@ -554,14 +563,19 @@ function RaceTickLogPanel({
 
   return (
     <div className="race-log-panel">
-      <RaceTickLogRow entry={latest} raceStartedAt={raceStartedAt} now={now} />
+      <RaceTickLogRow entry={latest} raceStartedAt={raceStartedAt} now={now} knownNames={knownNames} />
       {older.length > 0 && (
         <details className="race-log-details">
           <summary className="race-log-summary">&gt; show all</summary>
           <ul className="race-log-list">
             {older.map((entry) => (
               <li key={entry.tickNumber}>
-                <RaceTickLogRow entry={entry} raceStartedAt={raceStartedAt} now={now} />
+                <RaceTickLogRow
+                  entry={entry}
+                  raceStartedAt={raceStartedAt}
+                  now={now}
+                  knownNames={knownNames}
+                />
               </li>
             ))}
           </ul>
@@ -870,6 +884,10 @@ export default function HomePage() {
   }, [state, raceActive, liveRankMap, rankDeltaById, barMarkNow]);
 
   const ageNow = useServerAnchoredNow(state?.serverTime);
+  const rosterNames = useMemo(
+    () => (state ? state.entries.map((entry) => entry.player.name) : []),
+    [state]
+  );
   const oddsAsOf = state?.gameState.last_tick_at ?? state?.serverTime;
   const oddsAge = oddsAsOf ? formatTickerAge(oddsAsOf, ageNow) : "";
 
@@ -970,6 +988,7 @@ export default function HomePage() {
           raceStartedAt={state.race.started_at}
           raceNumber={state.race.race_number}
           now={ageNow}
+          knownNames={rosterNames}
           fallback={
             state.racePhase === "live" || state.racePhase === "delayed"
               ? "Race in progress — awaiting first broadcast"
@@ -1267,6 +1286,7 @@ export default function HomePage() {
               entries={state.raceLog ?? []}
               raceStartedAt={state.race.started_at}
               now={ageNow}
+              knownNames={rosterNames}
             />
           </div>
 
