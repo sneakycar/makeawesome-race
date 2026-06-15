@@ -12,8 +12,6 @@ export function stripRaceFromTickerMessage(message: string): string {
     .trim();
 }
 
-import { CRON_SEGMENT_MS } from "./race-clock";
-
 export function formatTickerForDisplay(message: string): string {
   const stripped = stripRaceFromTickerMessage(message);
   const lower = stripped.toLowerCase();
