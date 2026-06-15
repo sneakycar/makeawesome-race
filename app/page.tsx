@@ -41,17 +41,7 @@ import { RacerFactReveal } from "@/app/components/racer-fact-reveal";
 import { ScorePipTrack } from "@/app/components/score-pip-track";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 import { fetchWithRetry } from "@/lib/server-resilience";
-
-function useRelativeAgeNow(intervalMs = 30_000): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const tick = () => setNow(new Date());
-    tick();
-    const id = setInterval(tick, intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
+import { useServerAnchoredNow } from "@/lib/use-server-now";
 
 function RaceDelayOverlay({
   delay,
@@ -242,21 +232,20 @@ function ScrollingTicker({
   fallback: string;
   now: Date;
 }) {
-  const line = events.length
-    ? events
-        .map(
-          (e) =>
-            `${formatTickerForDisplay(e.message)} (${formatTickerAge(e.created_at, now)})`
-        )
-        .join(" · ")
+  const latest = events[0] ?? null;
+  const line = latest
+    ? `${formatTickerForDisplay(latest.message)} (${formatTickAge(
+        raceStartedAt,
+        latest.tick_number,
+        now
+      )})`
     : formatTickerForDisplay(fallback);
 
   return (
     <div className="ticker-wrap" aria-live="polite">
       <div className="ticker-badge">RACE {raceNumber}</div>
       <div className="ticker-viewport">
-        <div className="ticker-track">
-          <span className="ticker-chunk">{line}</span>
+        <div className="ticker-track is-static">
           <span className="ticker-chunk">{line}</span>
         </div>
       </div>
@@ -531,7 +520,8 @@ function RaceTickLogRow({
   return (
     <div className="race-log-row">
       <span className="race-log-tag">
-        [tick {entry.tickNumber + 1}] ({formatTickerAge(entry.createdAt, now)})
+        [tick {entry.tickNumber + 1}] (
+        {formatTickAge(raceStartedAt, entry.tickNumber, now)})
       </span>
       <span className="race-log-msg">{formatTickerForDisplay(entry.message)}</span>
     </div>
@@ -871,7 +861,7 @@ export default function HomePage() {
     return computeRaceBarMarks(inputs, { earlyRace });
   }, [state, raceActive, liveRankMap, rankDeltaById, barMarkNow]);
 
-  const ageNow = useRelativeAgeNow();
+  const ageNow = useServerAnchoredNow(state?.serverTime);
   const oddsAsOf = state?.gameState.last_tick_at ?? state?.serverTime;
   const oddsAge = oddsAsOf ? formatTickerAge(oddsAsOf, ageNow) : "";
 

@@ -133,6 +133,16 @@ main,
   padding-right: 3rem;
 }
 
+.ticker-track.is-static {
+  animation: none;
+  transform: none;
+  padding-right: 10px;
+}
+
+.ticker-track.is-static .ticker-chunk {
+  padding-right: 0;
+}
+
 @keyframes ticker-scroll {
   0% {
     transform: translateX(0);

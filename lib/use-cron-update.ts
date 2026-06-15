@@ -23,7 +23,7 @@ export interface TickBurst {
 }
 
 const CRON_RETRY_MS = 2500;
-const BACKGROUND_REFRESH_MS = 45_000;
+const BACKGROUND_REFRESH_MS = 15_000;
 
 export interface CronUpdateOptions {
   getPrevState: () => GameStateResponse | null;
@@ -155,10 +155,18 @@ export function useCronUpdate(
       void runUpdate();
     }, BACKGROUND_REFRESH_MS);
 
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void runUpdate();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       if (timeoutId != null) clearTimeout(timeoutId);
       if (intervalId != null) clearInterval(intervalId);
       clearInterval(refreshId);
+      document.removeEventListener("visibilitychange", onVisible);
       clearBurstTimers();
     };
   }, [runUpdate, clearBurstTimers]);
