@@ -530,7 +530,7 @@ function RaceTickLogPanel({
       <RaceTickLogRow entry={latest} raceStartedAt={raceStartedAt} now={now} />
       {older.length > 0 && (
         <details className="race-log-details">
-          <summary className="race-log-summary">&gt;SHOW ALL</summary>
+          <summary className="race-log-summary">&gt; show all</summary>
           <ul className="race-log-list">
             {older.map((entry) => (
               <li key={entry.tickNumber}>

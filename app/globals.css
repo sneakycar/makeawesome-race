@@ -3847,24 +3847,32 @@ body[data-home-theme="night"] .delay-overlay {
 
 .race-log-panel {
   margin: 0 0 4px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(0, 0, 0, 0.08);
 }
 
 .race-log-details {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
 }
 
 .race-log-summary {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #777;
   cursor: pointer;
   list-style: none;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  min-height: 36px;
-  padding: 4px 0 8px;
+  min-height: 0;
+  padding: 2px 0 6px;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  text-transform: lowercase;
+}
+
+.race-log-summary:hover {
+  color: #444;
 }
 
 .race-log-summary::-webkit-details-marker {
@@ -3872,7 +3880,8 @@ body[data-home-theme="night"] .delay-overlay {
 }
 
 .race-log-details[open] .race-log-summary {
-  opacity: 0.72;
+  color: #666;
+  opacity: 1;
 }
 
 .race-log-empty {
@@ -4248,6 +4257,22 @@ body[data-home-theme="night"] .race-log-tag {
 
 body[data-home-theme="night"] .race-log-msg,
 body[data-home-theme="night"] .race-log-empty {
+  color: #888;
+}
+
+body[data-home-theme="night"] .race-log-panel {
+  border-left-color: rgba(255, 255, 255, 0.12);
+}
+
+body[data-home-theme="night"] .race-log-summary {
+  color: #777;
+}
+
+body[data-home-theme="night"] .race-log-summary:hover {
+  color: #aaa;
+}
+
+body[data-home-theme="night"] .race-log-details[open] .race-log-summary {
   color: #888;
 }
 
