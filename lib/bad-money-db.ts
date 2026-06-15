@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { seededBool } from "./seeded-rng";
 import { isStillFightingAtRaceEnd } from "./fights";
-import { getRaceTickCount } from "./race-logic";
+import { TICKS_PER_RACE } from "./race-logic";
 import {
   applyBadMoneyStatDelta,
   getBadMoneyFlavorLine,
@@ -150,7 +150,7 @@ export async function processBadMoneyAtFinalize(
     if (betCount <= 0) continue;
 
     const player = entry.player as Player;
-    const lastTick = getRaceTickCount(new Date(race.started_at), new Date(race.ends_at)) - 1;
+    const lastTick = TICKS_PER_RACE - 1;
     const won =
       entry.final_rank === 1 &&
       !entry.is_injured &&

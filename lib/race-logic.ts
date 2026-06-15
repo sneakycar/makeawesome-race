@@ -83,36 +83,32 @@ import {
 } from "./race-sim";
 import type { Player, Race, RaceEntry, RaceEntryWithPlayer, InjuryRecord } from "./types";
 
-/** Wall-clock cadence for cron + log — always 15 minutes. */
+/** Every race is 24 hours — one tick every 15 minutes (96 ticks total). */
 export const RACE_TICK_MS = CRON_SEGMENT_MS;
-
-/** @deprecated 12h races used 48 ticks; 24h races use 96. Prefer getRaceTickCount(). */
-export const TICKS_PER_RACE = 48;
-/** @deprecated use TICKS_PER_RACE */
+export const RACE_DURATION_MS = 24 * 60 * 60 * 1000;
+export const TICKS_PER_RACE = RACE_DURATION_MS / RACE_TICK_MS;
 export const TICKS_PER_DAY = TICKS_PER_RACE;
-/** Average points per tick for a 12h / 48-tick race at neutral tempo. */
+/** Average points per tick at neutral tempo over a full 24h race. */
 export const EXPECTED_POINTS_PER_TICK = TARGET_WINNER_SCORE / TICKS_PER_RACE;
 /** @deprecated use EXPECTED_POINTS_PER_TICK */
 export const EXPECTED_DELTA = EXPECTED_POINTS_PER_TICK;
 
-export function getRaceTickCount(startedAt: Date, endsAt: Date): number {
-  const durationMs = Math.max(RACE_TICK_MS, endsAt.getTime() - startedAt.getTime());
-  return Math.max(1, Math.floor(durationMs / RACE_TICK_MS));
+export function getRaceTickCount(_startedAt?: Date, _endsAt?: Date): number {
+  return TICKS_PER_RACE;
 }
 
-export function getExpectedPointsPerTick(startedAt: Date, endsAt: Date): number {
-  return TARGET_WINNER_SCORE / getRaceTickCount(startedAt, endsAt);
+export function getExpectedPointsPerTick(_startedAt?: Date, _endsAt?: Date): number {
+  return EXPECTED_POINTS_PER_TICK;
 }
 
 export function getRaceTickIntervalMs(_startedAt?: Date, _endsAt?: Date): number {
   return RACE_TICK_MS;
 }
 
-export function getTickNumber(startedAt: Date, endsAt: Date, now: Date = new Date()): number {
+export function getTickNumber(startedAt: Date, _endsAt: Date, now: Date = new Date()): number {
   const elapsedMs = now.getTime() - startedAt.getTime();
   if (elapsedMs <= 0) return 0;
-  const tickCount = getRaceTickCount(startedAt, endsAt);
-  return Math.min(tickCount - 1, Math.floor(elapsedMs / RACE_TICK_MS));
+  return Math.min(TICKS_PER_RACE - 1, Math.floor(elapsedMs / RACE_TICK_MS));
 }
 
 export function tickTimeForNumber(startedAt: Date, tickNumber: number): Date {
@@ -156,7 +152,7 @@ export function calculatePercentComplete(startedAt: Date, endsAt: Date, now: Dat
   return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
 }
 
-/** Fix races stored with a 12h (9am–9pm) window — all races are 24h. */
+/** Fix races stored with a wrong ends_at — every race is 24h (9am → 9am Eastern). */
 export async function repairActiveRaceSchedule(
   supabase: SupabaseClient,
   race: Race
@@ -1099,7 +1095,7 @@ export async function finalizeRace(
   const now = new Date();
   const startedAt = new Date(race.started_at);
   const endsAt = new Date(race.ends_at);
-  const raceTickCount = getRaceTickCount(startedAt, endsAt);
+  const raceTickCount = TICKS_PER_RACE;
   const tickNumber = raceTickCount - 1;
 
   const { data: entries, error: entriesErr } = await supabase

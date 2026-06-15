@@ -27,7 +27,7 @@ const WEATHER_LABELS: Record<RaceWeatherType, string> = {
 
 const WEATHER_TYPES: RaceWeatherType[] = ["rain", "wind", "storm", "heat", "fog"];
 
-import { getRaceTickCount, getRaceTickIntervalMs } from "./race-logic";
+import { getRaceTickIntervalMs, TICKS_PER_RACE } from "./race-logic";
 
 /** Chance a sim tick starts a new weather episode (~35%). */
 export const WEATHER_SHOW_PROB = 0.35;
@@ -96,7 +96,7 @@ function buildWeatherEpisodeSchedule(
   raceEndsAt: Date
 ): WeatherEpisode[] {
   const tickMs = getRaceTickIntervalMs(raceStartedAt, raceEndsAt);
-  const tickCount = getRaceTickCount(raceStartedAt, raceEndsAt);
+  const tickCount = TICKS_PER_RACE;
   const episodes: WeatherEpisode[] = [];
   let slot = 0;
 

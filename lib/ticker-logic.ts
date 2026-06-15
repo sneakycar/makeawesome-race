@@ -1,4 +1,5 @@
 import { formatLiveRaceScore } from "./score";
+import { TICKS_PER_RACE } from "./race-logic";
 import { seededBool } from "./seeded-rng";
 import {
   pickTickerPhrase,
@@ -129,7 +130,7 @@ export function generateFinalizeTickerEvents(
       priority: 100,
       message: pickTickerPhrase(`finalize:${raceNumber}:win`, RACE_WON_PHRASES, { winner }),
       facts: {
-        tickNumber: 48,
+        tickNumber: TICKS_PER_RACE - 1,
         percentComplete: 100,
         playerName: winnerName,
         winnerName,
@@ -143,7 +144,7 @@ export function generateFinalizeTickerEvents(
       priority: 95,
       message: pickTickerPhrase(`finalize:${raceNumber}:last`, ELIMINATED_PHRASES, { last }),
       facts: {
-        tickNumber: 48,
+        tickNumber: TICKS_PER_RACE - 1,
         percentComplete: 100,
         playerName: lastName,
         eliminatedName: lastName,

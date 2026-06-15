@@ -10,8 +10,8 @@ export const GOD_SCORE = 240;
 export const HARD_SCORE_CAP = GOD_SCORE;
 /** Race row bars: fixed track length; one pip per point, always this many slots. */
 export const SCORE_TRACK_SLOTS = HARD_SCORE_CAP;
-/** Sim ticks per race — pip performance bands group this many slots. */
-export const RACE_PIP_TICKS = 48;
+/** Sim ticks per race — one pip band per 15m tick (96 over 24h). */
+export const RACE_PIP_TICKS = 96;
 
 /** @deprecated use NATURAL_SCORE_MAX */
 export const PACE_CAP_BUFFER = 0;

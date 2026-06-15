@@ -1,6 +1,6 @@
 import { getRaceClock } from "./race-clock";
 import { getRaceEffectiveNow, isRaceDelayed } from "./race-delay";
-import { getRaceTickCount, getRaceTickIntervalMs, getTickNumber } from "./race-logic";
+import { getRaceTickIntervalMs, getTickNumber, TICKS_PER_RACE } from "./race-logic";
 import { clampRaceScore, roundRaceScore } from "./score";
 import {
   applyFanLiveBonusToSim,
@@ -68,7 +68,6 @@ export function simulateLiveEntries(
   }
 
   const tickMs = getRaceTickIntervalMs(startedAt, endsAt);
-  const tickCount = getRaceTickCount(startedAt, endsAt);
   const completedTicks = getTickNumber(startedAt, endsAt, effectiveNow);
   const subTick = ((nowMs - startMs) % tickMs) / tickMs;
 
@@ -126,7 +125,7 @@ export function simulateLiveEntries(
     completedTicks
   );
 
-  if (subTick > 0 && completedTicks < tickCount) {
+  if (subTick > 0 && completedTicks < TICKS_PER_RACE) {
     const snapshot = sim.map((entry) => ({
       ...entry,
       score: entry.score,
