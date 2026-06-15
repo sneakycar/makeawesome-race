@@ -10,7 +10,8 @@ import {
   formatRaceScore,
   getScorePipBackground,
   HARD_SCORE_CAP,
-  SCORE_TRACK_SLOTS,
+  SCORE_PIP_SLOTS,
+  scoreToPipFill,
 } from "@/lib/score";
 
 export function ScorePipTrack({
@@ -20,6 +21,7 @@ export function ScorePipTrack({
   segmentProgress = 1,
   animatingDelta,
   leaderScore,
+  minScore = 0,
   isLeader,
   isNight,
   statusOverlay,
@@ -30,13 +32,14 @@ export function ScorePipTrack({
   segmentProgress?: number;
   animatingDelta: number;
   leaderScore: number;
+  minScore?: number;
   isLeader: boolean;
   isNight: boolean;
   statusOverlay?: { icon: RaceIconId; label: string };
   playerId?: string;
   raceId?: string;
 }) {
-  const slots = SCORE_TRACK_SLOTS;
+  const slots = SCORE_PIP_SLOTS;
   const confirmed = Math.max(0, Math.min(HARD_SCORE_CAP, confirmedScore ?? score));
   const deltas = useMemo(
     () => normalizeRecentDeltas(recentDeltas),
@@ -50,20 +53,21 @@ export function ScorePipTrack({
   );
 
   const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, score));
-  const pipBright = Math.floor(livePoints);
-  const pipPartial = livePoints - pipBright;
+  const fill = scoreToPipFill(livePoints, minScore, leaderScore, slots);
   const displayPoints = Math.round(confirmed);
   const leader = Math.max(0, Math.round(leaderScore));
   const behind = leader - displayPoints;
-  const colorSpan = Math.max(1, Math.ceil(livePoints));
+  const colorSpan = Math.max(1, fill.bright + (fill.partial > 0.001 ? 1 : 0));
   const isSegmentAnimating = deltas.length > 0 && seg < 1;
   const deltaBadge = animatingDelta !== 0 ? animatingDelta : rolling.animatingDelta;
+  const showDelta = Math.round(Math.abs(deltaBadge)) > 0;
 
-  const isSegmentPip = (index: number, lit: boolean) =>
-    lit &&
-    isSegmentAnimating &&
-    index >= Math.floor(rolling.hardenedScore) &&
-    index <= Math.ceil(rolling.score);
+  const isSegmentPip = (index: number, lit: boolean) => {
+    if (!lit || !isSegmentAnimating) return false;
+    const rollingFill = scoreToPipFill(rolling.score, minScore, leaderScore, slots);
+    const hardenedFill = scoreToPipFill(rolling.hardenedScore, minScore, leaderScore, slots);
+    return index >= hardenedFill.bright && index <= rollingFill.bright;
+  };
 
   return (
     <div
@@ -96,7 +100,7 @@ export function ScorePipTrack({
         style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: slots }, (_, i) => {
-          if (i < pipBright) {
+          if (i < fill.bright) {
             return (
               <span
                 key={i}
@@ -110,7 +114,7 @@ export function ScorePipTrack({
               />
             );
           }
-          if (i === pipBright && pipPartial > 0.001) {
+          if (i === fill.partialIndex && fill.partial > 0.001) {
             return (
               <span
                 key={i}
@@ -119,7 +123,7 @@ export function ScorePipTrack({
                 }`}
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
-                  opacity: Math.max(0.15, pipPartial),
+                  opacity: Math.max(0.15, fill.partial),
                 }}
                 aria-hidden="true"
               />
@@ -138,10 +142,10 @@ export function ScorePipTrack({
       <span
         className={`row-score-pip-delta${
           deltaBadge < 0 ? " row-score-pip-delta-loss" : ""
-        }${deltaBadge === 0 ? " row-score-pip-delta-empty" : ""}`}
-        aria-hidden={deltaBadge === 0}
+        }${!showDelta ? " row-score-pip-delta-empty" : ""}`}
+        aria-hidden={!showDelta}
       >
-        {deltaBadge !== 0 && (
+        {showDelta && (
           <>
             {deltaBadge > 0 ? "+" : ""}
             {formatRaceScore(deltaBadge)}

@@ -872,6 +872,9 @@ export default function HomePage() {
   const leaderScorePoints = entryScorePoints.length
     ? Math.max(...entryScorePoints)
     : 1;
+  const minScorePoints = entryScorePoints.length
+    ? Math.min(...entryScorePoints)
+    : 0;
 
   const selectedEntry = selectedSlug
     ? state?.entries.find((e) => e.player.slug === selectedSlug)
@@ -1087,6 +1090,7 @@ export default function HomePage() {
                       segmentProgress={pipSegmentProgress}
                       animatingDelta={pipAnimatingDelta}
                       leaderScore={leaderScorePoints}
+                      minScore={minScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
                       statusOverlay={pipOverlay}
@@ -1384,6 +1388,7 @@ export default function HomePage() {
             liveRace?.entries.get(selectedEntry.player_id)?.animatingDelta ?? 0
           }
           leaderScore={leaderScorePoints}
+          minScore={minScorePoints}
           rankDelta={rankDeltaById.get(selectedEntry.player_id) ?? 0}
           healthyEntryCount={healthyEntryCount}
           lane={selectedEntry.lane}

@@ -8,10 +8,11 @@ export const NATURAL_SCORE_MAX = 239;
 export const GOD_SCORE = 240;
 /** Absolute point total — safety rail + pip track length. */
 export const HARD_SCORE_CAP = GOD_SCORE;
-/** Race row bars: fixed track length; one pip per point, always this many slots. */
+/** Visible pips in a racer row bar — scaled to leader/min spread (not 1:240). */
+export const SCORE_PIP_SLOTS = 20;
+
+/** @deprecated row bars use SCORE_PIP_SLOTS, not one slot per point */
 export const SCORE_TRACK_SLOTS = HARD_SCORE_CAP;
-/** Sim ticks per race — one pip band per 15m tick (96 over 24h). */
-export const RACE_PIP_TICKS = 96;
 
 /** @deprecated use NATURAL_SCORE_MAX */
 export const PACE_CAP_BUFFER = 0;
@@ -81,7 +82,45 @@ export function getScorePipBackground(index: number, count: number, night = fals
   return `linear-gradient(165deg, hsl(${hue} ${sat}% ${top + 4}%) 0%, hsl(${hue} ${sat}% ${mid}%) 45%, hsl(${hue} ${sat}% ${bot}%) 100%)`;
 }
 
-export const SCORE_PIP_SLOTS = 20;
+/** Sim ticks per race — one pip band per 15m tick (96 over 24h). */
+export const RACE_PIP_TICKS = 96;
+
+export interface ScorePipFill {
+  bright: number;
+  partialIndex: number;
+  partial: number;
+}
+
+/** Lit pip count for a row bar — leader fills the track, others scale to field spread. */
+export function scoreToPipFill(
+  points: number,
+  minScore: number,
+  leaderScore: number,
+  slots = SCORE_PIP_SLOTS
+): ScorePipFill {
+  const min = Math.max(0, minScore);
+  const leader = Math.max(min, leaderScore);
+  const pts = Math.max(0, points);
+
+  if (pts <= 0) {
+    return { bright: 0, partialIndex: -1, partial: 0 };
+  }
+
+  if (leader <= min) {
+    const bright = scorePipFillCount(pts, min, leader, slots);
+    return { bright, partialIndex: -1, partial: 0 };
+  }
+
+  const exact = ((pts - min) / (leader - min)) * slots;
+  const bright = Math.floor(exact);
+  const partial = exact - bright;
+
+  if (partial > 0.001) {
+    return { bright, partialIndex: bright, partial: Math.min(1, partial) };
+  }
+
+  return { bright, partialIndex: -1, partial: 0 };
+}
 
 /** Filled diagonal pips within the pill (0–SCORE_PIP_SLOTS). */
 export function scorePipFillCount(
