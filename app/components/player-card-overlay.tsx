@@ -17,7 +17,7 @@ import {
 import { formatOvrRank } from "@/lib/ovr";
 import { getPlayerHeaderStyle, getPlayerPalette } from "@/lib/player-colors";
 import { formatRankDelta } from "@/lib/use-live-rank-delta";
-import { formatRaceScore } from "@/lib/score";
+import { formatRaceScore, roundRaceScore } from "@/lib/score";
 import { abilityStatKey, getAbilityPipFill } from "@/lib/ability-pips";
 import { getBadMoneyFlavorLine } from "@/lib/bad-money";
 import { formatPlayerGender } from "@/lib/player-gender";
@@ -99,6 +99,7 @@ export function PlayerCardOverlay({
   liveRank,
   animatingDelta = 0,
   leaderScore = 1,
+  lastDelta = 0,
   rankDelta = 0,
   healthyEntryCount = 0,
   lane,
@@ -119,6 +120,7 @@ export function PlayerCardOverlay({
   liveRank?: number;
   animatingDelta?: number;
   leaderScore?: number;
+  lastDelta?: number;
   rankDelta?: number;
   healthyEntryCount?: number;
   lane?: number;
@@ -168,9 +170,11 @@ export function PlayerCardOverlay({
   const ovrRank = ovrInfo?.rank ?? profile?.ovrRank;
   const ovrTotal = ovrInfo?.total ?? profile?.ovrTotal;
   const rank = liveRank ?? profile?.currentRank ?? null;
-  const pipScore =
-    liveScore ??
-    (profile?.currentScore != null ? Math.round(Number(profile.currentScore)) : 0);
+  const pipConfirmedScore =
+    confirmedScore ??
+    (profile?.currentScore != null
+      ? roundRaceScore(Number(profile.currentScore))
+      : 0);
   const rankDeltaLabel = formatRankDelta(rankDelta);
   const isLeader = barMark === "lead";
   const pipOverlay = isInjured
@@ -254,7 +258,9 @@ export function PlayerCardOverlay({
               {profile.currentRaceNumber != null && (
                 <div className="row-track">
                   <ScorePipTrack
-                    score={pipScore}
+                    confirmedScore={pipConfirmedScore}
+                    lastDelta={lastDelta}
+                    segmentProgress={segmentProgress}
                     animatingDelta={animatingDelta}
                     leaderScore={leaderScore}
                     isLeader={isLeader}

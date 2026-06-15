@@ -6,7 +6,6 @@ import { isRaceDelayed } from "./race-delay";
 import {
   getCronSegmentProgress,
   getRollingTickAnimationState,
-  normalizeRecentDeltas,
   type RollingTickAnimationState,
 } from "./hybrid-live-score";
 import { calculatePrecisePercentComplete } from "./live-progress";
@@ -86,13 +85,11 @@ export function useLiveRace(
           continue;
         }
 
-        const recentDeltas = normalizeRecentDeltas(
-          entry.recent_deltas,
-          Number(entry.last_delta)
-        );
+        const lastDelta = Number(entry.last_delta ?? 0);
+        const deltas = Math.abs(lastDelta) > 0.001 ? [lastDelta] : [];
         const rolling = getRollingTickAnimationState(
           Number(entry.race_score),
-          recentDeltas,
+          deltas,
           segmentProgress
         );
 

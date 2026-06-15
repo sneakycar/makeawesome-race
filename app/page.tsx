@@ -1008,9 +1008,9 @@ export default function HomePage() {
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
             const rank = liveRankMap.get(entry.player_id) ?? entry.current_rank;
-            const pipDisplayScore =
-              live?.score ?? roundRaceScore(Number(entry.race_score));
-            const pipAnimatingDelta = live?.animatingDelta ?? 0;
+            const pipConfirmedScore = roundRaceScore(Number(entry.race_score));
+            const pipLastDelta = Number(entry.last_delta ?? 0);
+            const pipSegmentProgress = live?.segmentProgress ?? 1;
             const isInjured = entry.is_injured;
             const isFighting = entry.is_fighting;
             const rankDelta = rankDeltaById.get(entry.player_id) ?? 0;
@@ -1081,8 +1081,9 @@ export default function HomePage() {
                       ) : null}
                     </span>
                     <ScorePipTrack
-                      score={pipDisplayScore}
-                      animatingDelta={pipAnimatingDelta}
+                      confirmedScore={pipConfirmedScore}
+                      lastDelta={pipLastDelta}
+                      segmentProgress={pipSegmentProgress}
                       leaderScore={leaderScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
@@ -1375,6 +1376,7 @@ export default function HomePage() {
             liveRace?.entries.get(selectedEntry.player_id)?.animatingDelta ?? 0
           }
           leaderScore={leaderScorePoints}
+          lastDelta={Number(selectedEntry.last_delta ?? 0)}
           rankDelta={rankDeltaById.get(selectedEntry.player_id) ?? 0}
           healthyEntryCount={healthyEntryCount}
           lane={selectedEntry.lane}
