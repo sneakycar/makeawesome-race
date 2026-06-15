@@ -1195,6 +1195,26 @@ export async function finalizeRace(
   const createNextRace = options.createNextRace ?? true;
   if (race.status === "finalized") return;
 
+  const { count: existingResults, error: existingErr } = await supabase
+    .from("player_history")
+    .select("id", { count: "exact", head: true })
+    .eq("race_id", race.id)
+    .eq("event_type", "won");
+
+  if (existingErr) throw existingErr;
+  if ((existingResults ?? 0) > 0) {
+    await supabase
+      .from("races")
+      .update({
+        status: "finalized",
+        percent_complete: 100,
+        finalized_at: race.finalized_at ?? new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", race.id);
+    return;
+  }
+
   const now = new Date();
   const startedAt = new Date(race.started_at);
   const endsAt = new Date(race.ends_at);

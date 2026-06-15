@@ -349,7 +349,7 @@ function dedupeFightPairs(pairs: RecapFightPair[]): RecapFightPair[] {
   for (const pair of pairs) {
     const a = formatRacerName(pair.a);
     const b = formatRacerName(pair.b);
-    const key = [a, b].sort().join("|");
+    const key = [a, b].map((name) => name.toLowerCase()).sort().join("|");
     if (seen.has(key)) continue;
     seen.add(key);
     out.push({ a, b });
