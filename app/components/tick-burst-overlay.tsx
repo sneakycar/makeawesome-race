@@ -3,6 +3,7 @@
 import type { TickBurstPhase } from "@/lib/use-cron-update";
 import {
   TICK_BURST_EXPLODE_MS,
+  TICK_BURST_REVEAL_MS,
   TICK_BURST_RIP_MS,
   TICK_BURST_STAMP_MS,
 } from "@/lib/tick-burst-timing";
@@ -22,6 +23,7 @@ export function TickBurstOverlay({
     "--tick-burst-rip-ms": `${TICK_BURST_RIP_MS}ms`,
     "--tick-burst-stamp-ms": `${TICK_BURST_STAMP_MS}ms`,
     "--tick-burst-explode-ms": `${TICK_BURST_EXPLODE_MS}ms`,
+    "--tick-burst-reveal-ms": `${TICK_BURST_REVEAL_MS}ms`,
   } as React.CSSProperties;
 
   return (
