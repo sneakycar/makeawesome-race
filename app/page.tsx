@@ -15,6 +15,7 @@ import {
   formatRacerName,
   formatTickerForDisplay,
   formatTickerAge,
+  formatTickAge,
   ordinal,
 } from "@/lib/format";
 import { formatRaceScore, getScorePipBackground, roundRaceScore, SCORE_PIP_SLOTS } from "@/lib/score";
@@ -40,6 +41,17 @@ import { RacerFactReveal } from "@/app/components/racer-fact-reveal";
 import { ScorePipTrack } from "@/app/components/score-pip-track";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 import { fetchWithRetry } from "@/lib/server-resilience";
+
+function useRelativeAgeNow(intervalMs = 30_000): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    tick();
+    const id = setInterval(tick, intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
 
 function RaceDelayOverlay({
   delay,
@@ -214,21 +226,22 @@ function RaceMetaPanel({
 
 function ScrollingTicker({
   events,
-  serverTime,
+  raceStartedAt,
   raceNumber,
   fallback,
+  now,
 }: {
   events: TickerEvent[];
-  serverTime: string;
+  raceStartedAt: string;
   raceNumber: number;
   fallback: string;
+  now: Date;
 }) {
-  const now = new Date(serverTime);
   const line = events.length
     ? events
         .map(
           (e) =>
-            `${formatTickerForDisplay(e.message)} (${formatTickerAge(e.created_at, now)})`
+            `${formatTickerForDisplay(e.message)} (${formatTickAge(raceStartedAt, e.tick_number, now)})`
         )
         .join(" · ")
     : formatTickerForDisplay(fallback);
@@ -476,15 +489,17 @@ function AboutSection() {
 
 function RaceTickLogRow({
   entry,
+  raceStartedAt,
   now,
 }: {
   entry: RaceTickLogEntry;
+  raceStartedAt: string;
   now: Date;
 }) {
   return (
     <div className="race-log-row">
       <span className="race-log-tag">
-        [tick {entry.tickNumber + 1}] ({formatTickerAge(entry.createdAt, now)})
+        [tick {entry.tickNumber + 1}] ({formatTickAge(raceStartedAt, entry.tickNumber, now)})
       </span>
       <span className="race-log-msg">{formatTickerForDisplay(entry.message)}</span>
     </div>
@@ -493,12 +508,13 @@ function RaceTickLogRow({
 
 function RaceTickLogPanel({
   entries,
-  serverTime,
+  raceStartedAt,
+  now,
 }: {
   entries: RaceTickLogEntry[];
-  serverTime: string;
+  raceStartedAt: string;
+  now: Date;
 }) {
-  const now = new Date(serverTime);
   const latest = entries.at(-1) ?? null;
   const older = entries.length > 1 ? entries.slice(0, -1) : [];
 
@@ -508,14 +524,14 @@ function RaceTickLogPanel({
 
   return (
     <div className="race-log-panel">
-      <RaceTickLogRow entry={latest} now={now} />
+      <RaceTickLogRow entry={latest} raceStartedAt={raceStartedAt} now={now} />
       {older.length > 0 && (
         <details className="race-log-details">
           <summary className="race-log-summary">&gt;SHOW ALL</summary>
           <ul className="race-log-list">
             {older.map((entry) => (
               <li key={entry.tickNumber}>
-                <RaceTickLogRow entry={entry} now={now} />
+                <RaceTickLogRow entry={entry} raceStartedAt={raceStartedAt} now={now} />
               </li>
             ))}
           </ul>
@@ -823,17 +839,9 @@ export default function HomePage() {
     return computeRaceBarMarks(inputs, { earlyRace });
   }, [state, raceActive, liveRankMap, rankDeltaById, barMarkNow]);
 
+  const ageNow = useRelativeAgeNow();
   const oddsAsOf = state?.gameState.last_tick_at ?? state?.serverTime;
-  const [oddsNow, setOddsNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const tick = () => setOddsNow(new Date());
-    tick();
-    const id = setInterval(tick, 30000);
-    return () => clearInterval(id);
-  }, []);
-
-  const oddsAge = oddsAsOf ? formatTickerAge(oddsAsOf, oddsNow) : "";
+  const oddsAge = oddsAsOf ? formatTickerAge(oddsAsOf, ageNow) : "";
 
   const liveOddsLines = useMemo(() => {
     if (
@@ -929,8 +937,9 @@ export default function HomePage() {
       {state && (
         <ScrollingTicker
           events={state.ticker}
-          serverTime={state.serverTime}
+          raceStartedAt={state.race.started_at}
           raceNumber={state.race.race_number}
+          now={ageNow}
           fallback={
             state.racePhase === "live" || state.racePhase === "delayed"
               ? "Race in progress — awaiting first broadcast"
@@ -1230,7 +1239,11 @@ export default function HomePage() {
 
           <div className="home-section-block home-section-block-full home-log-section">
             <div className="section-label">&gt; LOG</div>
-            <RaceTickLogPanel entries={state.raceLog ?? []} serverTime={state.serverTime} />
+            <RaceTickLogPanel
+              entries={state.raceLog ?? []}
+              raceStartedAt={state.race.started_at}
+              now={ageNow}
+            />
           </div>
 
           <div className="home-sections-grid">

@@ -39,11 +39,12 @@ export async function getAnnouncerTickerEvents(
   raceId: string,
   limit = 12
 ): Promise<TickerEvent[]> {
-  const fetchLimit = Math.max(limit * 4, 24);
+  const fetchLimit = Math.max(limit * 4, 48);
   const { data, error } = await supabase
     .from("race_ticker_events")
     .select("*")
     .eq("race_id", raceId)
+    .order("tick_number", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(fetchLimit);
 
@@ -57,10 +58,20 @@ export async function getAnnouncerTickerEvents(
     return true;
   });
 
-  return announcer.slice(0, limit).map((row) => ({
-    ...row,
-    facts: (row.facts ?? {}) as TickerEventFacts,
-  })) as TickerEvent[];
+  const byTick = new Map<number, (typeof announcer)[number]>();
+  for (const row of announcer) {
+    if (!byTick.has(row.tick_number)) {
+      byTick.set(row.tick_number, row);
+    }
+  }
+
+  return [...byTick.values()]
+    .sort((a, b) => b.tick_number - a.tick_number)
+    .slice(0, limit)
+    .map((row) => ({
+      ...row,
+      facts: (row.facts ?? {}) as TickerEventFacts,
+    })) as TickerEvent[];
 }
 
 const LOG_EVENT_PRIORITY: Record<string, number> = {

@@ -1,3 +1,5 @@
+import { CRON_SEGMENT_MS } from "./race-clock";
+
 export function formatRacerName(name: string): string {
   return name.trim().replace(/\s+/g, " ");
 }
@@ -9,6 +11,8 @@ export function stripRaceFromTickerMessage(message: string): string {
     .replace(/\bWINS RACE \d+!/gi, "WINS!")
     .trim();
 }
+
+import { CRON_SEGMENT_MS } from "./race-clock";
 
 export function formatTickerForDisplay(message: string): string {
   const stripped = stripRaceFromTickerMessage(message);
@@ -156,6 +160,17 @@ export function formatTickerAge(isoDate: string, now: Date = new Date()): string
 
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+/** Age label from a tick's scheduled wall time (15m cadence), not DB insert time. */
+export function formatTickAge(
+  raceStartedAt: string | Date,
+  tickNumber: number,
+  now: Date = new Date(),
+  tickIntervalMs: number = CRON_SEGMENT_MS
+): string {
+  const wallMs = new Date(raceStartedAt).getTime() + tickNumber * tickIntervalMs;
+  return formatTickerAge(new Date(wallMs).toISOString(), now);
 }
 
 export function formatTickerLine(
