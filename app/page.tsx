@@ -872,9 +872,6 @@ export default function HomePage() {
   const leaderScorePoints = entryScorePoints.length
     ? Math.max(...entryScorePoints)
     : 1;
-  const minScorePoints = entryScorePoints.length
-    ? Math.min(...entryScorePoints)
-    : 0;
 
   const selectedEntry = selectedSlug
     ? state?.entries.find((e) => e.player.slug === selectedSlug)
@@ -1011,9 +1008,8 @@ export default function HomePage() {
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
             const rank = liveRankMap.get(entry.player_id) ?? entry.current_rank;
-            const pipConfirmedScore = roundRaceScore(Number(entry.race_score));
-            const pipDisplayScore = live?.score ?? pipConfirmedScore;
-            const pipSegmentProgress = live?.segmentProgress ?? 1;
+            const pipDisplayScore =
+              live?.score ?? roundRaceScore(Number(entry.race_score));
             const pipAnimatingDelta = live?.animatingDelta ?? 0;
             const isInjured = entry.is_injured;
             const isFighting = entry.is_fighting;
@@ -1086,20 +1082,11 @@ export default function HomePage() {
                     </span>
                     <ScorePipTrack
                       score={pipDisplayScore}
-                      confirmedScore={pipConfirmedScore}
-                      segmentProgress={pipSegmentProgress}
                       animatingDelta={pipAnimatingDelta}
                       leaderScore={leaderScorePoints}
-                      minScore={minScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
                       statusOverlay={pipOverlay}
-                      playerId={entry.player_id}
-                      raceId={state.race.id}
-                      recentDeltas={
-                        entry.recent_deltas ??
-                        (entry.last_delta ? [Number(entry.last_delta)] : [])
-                      }
                     />
                     {raceActive && !isInjured && !isFighting && encouragePhase !== "hidden" ? (
                       <button
@@ -1388,7 +1375,6 @@ export default function HomePage() {
             liveRace?.entries.get(selectedEntry.player_id)?.animatingDelta ?? 0
           }
           leaderScore={leaderScorePoints}
-          minScore={minScorePoints}
           rankDelta={rankDeltaById.get(selectedEntry.player_id) ?? 0}
           healthyEntryCount={healthyEntryCount}
           lane={selectedEntry.lane}

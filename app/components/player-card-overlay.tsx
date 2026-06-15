@@ -99,7 +99,6 @@ export function PlayerCardOverlay({
   liveRank,
   animatingDelta = 0,
   leaderScore = 1,
-  minScore = 0,
   rankDelta = 0,
   healthyEntryCount = 0,
   lane,
@@ -120,7 +119,6 @@ export function PlayerCardOverlay({
   liveRank?: number;
   animatingDelta?: number;
   leaderScore?: number;
-  minScore?: number;
   rankDelta?: number;
   healthyEntryCount?: number;
   lane?: number;
@@ -257,17 +255,11 @@ export function PlayerCardOverlay({
                 <div className="row-track">
                   <ScorePipTrack
                     score={pipScore}
-                    confirmedScore={confirmedScore ?? pipScore}
-                    segmentProgress={segmentProgress}
                     animatingDelta={animatingDelta}
                     leaderScore={leaderScore}
-                    minScore={minScore}
                     isLeader={isLeader}
                     isNight={isNight}
                     statusOverlay={pipOverlay}
-                    playerId={playerId}
-                    raceId={raceId}
-                    recentDeltas={recentDeltas}
                   />
                   {rank != null && (
                     <span

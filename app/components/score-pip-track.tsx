@@ -1,73 +1,42 @@
 "use client";
 
-import { useMemo } from "react";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
-import {
-  getRollingTickAnimationState,
-  normalizeRecentDeltas,
-} from "@/lib/hybrid-live-score";
 import {
   formatRaceScore,
   getScorePipBackground,
   HARD_SCORE_CAP,
-  SCORE_PIP_SLOTS,
-  scoreToPipFill,
+  SCORE_TRACK_SLOTS,
 } from "@/lib/score";
 
 export function ScorePipTrack({
   score,
-  confirmedScore,
-  recentDeltas,
-  segmentProgress = 1,
   animatingDelta,
   leaderScore,
-  minScore = 0,
   isLeader,
   isNight,
   statusOverlay,
 }: {
   score: number;
-  confirmedScore?: number;
-  recentDeltas?: number[];
-  segmentProgress?: number;
   animatingDelta: number;
   leaderScore: number;
-  minScore?: number;
   isLeader: boolean;
   isNight: boolean;
   statusOverlay?: { icon: RaceIconId; label: string };
   playerId?: string;
   raceId?: string;
+  confirmedScore?: number;
+  recentDeltas?: number[];
+  segmentProgress?: number;
+  minScore?: number;
 }) {
-  const slots = SCORE_PIP_SLOTS;
-  const confirmed = Math.max(0, Math.min(HARD_SCORE_CAP, confirmedScore ?? score));
-  const deltas = useMemo(
-    () => normalizeRecentDeltas(recentDeltas),
-    [recentDeltas?.join(",")]
-  );
-  const seg = Math.max(0, Math.min(1, segmentProgress));
-
-  const rolling = useMemo(
-    () => getRollingTickAnimationState(confirmed, deltas, seg),
-    [confirmed, deltas, seg]
-  );
-
+  const slots = SCORE_TRACK_SLOTS;
   const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, score));
-  const fill = scoreToPipFill(livePoints, minScore, leaderScore, slots);
-  const displayPoints = Math.round(confirmed);
+  const pipBright = Math.floor(livePoints);
+  const pipPartial = livePoints - pipBright;
+  const displayPoints = Math.round(livePoints);
   const leader = Math.max(0, Math.round(leaderScore));
   const behind = leader - displayPoints;
-  const colorSpan = Math.max(1, fill.bright + (fill.partial > 0.001 ? 1 : 0));
-  const isSegmentAnimating = deltas.length > 0 && seg < 1;
-  const deltaBadge = animatingDelta !== 0 ? animatingDelta : rolling.animatingDelta;
-  const showDelta = Math.round(Math.abs(deltaBadge)) > 0;
-
-  const isSegmentPip = (index: number, lit: boolean) => {
-    if (!lit || !isSegmentAnimating) return false;
-    const rollingFill = scoreToPipFill(rolling.score, minScore, leaderScore, slots);
-    const hardenedFill = scoreToPipFill(rolling.hardenedScore, minScore, leaderScore, slots);
-    return index >= hardenedFill.bright && index <= rollingFill.bright;
-  };
+  const colorSpan = slots;
 
   return (
     <div
@@ -100,13 +69,11 @@ export function ScorePipTrack({
         style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: slots }, (_, i) => {
-          if (i < fill.bright) {
+          if (i < pipBright) {
             return (
               <span
                 key={i}
-                className={`score-pip score-pip-on${
-                  isSegmentPip(i, true) ? " score-pip-segment" : ""
-                }`}
+                className="score-pip score-pip-on"
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
                 }}
@@ -114,16 +81,14 @@ export function ScorePipTrack({
               />
             );
           }
-          if (i === fill.partialIndex && fill.partial > 0.001) {
+          if (i === pipBright && pipPartial > 0.001) {
             return (
               <span
                 key={i}
-                className={`score-pip score-pip-on score-pip-partial${
-                  isSegmentPip(i, true) ? " score-pip-segment" : ""
-                }`}
+                className="score-pip score-pip-on score-pip-partial"
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
-                  opacity: Math.max(0.15, fill.partial),
+                  opacity: Math.max(0.15, pipPartial),
                 }}
                 aria-hidden="true"
               />
@@ -139,19 +104,17 @@ export function ScorePipTrack({
         )}
       </div>
       <span className="row-score-pip-num">{formatRaceScore(displayPoints)}</span>
-      <span
-        className={`row-score-pip-delta${
-          deltaBadge < 0 ? " row-score-pip-delta-loss" : ""
-        }${!showDelta ? " row-score-pip-delta-empty" : ""}`}
-        aria-hidden={!showDelta}
-      >
-        {showDelta && (
-          <>
-            {deltaBadge > 0 ? "+" : ""}
-            {formatRaceScore(deltaBadge)}
-          </>
-        )}
-      </span>
+      {animatingDelta !== 0 && Math.round(Math.abs(animatingDelta)) > 0 && (
+        <span
+          className={`row-score-pip-delta${
+            animatingDelta < 0 ? " row-score-pip-delta-loss" : ""
+          }`}
+          aria-hidden="true"
+        >
+          {animatingDelta > 0 ? "+" : ""}
+          {formatRaceScore(animatingDelta)}
+        </span>
+      )}
     </div>
   );
 }
