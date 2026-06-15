@@ -4025,6 +4025,7 @@ body[data-home-theme="night"] .delay-overlay {
   margin-top: 1px;
   color: #666;
   text-transform: none;
+  font-variant: normal;
 }
 
 .all-time-row,

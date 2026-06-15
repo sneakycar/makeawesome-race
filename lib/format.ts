@@ -31,6 +31,17 @@ function sentenceCaseName(name: string): string {
     .join(" ");
 }
 
+function logDisplayName(name: string): string {
+  const trimmed = formatRacerName(name);
+  if (!trimmed) return trimmed;
+  const letters = trimmed.replace(/[^a-zA-Z]/g, "");
+  if (!letters) return trimmed;
+  if (letters === letters.toUpperCase() || letters === letters.toLowerCase()) {
+    return sentenceCaseName(trimmed);
+  }
+  return trimmed;
+}
+
 function collectDisplayNames(
   facts?: Partial<TickerEventFacts> | null,
   knownNames?: string[]
@@ -92,20 +103,22 @@ export function formatLogMessageForDisplay(
     const nameLower = startName.toLowerCase();
     const prefix = result.slice(0, lead);
     const afterStart = result.slice(lead + nameLower.length);
-    result = prefix + sentenceCaseName(startName) + afterStart;
+    const leadName = logDisplayName(startName);
+    result = prefix + leadName + afterStart;
 
     for (const name of names) {
+      const displayName = logDisplayName(name);
       if (name.toLowerCase() === nameLower) {
-        const head = prefix + sentenceCaseName(startName);
+        const head = prefix + leadName;
         const tail = result.slice(head.length);
-        result = head + tail.replace(namePattern(name), name);
+        result = head + tail.replace(namePattern(name), displayName);
       } else {
-        result = result.replace(namePattern(name), name);
+        result = result.replace(namePattern(name), displayName);
       }
     }
   } else {
     for (const name of names) {
-      result = result.replace(namePattern(name), name);
+      result = result.replace(namePattern(name), logDisplayName(name));
     }
     const prefix = result.match(/^(\s*)/)?.[1] ?? "";
     const rest = result.slice(prefix.length);
