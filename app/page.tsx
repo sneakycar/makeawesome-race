@@ -999,8 +999,8 @@ export default function HomePage() {
             .map((entry) => {
             const live = liveRace?.entries.get(entry.player_id);
             const rank = liveRankMap.get(entry.player_id) ?? entry.current_rank;
-            const pipDisplayScore = roundRaceScore(Number(entry.race_score));
-            const pipConfirmedScore = pipDisplayScore;
+            const pipConfirmedScore = roundRaceScore(Number(entry.race_score));
+            const pipDisplayScore = live?.score ?? pipConfirmedScore;
             const pipSegmentProgress = live?.segmentProgress ?? 1;
             const pipAnimatingDelta = live?.animatingDelta ?? 0;
             const isInjured = entry.is_injured;

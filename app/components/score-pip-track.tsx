@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 import {
-  getPipFillState,
   getRollingTickAnimationState,
   normalizeRecentDeltas,
 } from "@/lib/hybrid-live-score";
@@ -49,23 +48,22 @@ export function ScorePipTrack({
     () => getRollingTickAnimationState(confirmed, deltas, seg),
     [confirmed, deltas, seg]
   );
-  const fill = useMemo(
-    () => getPipFillState(confirmed, deltas, seg),
-    [confirmed, deltas, seg]
-  );
 
-  const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, rolling.score));
+  const livePoints = Math.max(0, Math.min(HARD_SCORE_CAP, score));
+  const pipBright = Math.floor(livePoints);
+  const pipPartial = livePoints - pipBright;
   const displayPoints = Math.round(confirmed);
   const leader = Math.max(0, Math.round(leaderScore));
   const behind = leader - displayPoints;
-  const colorSpan = slots;
-  const hardenedBright = Math.floor(rolling.hardenedScore);
-  const animatingBright = Math.ceil(livePoints);
+  const colorSpan = Math.max(1, Math.ceil(livePoints));
   const isSegmentAnimating = deltas.length > 0 && seg < 1;
   const deltaBadge = animatingDelta !== 0 ? animatingDelta : rolling.animatingDelta;
 
   const isSegmentPip = (index: number, lit: boolean) =>
-    lit && isSegmentAnimating && index >= hardenedBright && index <= animatingBright;
+    lit &&
+    isSegmentAnimating &&
+    index >= Math.floor(rolling.hardenedScore) &&
+    index <= Math.ceil(rolling.score);
 
   return (
     <div
@@ -98,7 +96,7 @@ export function ScorePipTrack({
         style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: slots }, (_, i) => {
-          if (i < fill.bright) {
+          if (i < pipBright) {
             return (
               <span
                 key={i}
@@ -112,7 +110,7 @@ export function ScorePipTrack({
               />
             );
           }
-          if (i === fill.partialIndex && fill.partial > 0.001) {
+          if (i === pipBright && pipPartial > 0.001) {
             return (
               <span
                 key={i}
@@ -121,7 +119,7 @@ export function ScorePipTrack({
                 }`}
                 style={{
                   background: getScorePipBackground(i, colorSpan, isNight),
-                  opacity: Math.max(0.15, fill.partial),
+                  opacity: Math.max(0.15, pipPartial),
                 }}
                 aria-hidden="true"
               />

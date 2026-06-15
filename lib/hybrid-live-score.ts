@@ -33,10 +33,12 @@ export function normalizeRecentDeltas(
   lastDelta?: number
 ): number[] {
   if (recentDeltas?.length) {
-    return recentDeltas.map(Number).slice(-ROLLING_TICK_WINDOW);
+    const deltas = recentDeltas.map(Number).slice(-ROLLING_TICK_WINDOW);
+    if (deltas.some((d) => Math.abs(d) > 0.001)) return deltas;
+    return [];
   }
   const d = Number(lastDelta ?? 0);
-  return d !== 0 ? [d] : [];
+  return Math.abs(d) > 0.001 ? [d] : [];
 }
 
 /** Append a tick delta and keep the last 3. */
