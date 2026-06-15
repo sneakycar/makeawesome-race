@@ -77,6 +77,8 @@ export async function getAnnouncerTickerEvents(
 const LOG_EVENT_PRIORITY: Record<string, number> = {
   god_score: 100,
   race_delay: 95,
+  delay_lost_tick: 88,
+  race_resumed: 95,
   fight: 90,
   lead_change: 85,
   chaos_surge: 80,

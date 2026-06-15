@@ -68,6 +68,7 @@ import {
   getRaceEffectiveNow,
   isRaceDelayed,
   shouldTriggerRaceDelay,
+  rollDelayEvent,
   startRaceDelay,
 } from "./race-delay";
 import { assignLanesBySkill, getLanePerformanceMultiplier } from "./lanes";
@@ -113,6 +114,104 @@ export function getTickNumber(startedAt: Date, _endsAt: Date, now: Date = new Da
 
 export function tickTimeForNumber(startedAt: Date, tickNumber: number): Date {
   return new Date(startedAt.getTime() + tickNumber * RACE_TICK_MS);
+}
+
+/** Ticks with real scoring — delay-only lines and resume banners don't count. */
+export function isScoringTickResolved(
+  tickNumber: number,
+  events: { tick_number: number; event_type: string }[]
+): boolean {
+  return events.some(
+    (row) =>
+      row.tick_number === tickNumber &&
+      row.event_type !== "race_delay" &&
+      row.event_type !== "race_resumed"
+  );
+}
+
+async function markDelayLostTicks(
+  supabase: SupabaseClient,
+  race: Race,
+  now: Date
+): Promise<void> {
+  if (!race.delay_started_at) return;
+
+  const startedAt = new Date(race.started_at);
+  const endsAt = new Date(race.ends_at);
+  const delayStart = new Date(race.delay_started_at);
+  const skipFrom = getTickNumber(startedAt, endsAt, delayStart) + 1;
+  const skipThrough = getTickNumber(startedAt, endsAt, now);
+  if (skipThrough < skipFrom) return;
+
+  const { data: existing, error } = await supabase
+    .from("race_ticker_events")
+    .select("tick_number, event_type")
+    .eq("race_id", race.id)
+    .gte("tick_number", skipFrom)
+    .lte("tick_number", skipThrough);
+
+  if (error) throw error;
+
+  const title = race.delay_title ?? "DELAY";
+  const frozen = race.delay_frozen_percent ?? 0;
+
+  for (let t = skipFrom; t <= skipThrough; t++) {
+    if (isScoringTickResolved(t, existing ?? [])) continue;
+    const event = rollDelayEvent(race.id, t);
+    await saveTickerEvents(supabase, race.id, t, [
+      {
+        eventType: "delay_lost_tick",
+        playerId: null,
+        message: `${event.ticker} — TIME LOST OFF THE CLOCK. NO SCORING.`,
+        facts: {
+          tickNumber: t,
+          percentComplete: frozen,
+          playerName: "",
+          eventNote: title,
+        },
+        priority: 88,
+      },
+    ]);
+  }
+}
+
+async function postDelayHoldTicker(
+  supabase: SupabaseClient,
+  race: Race,
+  now: Date
+): Promise<void> {
+  const startedAt = new Date(race.started_at);
+  const endsAt = new Date(race.ends_at);
+  const wallTick = getTickNumber(startedAt, endsAt, now);
+
+  const { data: existing, error } = await supabase
+    .from("race_ticker_events")
+    .select("tick_number")
+    .eq("race_id", race.id)
+    .eq("tick_number", wallTick)
+    .limit(1);
+
+  if (error) throw error;
+  if (existing?.length) return;
+
+  const title = race.delay_title ?? "DELAY";
+  const body = race.delay_body ?? "COMPETITION IS ON HOLD.";
+  const frozen = race.delay_frozen_percent ?? 0;
+
+  await saveTickerEvents(supabase, race.id, wallTick, [
+    {
+      eventType: "race_delay",
+      playerId: null,
+      message: `RACE DELAYED — ${title}. ${body.split(".")[0]}.`,
+      facts: {
+        tickNumber: wallTick,
+        percentComplete: frozen,
+        playerName: "",
+        eventNote: title,
+      },
+      priority: 98,
+    },
+  ]);
 }
 
 export {
@@ -571,6 +670,10 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
     return;
   }
 
+  if (race.delay_until && now.getTime() >= new Date(race.delay_until).getTime()) {
+    await markDelayLostTicks(supabase, race as Race, now);
+  }
+
   const cleared = await clearExpiredRaceDelay(supabase, race as Race, now);
   if (cleared) {
     race = cleared;
@@ -587,21 +690,14 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   }
 
   if (isRaceDelayed(race as Race, now)) {
-    logTick("clearing legacy blocking delay");
-    const { data: undelayed, error: undelayErr } = await supabase
-      .from("races")
-      .update({
-        delay_until: null,
-        delay_started_at: null,
-        delay_title: null,
-        delay_body: null,
-        delay_frozen_percent: null,
-      })
-      .eq("id", race.id)
-      .select("*")
-      .single();
-    if (undelayErr) throw undelayErr;
-    if (undelayed) race = undelayed as Race;
+    logTick("exit: race delayed until", race.delay_until);
+    await postDelayHoldTicker(supabase, race as Race, now);
+    await syncRaceWeatherEvents(supabase, race as Race, startedAt, now);
+    await supabase
+      .from("game_state")
+      .update({ last_tick_at: now.toISOString(), updated_at: now.toISOString() })
+      .eq("id", 1);
+    return;
   }
 
   if (now > endsAt) {
@@ -615,16 +711,15 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
 
   const { data: processedRows, error: processedErr } = await supabase
     .from("race_ticker_events")
-    .select("tick_number")
+    .select("tick_number, event_type")
     .eq("race_id", race.id)
     .lte("tick_number", targetTick);
 
   if (processedErr) throw processedErr;
 
-  const processedTicks = new Set((processedRows ?? []).map((r) => r.tick_number));
   let tickNumber = -1;
   for (let t = targetTick; t >= 0; t--) {
-    if (!processedTicks.has(t)) {
+    if (!isScoringTickResolved(t, processedRows ?? [])) {
       tickNumber = t;
       break;
     }
@@ -2072,7 +2167,7 @@ export async function getRaceTickLag(
 ): Promise<RaceTickLag | null> {
   const { data: race, error: raceErr } = await supabase
     .from("races")
-    .select("id, started_at, ends_at, status")
+    .select("id, started_at, ends_at, status, delay_until, delay_started_at")
     .eq("status", "active")
     .order("race_number", { ascending: false })
     .limit(1)
@@ -2095,20 +2190,41 @@ export async function getRaceTickLag(
     };
   }
 
-  const targetTick = getTickNumber(startedAt, endsAt, now);
+  if (isRaceDelayed(race as Race, now)) {
+    const wallTick = getTickNumber(startedAt, endsAt, now);
+    const { data: wallRows, error: wallErr } = await supabase
+      .from("race_ticker_events")
+      .select("tick_number")
+      .eq("race_id", race.id)
+      .eq("tick_number", wallTick)
+      .limit(1);
+
+    if (wallErr) throw wallErr;
+
+    const needsDelayLine = !wallRows?.length;
+    return {
+      raceId: race.id,
+      targetTick: wallTick,
+      maxProcessedTick: needsDelayLine ? wallTick - 1 : wallTick,
+      latestMissingTick: needsDelayLine ? wallTick : -1,
+      missingCount: needsDelayLine ? 1 : 0,
+    };
+  }
+
+  const scoringNow = getRaceEffectiveNow(race as Race, now);
+  const targetTick = getTickNumber(startedAt, endsAt, scoringNow);
   const { data: rows, error: rowsErr } = await supabase
     .from("race_ticker_events")
-    .select("tick_number")
+    .select("tick_number, event_type")
     .eq("race_id", race.id)
     .lte("tick_number", targetTick);
 
   if (rowsErr) throw rowsErr;
 
-  const processedTicks = new Set((rows ?? []).map((r) => r.tick_number));
   let latestMissingTick = -1;
   let missingCount = 0;
   for (let t = 0; t <= targetTick; t++) {
-    if (!processedTicks.has(t)) {
+    if (!isScoringTickResolved(t, rows ?? [])) {
       missingCount += 1;
       latestMissingTick = t;
     }

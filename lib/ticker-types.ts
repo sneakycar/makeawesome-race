@@ -27,6 +27,7 @@ export type TickerEventType =
   | "race_won"
   | "eliminated"
   | "race_delay"
+  | "delay_lost_tick"
   | "race_resumed"
   | "fight"
   | "god_score";

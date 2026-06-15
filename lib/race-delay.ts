@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { seededBool, seededInt } from "./seeded-rng";
 import { saveTickerEvents } from "./ticker-db";
+import { getExpectedRaceEndsAt } from "./eastern-time";
 import type { Race, RaceDelayInfo } from "./types";
 
 export type { RaceDelayInfo };
@@ -87,18 +88,22 @@ export function getRaceDelayInfo(race: Race, now: Date = new Date()): RaceDelayI
   };
 }
 
-/** Race delays are ticker flavor only — never halt the 15m scoring pipeline. */
+/** ~2.5% of races trigger a delay at a predetermined tick. */
 export function shouldTriggerRaceDelay(
-  _raceId: string,
-  _tickNumber: number,
-  _percentComplete: number,
-  _hasActiveDelay: boolean
+  raceId: string,
+  tickNumber: number,
+  percentComplete: number,
+  hasActiveDelay: boolean
 ): boolean {
-  return false;
+  if (hasActiveDelay) return false;
+  if (percentComplete < 12 || percentComplete > 88) return false;
+  const delayTick = seededInt(`${raceId}:delay-tick`, 6, 42);
+  if (tickNumber !== delayTick) return false;
+  return seededBool(`${raceId}:global-delay`, 0.025);
 }
 
 export function rollDelayDurationMs(raceId: string, tickNumber: number): number {
-  const hours = seededInt(`${raceId}:${tickNumber}:delay-hours`, 2, 8);
+  const hours = seededInt(`${raceId}:${tickNumber}:delay-hours`, 1, 4);
   return hours * 60 * 60 * 1000;
 }
 
@@ -149,10 +154,13 @@ export async function startRaceDelay(
   percentComplete: number,
   now: Date = new Date()
 ): Promise<void> {
+  const startedAt = new Date(race.started_at);
+  const endsAt = getExpectedRaceEndsAt(startedAt);
   const durationMs = rollDelayDurationMs(race.id, tickNumber);
   const event = rollDelayEvent(race.id, tickNumber);
-  const delayUntil = new Date(now.getTime() + durationMs);
-  const extendedEndsAt = new Date(new Date(race.ends_at).getTime() + durationMs);
+  const delayUntil = new Date(
+    Math.min(now.getTime() + durationMs, endsAt.getTime())
+  );
 
   const { error } = await supabase
     .from("races")
@@ -162,7 +170,7 @@ export async function startRaceDelay(
       delay_title: event.title,
       delay_body: event.body,
       delay_frozen_percent: percentComplete,
-      ends_at: extendedEndsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
     })
     .eq("id", race.id);
 
