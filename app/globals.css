@@ -3807,6 +3807,10 @@ body[data-home-theme="night"] .delay-overlay {
   grid-column: 1 / -1;
 }
 
+.home-log-section {
+  margin-bottom: 16px;
+}
+
 .race-log-panel {
   margin: 0 0 4px;
 }

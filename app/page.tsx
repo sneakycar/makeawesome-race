@@ -1228,12 +1228,12 @@ export default function HomePage() {
 
           <div className="divider">{"────────────────────────"}</div>
 
-          <div className="home-sections-grid">
-            <div className="home-section-block home-section-block-full">
-              <div className="section-label">&gt; LOG</div>
-              <RaceTickLogPanel entries={state.raceLog ?? []} serverTime={state.serverTime} />
-            </div>
+          <div className="home-section-block home-section-block-full home-log-section">
+            <div className="section-label">&gt; LOG</div>
+            <RaceTickLogPanel entries={state.raceLog ?? []} serverTime={state.serverTime} />
+          </div>
 
+          <div className="home-sections-grid">
             {lastRaceRecap && (
               <div className="home-section-block home-section-block-full">
                 <div className="section-label">LAST RACE RECAP</div>
