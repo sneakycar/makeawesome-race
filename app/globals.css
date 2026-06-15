@@ -712,17 +712,12 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   width: 100%;
 }
 
-.race-meta-progress-section .race-weather-badge {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 3;
-}
-
 .race-progress-pip-pill .race-weather-badge {
   position: absolute;
+  top: auto;
   right: 4px;
   bottom: 4px;
+  left: auto;
   z-index: 4;
 }
 

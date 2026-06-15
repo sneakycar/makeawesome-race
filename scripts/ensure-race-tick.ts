@@ -43,11 +43,14 @@ async function main() {
   const afterLag = await getRaceTickLag(supabase);
 
   const ran =
-    afterLag != null && afterLag.missingCount < beforeMissing;
+    afterLag != null &&
+    (afterLag.missingCount < beforeMissing || afterLag.needsFinalize !== lag?.needsFinalize);
   console.log(
     ran
       ? `[ensure-race-tick] caught up (${beforeMissing - (afterLag?.missingCount ?? 0)} tick(s))`
-      : "[ensure-race-tick] on schedule, skipped"
+      : lag?.needsFinalize
+        ? "[ensure-race-tick] overdue race — finalize triggered"
+        : "[ensure-race-tick] on schedule, skipped"
   );
 }
 

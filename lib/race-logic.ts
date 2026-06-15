@@ -1893,7 +1893,7 @@ async function addHistory(
     event_type: eventType,
     event_text: eventText,
     finish_rank: finishRank,
-    progress,
+    progress: progress != null ? Math.round(progress) : null,
   });
 
   if (error) {
@@ -2159,6 +2159,8 @@ export interface RaceTickLag {
   maxProcessedTick: number;
   latestMissingTick: number;
   missingCount: number;
+  /** Active race is past ends_at but still status=active — must finalize. */
+  needsFinalize: boolean;
 }
 
 /** How far behind wall-clock tick processing is for the active race. */
@@ -2187,6 +2189,7 @@ export async function getRaceTickLag(
       maxProcessedTick: -1,
       latestMissingTick: -1,
       missingCount: 0,
+      needsFinalize: now > endsAt,
     };
   }
 
@@ -2208,6 +2211,7 @@ export async function getRaceTickLag(
       maxProcessedTick: needsDelayLine ? wallTick - 1 : wallTick,
       latestMissingTick: needsDelayLine ? wallTick : -1,
       missingCount: needsDelayLine ? 1 : 0,
+      needsFinalize: false,
     };
   }
 
@@ -2238,6 +2242,7 @@ export async function getRaceTickLag(
     maxProcessedTick,
     latestMissingTick,
     missingCount,
+    needsFinalize: false,
   };
 }
 
@@ -2245,7 +2250,14 @@ export async function getRaceTickLag(
 export async function ensureRaceTickedIfStale(supabase: SupabaseClient): Promise<void> {
   try {
     const lag = await getRaceTickLag(supabase);
-    if (!lag || lag.targetTick < 0) return;
+    if (!lag) return;
+
+    if (lag.needsFinalize) {
+      await tickRace(supabase);
+      return;
+    }
+
+    if (lag.targetTick < 0) return;
 
     const { data: gs } = await supabase
       .from("game_state")
@@ -2266,7 +2278,12 @@ export async function ensureRaceTickedIfStale(supabase: SupabaseClient): Promise
       await tickRace(supabase);
 
       const after = await getRaceTickLag(supabase);
-      if (!after || after.latestMissingTick < 0) break;
+      if (!after) break;
+      if (after.needsFinalize) {
+        await tickRace(supabase);
+        break;
+      }
+      if (after.latestMissingTick < 0) break;
       if (after.missingCount >= prevMissing) break;
       prevMissing = after.missingCount;
     }
