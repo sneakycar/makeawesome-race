@@ -1449,7 +1449,7 @@ export async function finalizeRace(
         finish,
         roundRaceScore(Number(entry.race_score))
       );
-    } else if (!entry.is_injured && !entry.is_disqualified) {
+    } else if (!entry.is_injured && !entry.is_disqualified && !isLast) {
       await addHistory(
         supabase,
         player.id,
@@ -1532,8 +1532,18 @@ export async function finalizeRace(
     await saveTickerEvents(supabase, race.id, tickNumber, finalizeMessages);
   }
 
-  const slotsNeeded = injuredIds.length + dqIds.length + (hadInjuries || hadDqs ? 0 : 1);
-  const excludeIds = new Set([...injuredIds, ...dqIds]);
+  const lastPlaceEntry =
+    !hadInjuries && !hadDqs
+      ? ranked.find((e) => {
+          if (e.is_injured || e.is_disqualified) return false;
+          const finish = e.final_rank ?? e.current_rank;
+          return finish === healthyFinishCount;
+        })
+      : undefined;
+  const lastPlaceIds = lastPlaceEntry ? [lastPlaceEntry.player_id] : [];
+  const departingIds = new Set([...injuredIds, ...dqIds, ...lastPlaceIds]);
+  const currentRacePlayerIds = ranked.map((e) => e.player_id);
+  const slotsNeeded = departingIds.size;
 
   if (!createNextRace) {
     await supabase
@@ -1552,29 +1562,42 @@ export async function finalizeRace(
     new Date(race.ends_at)
   );
 
-  const { data: activePlayers } = await supabase.from("players").select("id").eq("status", "active");
-  let rosterIds = (activePlayers || []).map((p) => p.id);
+  const carryOverIds = ranked
+    .filter((e) => !departingIds.has(e.player_id))
+    .map((e) => e.player_id);
+
+  let rosterIds = [...carryOverIds];
+  const replacementExclude = new Set([...currentRacePlayerIds]);
 
   for (let i = 0; i < slotsNeeded; i++) {
     const replacement = await chooseReplacement(supabase, nextDay, {
-      excludePlayerIds: [...excludeIds],
+      excludePlayerIds: [...replacementExclude],
     });
-    excludeIds.add(replacement.id);
-    if (!rosterIds.includes(replacement.id)) {
-      rosterIds.push(replacement.id);
-    }
+    replacementExclude.add(replacement.id);
+    rosterIds.push(replacement.id);
   }
 
   while (rosterIds.length > 8) {
-    const idx = rosterIds.findIndex((id) => !excludeIds.has(id));
-    if (idx >= 0) rosterIds.splice(idx, 1);
+    const idx = rosterIds.findIndex((id) => !carryOverIds.includes(id));
+    if (idx < 0) break;
+    rosterIds.splice(idx, 1);
   }
   while (rosterIds.length < 8) {
     const replacement = await chooseReplacement(supabase, nextDay, {
-      excludePlayerIds: [...excludeIds],
+      excludePlayerIds: [...replacementExclude],
     });
-    excludeIds.add(replacement.id);
+    replacementExclude.add(replacement.id);
     rosterIds.push(replacement.id);
+  }
+
+  const rosterSet = new Set(rosterIds);
+  if (rosterSet.size !== rosterIds.length) {
+    throw new Error("Next race roster contains duplicate racers");
+  }
+  for (const departingId of departingIds) {
+    if (rosterSet.has(departingId)) {
+      throw new Error("Departing racer cannot join the next race");
+    }
   }
 
   for (const injuredId of injuredIds) {
