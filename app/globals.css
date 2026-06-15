@@ -871,11 +871,27 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   box-sizing: border-box;
 }
 
-.score-pip-track-leader {
+.score-pip-track-outline {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 3;
+  border-radius: 1px;
+}
+
+.score-pip-track-outline-leader {
   box-shadow:
     0 0 0 1px #c9a100,
     0 0 0 2px rgba(0, 0, 0, 0.35);
-  border-radius: 2px;
+}
+
+.score-pip-track-outline-fight,
+.score-pip-track-outline-injured {
+  box-shadow:
+    0 0 0 1px #888,
+    0 0 0 2px rgba(0, 0, 0, 0.35);
 }
 
 .score-pip-viewport-paused .score-pip-on,
@@ -921,30 +937,37 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 .score-pip-track {
   grid-column: 1;
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 0;
   min-width: 0;
   height: 13px;
   padding: 1px 0;
+  overflow: hidden;
 }
 
 .score-pip-track--race {
   position: relative;
-  display: grid;
-  width: 100%;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
   gap: 1px;
-  overflow: hidden;
+  width: max-content;
   box-sizing: border-box;
 }
 
-.score-pip-track-fight,
-.score-pip-track-injured {
-  box-shadow:
-    0 0 0 1px #888,
-    0 0 0 2px rgba(0, 0, 0, 0.35);
-  border-radius: 2px;
+.score-pip-track--race .score-pip {
+  flex: 0 0 2px;
+  width: 2px;
+  min-width: 2px;
+  max-width: 2px;
+  height: 12px;
 }
 
 .score-pip {
-  width: 100%;
+  flex: 1 1 0;
   min-width: 0;
   height: 12px;
 }
@@ -4029,8 +4052,14 @@ body[data-home-theme="night"] .row-scoreboard-gain {
   color: #5fd99a;
 }
 
-body[data-home-theme="night"] .score-pip-track-fight,
-body[data-home-theme="night"] .score-pip-track-injured {
+body[data-home-theme="night"] .score-pip-track-outline-leader {
+  box-shadow:
+    0 0 0 1px #ffd700,
+    0 0 0 2px rgba(0, 0, 0, 0.65);
+}
+
+body[data-home-theme="night"] .score-pip-track-outline-fight,
+body[data-home-theme="night"] .score-pip-track-outline-injured {
   box-shadow:
     0 0 0 1px #666,
     0 0 0 2px rgba(0, 0, 0, 0.65);
@@ -4056,16 +4085,6 @@ body[data-home-theme="night"] .row-score-pip-delta {
 
 body[data-home-theme="night"] .row-score-pip-delta-loss {
   color: #f87171;
-}
-
-body[data-home-theme="night"] .score-pip-track-leader {
-  box-shadow:
-    0 0 0 1px #ffd700,
-    0 0 0 2px rgba(0, 0, 0, 0.65);
-}
-
-body[data-home-theme="night"] .score-pip-track-leader {
-  /* legacy */
 }
 
 body[data-home-theme="night"] .race-meta-next-soon {

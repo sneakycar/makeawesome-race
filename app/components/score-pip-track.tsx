@@ -72,6 +72,20 @@ export function ScorePipTrack({
       : rolling.animatingDelta;
   const showDelta = Math.round(Math.abs(deltaBadge)) > 0;
 
+  const fillPercent = Math.min(100, (rolling.score / slots) * 100);
+  const showOutline =
+    fillPercent > 0 &&
+    (isLeader ||
+      statusOverlay?.icon === "fight" ||
+      statusOverlay?.icon === "injured");
+  const outlineClass = isLeader
+    ? " score-pip-track-outline-leader"
+    : statusOverlay?.icon === "fight"
+      ? " score-pip-track-outline-fight"
+      : statusOverlay?.icon === "injured"
+        ? " score-pip-track-outline-injured"
+        : "";
+
   const isSegmentPip = (index: number, lit: boolean) =>
     lit &&
     isSegmentAnimating &&
@@ -100,13 +114,8 @@ export function ScorePipTrack({
     >
       <div
         className={`score-pip-track score-pip-track--race${
-          isLeader ? " score-pip-track-leader" : ""
-        }${
-          statusOverlay?.icon === "fight" ? " score-pip-track-fight" : ""
-        }${
-          statusOverlay?.icon === "injured" ? " score-pip-track-injured" : ""
+          statusOverlay ? " score-pip-track-paused" : ""
         }`}
-        style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: slots }, (_, i) => {
           if (i < fill.bright) {
@@ -140,8 +149,19 @@ export function ScorePipTrack({
           }
           return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
         })}
+        {showOutline && (
+          <div
+            className={`score-pip-track-outline${outlineClass}`}
+            style={{ width: `${fillPercent}%` }}
+            aria-hidden="true"
+          />
+        )}
         {statusOverlay && (
-          <div className="row-scoreboard-overlay" aria-hidden="true">
+          <div
+            className="row-scoreboard-overlay"
+            style={{ width: `${fillPercent}%` }}
+            aria-hidden="true"
+          >
             <FlatIcon id={statusOverlay.icon} className="race-emoji race-emoji-overlay" />
             <span className="row-scoreboard-overlay-label">{statusOverlay.label}</span>
           </div>
