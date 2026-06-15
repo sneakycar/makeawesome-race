@@ -921,11 +921,6 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 .score-pip-track {
   grid-column: 1;
-  flex: 1 1 auto;
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: flex-end;
-  gap: 0;
   min-width: 0;
   height: 13px;
   padding: 1px 0;
@@ -933,9 +928,10 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 .score-pip-track--race {
   position: relative;
-  flex-wrap: nowrap;
-  width: max-content;
-  overflow: visible;
+  display: grid;
+  width: 100%;
+  gap: 1px;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
@@ -947,28 +943,16 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   border-radius: 2px;
 }
 
-.score-pip-track--race .score-pip {
-  flex: 0 0 2px;
-  width: 2px;
-  min-width: 2px;
-  max-width: 2px;
-  height: 12px;
-  transform: skewX(-22deg);
-  transform-origin: center center;
-  margin: 0 -0.5px;
-  border-radius: 1px;
-}
-
 .score-pip {
-  flex: 1 1 0;
+  width: 100%;
   min-width: 0;
   height: 12px;
 }
 
 .score-pip-on {
   box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.28),
-    inset -1px 0 0 rgba(0, 0, 0, 0.2);
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 0 0.5px rgba(0, 0, 0, 0.5);
 }
 
 .score-pip-partial {
@@ -993,17 +977,9 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .score-pip-dim {
-  background-color: #dddddd;
-  background-image:
-    repeating-linear-gradient(
-      -45deg,
-      #e4e4e4 0px,
-      #e4e4e4 1px,
-      #d6d6d6 1px,
-      #d6d6d6 2px
-    );
-  box-shadow: none;
-  opacity: 1;
+  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 55%, #c4c4c4 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  opacity: 0.55;
 }
 
 .tap-hint {
@@ -4066,8 +4042,8 @@ body[data-home-theme="night"] .row-scoreboard-overlay-label {
 
 body[data-home-theme="night"] .score-pip-on {
   box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.28),
-    inset -1px 0 0 rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 0 0 0.5px rgba(255, 255, 255, 0.25);
 }
 
 body[data-home-theme="night"] .row-score-pip-num {
@@ -4113,17 +4089,9 @@ body[data-home-theme="night"] .score-pip-segment {
 }
 
 body[data-home-theme="night"] .score-pip-dim {
-  background-color: #161616;
-  background-image:
-    repeating-linear-gradient(
-      -45deg,
-      #222 0px,
-      #222 1px,
-      #141414 1px,
-      #141414 2px
-    );
-  box-shadow: none;
-  opacity: 1;
+  background: linear-gradient(180deg, #333 0%, #2a2a2a 55%, #222 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  opacity: 0.45;
 }
 
 body[data-home-theme="night"] .row-place-1 {

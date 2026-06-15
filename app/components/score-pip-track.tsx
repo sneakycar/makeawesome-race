@@ -13,8 +13,6 @@ import {
   SCORE_TRACK_SLOTS,
 } from "@/lib/score";
 
-const PIP_WIDTH_PX = 2;
-
 export function ScorePipTrack({
   confirmedScore,
   lastDelta = 0,
@@ -108,7 +106,7 @@ export function ScorePipTrack({
         }${
           statusOverlay?.icon === "injured" ? " score-pip-track-injured" : ""
         }`}
-        style={{ minWidth: `${slots * PIP_WIDTH_PX}px` }}
+        style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: slots }, (_, i) => {
           if (i < fill.bright) {
