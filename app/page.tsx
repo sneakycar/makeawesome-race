@@ -431,58 +431,85 @@ function AboutSection() {
     <details className="about-details">
       <summary className="about-summary">ABOUT</summary>
       <div className="about">
-        <p>
-          HOLES RACE is an eternal automatic daily race between generated names.
-          Every race runs 9:00 AM – 9:00 PM EST. Last place is sent to holding.
-          A new racer or returning loser enters tomorrow. Every racer keeps their
-          history forever.
-        </p>
-        <p>
-          RACERS
-          {"\n\n"}
-          Every racer is born with an archetype, traits, and a signature ability.
-          These do not give the user control, but they shape how each racer behaves
-          over time. Some are steady workhorses, some are unstable gamblers, some
-          bloom late, some collapse under pressure, and some come back stronger
-          after holding. The race is still automatic, but the racers are not
-          identical.
-        </p>
-        <p>
-          SUPPORT
-          {"\n\n"}
-          Up to six times per race, you can tap +1 for one racer. Each tap adds a
-          tiny bump to today&apos;s score (capped so fans can never buy the race)
-          and rolls for permanent growth after the finish. Strong racers grow
-          slowly; struggling racers get better odds. Age, decay, holding, and
-          injuries still pull everyone back — there is no finish line.
-          {"\n\n"}
-          After each tap the button shows a check until the cooldown clears, then
-          +1 lights up again.
-        </p>
-        <p>
-          INJURIES
-          {"\n\n"}
-          During a race, a racer can rarely suffer an injury. Injured racers freeze in place,
-          stop gaining progress, and leave the active roster after the race. They miss one or
-          more future races, then recover into Holding instead of returning directly to the
-          track. Injuries do not happen often, but they can interrupt dynasties, create comeback
-          arcs, and permanently mark a racer&apos;s history.
-        </p>
-        <p>
-          BAD MONEY
-          {"\n\n"}
-          Once per race, a visitor may place bad money on one racer. Bad money is not
-          real currency and has no payout. It is a superstition. It may slightly
-          disturb a racer&apos;s current race and can rarely affect long-term growth or
-          regression. The effect is tiny, capped, and unreliable. The machine remains
-          in charge.
-        </p>
-        <p>
-          RACER FACTS
-          {"\n\n"}
-          Sometimes the machine reveals small facts about racers while you watch. These
-          facts do not require action. They are just observations.
-        </p>
+        <section className="about-block">
+          <h3 className="about-subhead">Holes Race</h3>
+          <p>
+            An eternal automatic daily race between generated names. Every race runs{" "}
+            <strong>9:00 AM – 9:00 AM EST</strong> (24 hours).
+          </p>
+          <p>
+            <strong>Last place</strong> is sent to holding. A new racer or returning
+            loser enters tomorrow. Every racer keeps their history forever.
+          </p>
+        </section>
+
+        <section className="about-block">
+          <h3 className="about-subhead">Racers</h3>
+          <p>
+            Every racer is born with an <strong>archetype</strong>,{" "}
+            <strong>traits</strong>, and a <strong>signature ability</strong>. These
+            do not give you control, but they shape how each racer behaves over time.
+          </p>
+          <p>
+            Some are steady workhorses, some are unstable gamblers, some bloom late,
+            some collapse under pressure, and some come back stronger after holding.
+            The race is still automatic — the racers are not identical.
+          </p>
+        </section>
+
+        <section className="about-block">
+          <h3 className="about-subhead">Support</h3>
+          <p>
+            Up to <strong>six times per race</strong>, you can tap <strong>+1</strong>{" "}
+            for one racer. Each tap adds a tiny bump to today&apos;s score (capped so
+            fans can never buy the race) and rolls for permanent growth after the
+            finish.
+          </p>
+          <p>
+            Strong racers grow slowly; struggling racers get better odds. Age, decay,
+            holding, and injuries still pull everyone back — there is no finish line.
+          </p>
+          <p>
+            After each tap the button shows a check until the cooldown clears, then{" "}
+            <strong>+1</strong> lights up again.
+          </p>
+        </section>
+
+        <section className="about-block">
+          <h3 className="about-subhead">Injuries</h3>
+          <p>
+            During a race, a racer can rarely suffer an injury.{" "}
+            <strong>Injured racers freeze in place</strong>, stop gaining progress, and
+            leave the active roster after the race.
+          </p>
+          <p>
+            They miss one or more future races, then recover into{" "}
+            <strong>Holding</strong> instead of returning directly to the track.
+            Injuries do not happen often, but they can interrupt dynasties, create
+            comeback arcs, and permanently mark a racer&apos;s history.
+          </p>
+        </section>
+
+        <section className="about-block">
+          <h3 className="about-subhead">Bad Money</h3>
+          <p>
+            Once per race, a visitor may place <strong>bad money</strong> on one racer.
+            Bad money is not real currency and has no payout. It is a superstition.
+          </p>
+          <p>
+            It may slightly disturb a racer&apos;s current race and can rarely affect
+            long-term growth or regression. The effect is tiny, capped, and unreliable.
+            The machine remains in charge.
+          </p>
+        </section>
+
+        <section className="about-block">
+          <h3 className="about-subhead">Racer Facts</h3>
+          <p>
+            Sometimes the machine reveals small facts about racers while you watch.
+            These facts do not require action. They are just observations.
+          </p>
+        </section>
       </div>
     </details>
   );

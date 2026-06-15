@@ -2262,12 +2262,34 @@ body[data-home-theme="night"] .row-mark-slot {
   color: #333;
 }
 
+.about-block {
+  margin: 0 0 18px;
+}
+
+.about-block:last-child {
+  margin-bottom: 0;
+}
+
+.about-subhead {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #111;
+}
+
 .about p {
-  margin: 0 0 14px;
+  margin: 0 0 8px;
 }
 
 .about p:last-child {
   margin-bottom: 0;
+}
+
+.about strong {
+  font-weight: 700;
+  color: #111;
 }
 
 /* stats overlay — retro arcade screen */
@@ -4278,6 +4300,11 @@ body[data-home-theme="night"] .about-summary::before {
 
 body[data-home-theme="night"] .about {
   color: #ccc;
+}
+
+body[data-home-theme="night"] .about-subhead,
+body[data-home-theme="night"] .about strong {
+  color: #f0f0f0;
 }
 
 body[data-home-theme="night"] .streak-name {
