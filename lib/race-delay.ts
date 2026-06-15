@@ -87,18 +87,14 @@ export function getRaceDelayInfo(race: Race, now: Date = new Date()): RaceDelayI
   };
 }
 
-/** ~2.5% of races trigger a delay at a predetermined tick. */
+/** Race delays are ticker flavor only — never halt the 15m scoring pipeline. */
 export function shouldTriggerRaceDelay(
-  raceId: string,
-  tickNumber: number,
-  percentComplete: number,
-  hasActiveDelay: boolean
+  _raceId: string,
+  _tickNumber: number,
+  _percentComplete: number,
+  _hasActiveDelay: boolean
 ): boolean {
-  if (hasActiveDelay) return false;
-  if (percentComplete < 12 || percentComplete > 88) return false;
-  const delayTick = seededInt(`${raceId}:delay-tick`, 6, 42);
-  if (tickNumber !== delayTick) return false;
-  return seededBool(`${raceId}:global-delay`, 0.025);
+  return false;
 }
 
 export function rollDelayDurationMs(raceId: string, tickNumber: number): number {

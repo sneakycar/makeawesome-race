@@ -587,13 +587,21 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
   }
 
   if (isRaceDelayed(race as Race, now)) {
-    logTick("exit: race delayed until", race.delay_until);
-    await syncRaceWeatherEvents(supabase, race as Race, startedAt, now);
-    await supabase
-      .from("game_state")
-      .update({ last_tick_at: now.toISOString(), updated_at: now.toISOString() })
-      .eq("id", 1);
-    return;
+    logTick("clearing legacy blocking delay");
+    const { data: undelayed, error: undelayErr } = await supabase
+      .from("races")
+      .update({
+        delay_until: null,
+        delay_started_at: null,
+        delay_title: null,
+        delay_body: null,
+        delay_frozen_percent: null,
+      })
+      .eq("id", race.id)
+      .select("*")
+      .single();
+    if (undelayErr) throw undelayErr;
+    if (undelayed) race = undelayed as Race;
   }
 
   if (now > endsAt) {
@@ -2044,24 +2052,84 @@ export async function resetToFirstRace(supabase: SupabaseClient): Promise<Race> 
 
 export async function runTickPipeline(supabase: SupabaseClient): Promise<void> {
   await initializeGameIfNeeded(supabase);
-  await tickRace(supabase);
+  await ensureRaceTickedIfStale(supabase);
 }
 
-const STALE_TICK_MS = 14 * 60 * 1000;
-const MAX_CATCHUP_TICKS = 8;
+const STALE_TICK_MS = 16 * 60 * 1000;
+const MAX_CATCHUP_TICKS = 24;
+
+export interface RaceTickLag {
+  raceId: string;
+  targetTick: number;
+  maxProcessedTick: number;
+  latestMissingTick: number;
+  missingCount: number;
+}
+
+/** How far behind wall-clock tick processing is for the active race. */
+export async function getRaceTickLag(
+  supabase: SupabaseClient
+): Promise<RaceTickLag | null> {
+  const { data: race, error: raceErr } = await supabase
+    .from("races")
+    .select("id, started_at, ends_at, status")
+    .eq("status", "active")
+    .order("race_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (raceErr) throw raceErr;
+  if (!race) return null;
+
+  const now = new Date();
+  const startedAt = new Date(race.started_at);
+  const endsAt = new Date(race.ends_at);
+
+  if (now < startedAt || now > endsAt) {
+    return {
+      raceId: race.id,
+      targetTick: -1,
+      maxProcessedTick: -1,
+      latestMissingTick: -1,
+      missingCount: 0,
+    };
+  }
+
+  const targetTick = getTickNumber(startedAt, endsAt, now);
+  const { data: rows, error: rowsErr } = await supabase
+    .from("race_ticker_events")
+    .select("tick_number")
+    .eq("race_id", race.id)
+    .lte("tick_number", targetTick);
+
+  if (rowsErr) throw rowsErr;
+
+  const processedTicks = new Set((rows ?? []).map((r) => r.tick_number));
+  let latestMissingTick = -1;
+  let missingCount = 0;
+  for (let t = 0; t <= targetTick; t++) {
+    if (!processedTicks.has(t)) {
+      missingCount += 1;
+      latestMissingTick = t;
+    }
+  }
+
+  const maxProcessedTick = Math.max(-1, ...(rows ?? []).map((r) => r.tick_number));
+
+  return {
+    raceId: race.id,
+    targetTick,
+    maxProcessedTick,
+    latestMissingTick,
+    missingCount,
+  };
+}
 
 /** Catch up if cron missed a 15m boundary — safe to call from read paths. */
 export async function ensureRaceTickedIfStale(supabase: SupabaseClient): Promise<void> {
   try {
-    const { data: race } = await supabase
-      .from("races")
-      .select("id, status, delay_until")
-      .eq("status", "active")
-      .order("race_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!race) return;
+    const lag = await getRaceTickLag(supabase);
+    if (!lag || lag.targetTick < 0) return;
 
     const { data: gs } = await supabase
       .from("game_state")
@@ -2069,22 +2137,22 @@ export async function ensureRaceTickedIfStale(supabase: SupabaseClient): Promise
       .eq("id", 1)
       .single();
 
-    if (!gs?.last_tick_at) return;
+    const staleForMs = gs?.last_tick_at
+      ? Date.now() - new Date(gs.last_tick_at).getTime()
+      : Number.POSITIVE_INFINITY;
 
-    const staleForMs = Date.now() - new Date(gs.last_tick_at).getTime();
-    if (staleForMs < STALE_TICK_MS) return;
+    const tickBehind = lag.latestMissingTick >= 0;
+    const clockStale = staleForMs >= STALE_TICK_MS;
+    if (!tickBehind && !clockStale) return;
 
-    let lastTickAt = gs.last_tick_at;
+    let prevMissing = lag.missingCount;
     for (let i = 0; i < MAX_CATCHUP_TICKS; i++) {
-      const before = lastTickAt;
       await tickRace(supabase);
-      const { data: afterGs } = await supabase
-        .from("game_state")
-        .select("last_tick_at")
-        .eq("id", 1)
-        .single();
-      if (!afterGs?.last_tick_at || afterGs.last_tick_at === before) break;
-      lastTickAt = afterGs.last_tick_at;
+
+      const after = await getRaceTickLag(supabase);
+      if (!after || after.latestMissingTick < 0) break;
+      if (after.missingCount >= prevMissing) break;
+      prevMissing = after.missingCount;
     }
   } catch (err) {
     console.error("[ensureRaceTickedIfStale]", err);

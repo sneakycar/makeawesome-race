@@ -869,6 +869,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   position: relative;
   border-radius: 2px;
   box-sizing: border-box;
+  padding-left: 2px;
 }
 
 .score-pip-track-outline {
@@ -882,16 +883,14 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .score-pip-track-outline-leader {
-  box-shadow:
-    0 0 0 1px #c9a100,
-    0 0 0 2px rgba(0, 0, 0, 0.35);
+  border: 1px solid #c9a100;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .score-pip-track-outline-fight,
 .score-pip-track-outline-injured {
-  box-shadow:
-    0 0 0 1px #888,
-    0 0 0 2px rgba(0, 0, 0, 0.35);
+  border: 1px solid #888;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .score-pip-viewport-paused .score-pip-on,
@@ -937,25 +936,28 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 .score-pip-track {
   grid-column: 1;
+  position: relative;
   flex: 1 1 auto;
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: flex-end;
-  gap: 0;
   min-width: 0;
   height: 13px;
   padding: 1px 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .score-pip-track--race {
-  position: relative;
+  display: block;
+  box-sizing: border-box;
+}
+
+.score-pip-track-inner {
   display: flex;
   flex-wrap: nowrap;
   align-items: stretch;
   gap: 1px;
   width: max-content;
-  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+  height: 12px;
 }
 
 .score-pip-track--race .score-pip {
@@ -4053,16 +4055,14 @@ body[data-home-theme="night"] .row-scoreboard-gain {
 }
 
 body[data-home-theme="night"] .score-pip-track-outline-leader {
-  box-shadow:
-    0 0 0 1px #ffd700,
-    0 0 0 2px rgba(0, 0, 0, 0.65);
+  border-color: #ffd700;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
 }
 
 body[data-home-theme="night"] .score-pip-track-outline-fight,
 body[data-home-theme="night"] .score-pip-track-outline-injured {
-  box-shadow:
-    0 0 0 1px #666,
-    0 0 0 2px rgba(0, 0, 0, 0.65);
+  border-color: #666;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
 }
 
 body[data-home-theme="night"] .row-scoreboard-overlay-label {

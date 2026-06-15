@@ -117,38 +117,40 @@ export function ScorePipTrack({
           statusOverlay ? " score-pip-track-paused" : ""
         }`}
       >
-        {Array.from({ length: slots }, (_, i) => {
-          if (i < fill.bright) {
-            return (
-              <span
-                key={i}
-                className={`score-pip score-pip-on${
-                  isSegmentPip(i, true) ? " score-pip-segment" : ""
-                }`}
-                style={{
-                  background: getScorePipBackground(i, colorSpan, isNight),
-                }}
-                aria-hidden="true"
-              />
-            );
-          }
-          if (i === fill.partialIndex && fill.partial > 0.001) {
-            return (
-              <span
-                key={i}
-                className={`score-pip score-pip-on score-pip-partial${
-                  isSegmentPip(i, true) ? " score-pip-segment" : ""
-                }`}
-                style={{
-                  background: getScorePipBackground(i, colorSpan, isNight),
-                  opacity: Math.max(0.15, fill.partial),
-                }}
-                aria-hidden="true"
-              />
-            );
-          }
-          return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
-        })}
+        <div className="score-pip-track-inner">
+          {Array.from({ length: slots }, (_, i) => {
+            if (i < fill.bright) {
+              return (
+                <span
+                  key={i}
+                  className={`score-pip score-pip-on${
+                    isSegmentPip(i, true) ? " score-pip-segment" : ""
+                  }`}
+                  style={{
+                    background: getScorePipBackground(i, colorSpan, isNight),
+                  }}
+                  aria-hidden="true"
+                />
+              );
+            }
+            if (i === fill.partialIndex && fill.partial > 0.001) {
+              return (
+                <span
+                  key={i}
+                  className={`score-pip score-pip-on score-pip-partial${
+                    isSegmentPip(i, true) ? " score-pip-segment" : ""
+                  }`}
+                  style={{
+                    background: getScorePipBackground(i, colorSpan, isNight),
+                    opacity: Math.max(0.15, fill.partial),
+                  }}
+                  aria-hidden="true"
+                />
+              );
+            }
+            return <span key={i} className="score-pip score-pip-dim" aria-hidden="true" />;
+          })}
+        </div>
         {showOutline && (
           <div
             className={`score-pip-track-outline${outlineClass}`}

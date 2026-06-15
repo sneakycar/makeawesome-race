@@ -11,7 +11,7 @@ config({ path: resolve(process.cwd(), ".env") });
 
 import { getMsUntilNextUpdate } from "../lib/race-clock";
 import { createAdminClient } from "../lib/supabase/admin";
-import { runTickPipeline } from "../lib/race-logic";
+import { ensureRaceTickedIfStale, initializeGameIfNeeded } from "../lib/race-logic";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -28,6 +28,7 @@ async function main() {
   const durationMinutes = parseDurationMinutes();
   const endAt = Date.now() + durationMinutes * 60 * 1000;
   const supabase = createAdminClient();
+  await initializeGameIfNeeded(supabase);
 
   console.log(
     `[tick-loop] starting — ${durationMinutes}m window, one tick per 15m UTC boundary`
@@ -49,7 +50,7 @@ async function main() {
     if (Date.now() >= endAt) break;
 
     console.log(`[tick-loop] tick #${tickCount + 1} at ${new Date().toISOString()}`);
-    await runTickPipeline(supabase);
+    await ensureRaceTickedIfStale(supabase);
     tickCount += 1;
   }
 

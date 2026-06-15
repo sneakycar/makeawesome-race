@@ -6,10 +6,12 @@ config({ path: resolve(process.cwd(), ".env.local") });
 config({ path: resolve(process.cwd(), ".env") });
 
 import { createAdminClient } from "../lib/supabase/admin";
-import { ensureRaceTickedIfStale } from "../lib/race-logic";
+import { ensureRaceTickedIfStale, getRaceTickLag } from "../lib/race-logic";
 
 async function main() {
   const supabase = createAdminClient();
+  const lag = await getRaceTickLag(supabase);
+
   const { data: gs } = await supabase
     .from("game_state")
     .select("last_tick_at")
@@ -17,9 +19,7 @@ async function main() {
     .single();
 
   const last = gs?.last_tick_at ? new Date(gs.last_tick_at) : null;
-  const staleMin = last
-    ? (Date.now() - last.getTime()) / 60000
-    : null;
+  const staleMin = last ? (Date.now() - last.getTime()) / 60000 : null;
 
   console.log(
     "[ensure-race-tick] last_tick_at:",
@@ -27,18 +27,28 @@ async function main() {
     staleMin != null ? `(${staleMin.toFixed(1)}m ago)` : ""
   );
 
-  await ensureRaceTickedIfStale(supabase);
+  if (lag) {
+    console.log(
+      "[ensure-race-tick] targetTick:",
+      lag.targetTick,
+      "maxProcessed:",
+      lag.maxProcessedTick,
+      "missing:",
+      lag.missingCount
+    );
+  }
 
-  const { data: after } = await supabase
-    .from("game_state")
-    .select("last_tick_at")
-    .eq("id", 1)
-    .single();
+  const beforeMissing = lag?.missingCount ?? 0;
+  await ensureRaceTickedIfStale(supabase);
+  const afterLag = await getRaceTickLag(supabase);
 
   const ran =
-    after?.last_tick_at &&
-    after.last_tick_at !== gs?.last_tick_at;
-  console.log(ran ? "[ensure-race-tick] tick executed" : "[ensure-race-tick] still fresh, skipped");
+    afterLag != null && afterLag.missingCount < beforeMissing;
+  console.log(
+    ran
+      ? `[ensure-race-tick] caught up (${beforeMissing - (afterLag?.missingCount ?? 0)} tick(s))`
+      : "[ensure-race-tick] on schedule, skipped"
+  );
 }
 
 main().catch((err) => {
