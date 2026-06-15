@@ -203,14 +203,14 @@ function RaceMetaPanel({
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
         <div className="race-meta-line race-meta-progress-row">
           <div className="race-meta-progress-section">
-            <RaceProgressPipBar
-              percent={progressBarWidth}
-              isNight={isNight}
-              weatherBadge={weatherBadge}
-            />
+            <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
           </div>
         </div>
-        <div className="race-meta-gap" aria-hidden="true" />
+        <div className="race-meta-gap" aria-hidden={weatherBadge ? undefined : true}>
+          {weatherBadge ? (
+            <div className="race-meta-weather-slot">{weatherBadge}</div>
+          ) : null}
+        </div>
         <div className="race-meta-line">{timerLine}</div>
         <div className="race-meta-line">
           NEXT UPDATE IN:{" "}
@@ -265,11 +265,9 @@ function ScrollingTicker({
 function RaceProgressPipBar({
   percent,
   isNight,
-  weatherBadge,
 }: {
   percent: number;
   isNight: boolean;
-  weatherBadge?: React.ReactNode;
 }) {
   const clamped = Math.max(0, Math.min(100, percent));
   const displayPct = Math.round(clamped);
@@ -320,7 +318,6 @@ function RaceProgressPipBar({
               );
             })}
           </div>
-          {weatherBadge}
           <div className="race-progress-pip-bezel" />
         </div>
       </div>

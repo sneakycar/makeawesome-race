@@ -698,8 +698,20 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 }
 
 .race-meta-gap {
-  display: block;
-  height: 0.85em;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  min-height: 1.35em;
+  margin: 1px 0 2px;
+}
+
+.race-meta-weather-slot {
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.race-meta-gap .race-weather-badge {
+  position: static;
 }
 
 .race-meta-progress-row {
@@ -710,15 +722,6 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 .race-meta-progress-section {
   position: relative;
   width: 100%;
-}
-
-.race-progress-pip-pill .race-weather-badge {
-  position: absolute;
-  top: auto;
-  right: 4px;
-  bottom: 4px;
-  left: auto;
-  z-index: 4;
 }
 
 .race-progress-wrap {
