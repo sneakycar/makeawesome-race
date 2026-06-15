@@ -23,6 +23,7 @@ export interface TickBurst {
 }
 
 const CRON_RETRY_MS = 2500;
+const BACKGROUND_REFRESH_MS = 45_000;
 
 export interface CronUpdateOptions {
   getPrevState: () => GameStateResponse | null;
@@ -150,10 +151,14 @@ export function useCronUpdate(
 
     scheduleNext();
     intervalId = setInterval(() => setNextUpdateMs(getMsUntilNextUpdate()), 1000);
+    const refreshId = setInterval(() => {
+      void runUpdate();
+    }, BACKGROUND_REFRESH_MS);
 
     return () => {
       if (timeoutId != null) clearTimeout(timeoutId);
       if (intervalId != null) clearInterval(intervalId);
+      clearInterval(refreshId);
       clearBurstTimers();
     };
   }, [runUpdate, clearBurstTimers]);

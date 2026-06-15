@@ -244,7 +244,7 @@ function ScrollingTicker({
     ? events
         .map(
           (e) =>
-            `${formatTickerForDisplay(e.message)} (${formatTickAge(raceStartedAt, e.tick_number, now)})`
+            `${formatTickerForDisplay(e.message)} (${formatTickerAge(e.created_at, now)})`
         )
         .join(" · ")
     : formatTickerForDisplay(fallback);
@@ -505,7 +505,7 @@ function RaceTickLogRow({
   return (
     <div className="race-log-row">
       <span className="race-log-tag">
-        [tick {entry.tickNumber + 1}] ({formatTickAge(raceStartedAt, entry.tickNumber, now)})
+        [tick {entry.tickNumber + 1}] ({formatTickerAge(entry.createdAt, now)})
       </span>
       <span className="race-log-msg">{formatTickerForDisplay(entry.message)}</span>
     </div>
