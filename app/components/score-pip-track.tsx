@@ -13,6 +13,8 @@ import {
   SCORE_TRACK_SLOTS,
 } from "@/lib/score";
 
+const SCORE_PIP_STEP_PX = 3;
+
 export function ScorePipTrack({
   confirmedScore,
   lastDelta = 0,
@@ -72,9 +74,11 @@ export function ScorePipTrack({
       : rolling.animatingDelta;
   const showDelta = Math.round(Math.abs(deltaBadge)) > 0;
 
-  const fillPercent = Math.min(100, (rolling.score / slots) * 100);
+  const litPips =
+    fill.bright + (fill.partialIndex >= 0 && fill.partial > 0.001 ? 1 : 0);
+  const outlineWidthPx = Math.max(litPips > 0 ? 4 : 0, litPips * SCORE_PIP_STEP_PX - 1);
   const showOutline =
-    fillPercent > 0 &&
+    litPips > 0 &&
     (isLeader ||
       statusOverlay?.icon === "fight" ||
       statusOverlay?.icon === "injured");
@@ -154,14 +158,17 @@ export function ScorePipTrack({
         {showOutline && (
           <div
             className={`score-pip-track-outline${outlineClass}`}
-            style={{ width: `${fillPercent}%` }}
+            style={{ width: `${outlineWidthPx}px`, maxWidth: "100%" }}
             aria-hidden="true"
           />
         )}
         {statusOverlay && (
           <div
             className="row-scoreboard-overlay"
-            style={{ width: `${fillPercent}%` }}
+            style={{
+              width: `${outlineWidthPx}px`,
+              maxWidth: "100%",
+            }}
             aria-hidden="true"
           >
             <FlatIcon id={statusOverlay.icon} className="race-emoji race-emoji-overlay" />

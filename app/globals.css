@@ -210,6 +210,11 @@ main,
   z-index: 2;
 }
 
+.home-content {
+  position: relative;
+  z-index: 2;
+}
+
 .race-meta-weather-zone .tap-hint {
   position: relative;
   z-index: 2;
@@ -218,12 +223,13 @@ main,
 .race-update-shell {
   position: relative;
   z-index: 2;
+  isolation: isolate;
 }
 
 .race-weather-fullscreen {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 40;
+  z-index: 1;
   pointer-events: none;
   overflow: hidden;
 }
@@ -711,6 +717,13 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   z-index: 3;
 }
 
+.race-progress-pip-pill .race-weather-badge {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 4;
+}
+
 .race-progress-wrap {
   position: relative;
   width: 100%;
@@ -884,7 +897,9 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 .score-pip-track-outline-leader {
   border: 1px solid #c9a100;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(201, 161, 0, 0.28);
 }
 
 .score-pip-track-outline-fight,
@@ -4056,7 +4071,9 @@ body[data-home-theme="night"] .row-scoreboard-gain {
 
 body[data-home-theme="night"] .score-pip-track-outline-leader {
   border-color: #ffd700;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.65),
+    0 0 0 2px rgba(255, 215, 0, 0.35);
 }
 
 body[data-home-theme="night"] .score-pip-track-outline-fight,
@@ -4146,24 +4163,24 @@ body[data-home-theme="night"] .race-legend {
 }
 
 body[data-home-theme="night"] .live-odds {
-  border-color: #444;
-  background: rgba(255, 255, 255, 0.02);
+  border-color: #555;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 body[data-home-theme="night"] .live-odds-title {
-  color: #888;
+  color: #aaa;
 }
 
 body[data-home-theme="night"] .live-odds-asof {
-  color: #666;
+  color: #888;
 }
 
 body[data-home-theme="night"] .live-odds-name {
-  color: #bbb;
+  color: #d8d8d8;
 }
 
 body[data-home-theme="night"] .live-odds-american {
-  color: #ddd;
+  color: #f0f0f0;
 }
 
 body[data-home-theme="night"] .live-odds-row-fav .live-odds-name,

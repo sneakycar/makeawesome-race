@@ -203,8 +203,11 @@ function RaceMetaPanel({
         <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
         <div className="race-meta-line race-meta-progress-row">
           <div className="race-meta-progress-section">
-            <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
-            {weatherBadge}
+            <RaceProgressPipBar
+              percent={progressBarWidth}
+              isNight={isNight}
+              weatherBadge={weatherBadge}
+            />
           </div>
         </div>
         <div className="race-meta-gap" aria-hidden="true" />
@@ -262,9 +265,11 @@ function ScrollingTicker({
 function RaceProgressPipBar({
   percent,
   isNight,
+  weatherBadge,
 }: {
   percent: number;
   isNight: boolean;
+  weatherBadge?: React.ReactNode;
 }) {
   const clamped = Math.max(0, Math.min(100, percent));
   const displayPct = Math.round(clamped);
@@ -315,6 +320,7 @@ function RaceProgressPipBar({
               );
             })}
           </div>
+          {weatherBadge}
           <div className="race-progress-pip-bezel" />
         </div>
       </div>
@@ -915,11 +921,6 @@ export default function HomePage() {
 
   return (
     <main data-theme={isNight ? "night" : "day"}>
-      {raceWeather && raceActive && !raceDelayed && (
-        <div className="race-weather-fullscreen" aria-hidden="true">
-          <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
-        </div>
-      )}
       {tickBurst && (
         <TickBurstOverlay
           phase={tickBurst.phase}
@@ -933,6 +934,11 @@ export default function HomePage() {
         }`}
         aria-busy={Boolean(tickBurst)}
       >
+      {raceWeather && raceActive && !raceDelayed && (
+        <div className="race-weather-fullscreen" aria-hidden="true">
+          <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
+        </div>
+      )}
       <div className="home-content">
       {state && (
         <ScrollingTicker
