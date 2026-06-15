@@ -113,7 +113,7 @@ export async function fetchHomeState(
     raceIsActive
       ? getVisitorBadMoneyState(supabase, race.id, badMoneyIpHash, true)
       : Promise.resolve(IDLE_BAD_MONEY),
-    getRecentTickerEvents(supabase, race.id, 1),
+    getRecentTickerEvents(supabase, race.id, 3),
     getRaceTickLog(supabase, race.id),
   ]);
 

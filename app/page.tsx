@@ -219,6 +219,8 @@ function RaceMetaPanel({
   );
 }
 
+const TICKER_EVENT_COUNT = 3;
+
 function ScrollingTicker({
   events,
   raceStartedAt,
@@ -232,20 +234,26 @@ function ScrollingTicker({
   fallback: string;
   now: Date;
 }) {
-  const latest = events[0] ?? null;
-  const line = latest
-    ? `${formatTickerForDisplay(latest.message)} (${formatTickAge(
-        raceStartedAt,
-        latest.tick_number,
-        now
-      )})`
+  const recent = events.slice(0, TICKER_EVENT_COUNT);
+  const line = recent.length
+    ? recent
+        .map(
+          (e) =>
+            `${formatTickerForDisplay(e.message)} (${formatTickAge(
+              raceStartedAt,
+              e.tick_number,
+              now
+            )})`
+        )
+        .join(" · ")
     : formatTickerForDisplay(fallback);
 
   return (
     <div className="ticker-wrap" aria-live="polite">
       <div className="ticker-badge">RACE {raceNumber}</div>
       <div className="ticker-viewport">
-        <div className="ticker-track is-static">
+        <div className="ticker-track">
+          <span className="ticker-chunk">{line}</span>
           <span className="ticker-chunk">{line}</span>
         </div>
       </div>
