@@ -206,19 +206,23 @@ function RaceMetaPanel({
             <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
           </div>
         </div>
-        {weatherBadge ? (
-          <div className="race-meta-line race-meta-weather-row">{weatherBadge}</div>
-        ) : null}
-        <div className="race-meta-line">{timerLine}</div>
-        <div className="race-meta-line">
-          NEXT UPDATE IN:{" "}
-          <span
-            className={
-              nextUpdateMs < 3 * 60 * 1000 ? "race-meta-next-soon" : undefined
-            }
-          >
-            {formatCompactDuration(nextUpdateMs)}
-          </span>
+        <div className="race-meta-below-progress">
+          <div className="race-meta-timers">
+            <div className="race-meta-line">{timerLine}</div>
+            <div className="race-meta-line">
+              NEXT UPDATE IN:{" "}
+              <span
+                className={
+                  nextUpdateMs < 3 * 60 * 1000 ? "race-meta-next-soon" : undefined
+                }
+              >
+                {formatCompactDuration(nextUpdateMs)}
+              </span>
+            </div>
+          </div>
+          {weatherBadge ? (
+            <div className="race-meta-weather-slot">{weatherBadge}</div>
+          ) : null}
         </div>
       </div>
     </div>

@@ -708,6 +708,29 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   display: none;
 }
 
+.race-meta-below-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 4px 0 2px;
+}
+
+.race-meta-timers {
+  flex: 1;
+  min-width: 0;
+}
+
+.race-meta-weather-slot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: center;
+  margin-left: auto;
+}
+
 .race-meta-weather-row {
   display: flex;
   align-items: center;
