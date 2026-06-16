@@ -1,4 +1,5 @@
 import { formatLiveRaceScore } from "./score";
+import { formatRacerName } from "./format";
 import { TICKS_PER_RACE } from "./race-logic";
 import { seededBool } from "./seeded-rng";
 import {
@@ -24,7 +25,7 @@ function shouldBroadcast(seed: string, priority: number): boolean {
 }
 
 function onAirName(name: string): string {
-  return name.toUpperCase().trim();
+  return formatRacerName(name);
 }
 
 function baseFacts(

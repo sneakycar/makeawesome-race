@@ -600,8 +600,11 @@ export async function getLastRaceRecap(
   }
 
   const abilityGainsSegments = composeAbilityGainsParagraph(abilityGains);
-  const abilityGainsParagraph = abilityGainsSegments
-    ? segmentsToParagraph(abilityGainsSegments)
+  const finalizedAbilityGainsSegments = abilityGainsSegments
+    ? finalizeRecapSegments(abilityGainsSegments)
+    : null;
+  const abilityGainsParagraph = finalizedAbilityGainsSegments
+    ? segmentsToParagraph(finalizedAbilityGainsSegments)
     : undefined;
 
   return {
@@ -609,6 +612,6 @@ export async function getLastRaceRecap(
     paragraph,
     segments,
     abilityGainsParagraph,
-    abilityGainsSegments: abilityGainsSegments ?? undefined,
+    abilityGainsSegments: finalizedAbilityGainsSegments ?? undefined,
   };
 }

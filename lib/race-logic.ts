@@ -6,6 +6,9 @@ import {
   getExpectedRaceEndsAt,
 } from "./eastern-time";
 import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
+import {
+  peekNextQueuedRookie,
+} from "./queued-rookies";
 import { resolvePlayerGender, type PlayerGender } from "./player-gender";
 import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap, normalizePeakRaceScore, roundRaceScore } from "./score";
 import { getCombinedRaceTempo, getRaceWeekTempo } from "./race-tempo";
@@ -1767,13 +1770,10 @@ export async function chooseReplacement(
 ): Promise<Player> {
   const excluded = new Set(options.excludePlayerIds ?? []);
 
-  const { data: queuedRookie } = await supabase
-    .from("players")
-    .select("id")
-    .eq("slug", QUEUED_ROOKIE.slug)
-    .maybeSingle();
+  const { data: existingSlugsRows } = await supabase.from("players").select("slug");
+  const existingSlugs = new Set((existingSlugsRows ?? []).map((p) => p.slug));
 
-  if (!queuedRookie) {
+  if (peekNextQueuedRookie(existingSlugs)) {
     return createPlayer(supabase, "active", nextDay);
   }
 
@@ -1816,16 +1816,8 @@ export async function chooseReplacement(
   return createPlayer(supabase, "active", nextDay);
 }
 
-/** Next brand-new racer (one-time) — jumps the line before random generation resumes. */
-export const QUEUED_ROOKIE = {
-  name: "walhof",
-  slug: "walhof",
-  identity: {
-    archetype: "STAR",
-    traits: ["FAMOUS", "LOUD"],
-    signature_stat: "burst",
-  } satisfies PlayerIdentity,
-} as const;
+/** @deprecated import from ./queued-rookies */
+export { QUEUED_ROOKIE } from "./queued-rookies";
 
 export async function createPlayer(
   supabase: SupabaseClient,
@@ -1839,21 +1831,24 @@ export async function createPlayer(
   let slug: string;
   let identityOverride: PlayerIdentity | undefined;
   let gender: PlayerGender | undefined;
+  let seed: string;
 
-  if (!slugs.has(QUEUED_ROOKIE.slug)) {
-    name = QUEUED_ROOKIE.name;
-    slug = QUEUED_ROOKIE.slug;
-    identityOverride = { ...QUEUED_ROOKIE.identity };
-    gender = resolvePlayerGender(slug, `player-${slug}-${day}`);
+  const queued = peekNextQueuedRookie(slugs);
+  if (queued) {
+    name = queued.name;
+    slug = queued.slug;
+    identityOverride = queued.identity;
+    seed = `queued-rookie-${slug}`;
+    gender = resolvePlayerGender(slug, seed);
   } else {
     const generated = generateUniqueName(`new-player-${day}-${Date.now()}`, slugs);
     name = generated.name;
     slug = generated.slug;
     gender = generated.gender;
     identityOverride = undefined;
+    seed = `player-${slug}-${day}`;
   }
 
-  const seed = `player-${slug}-${day}`;
   const insert = buildPlayerInsert(name, slug, status, day, seed, identityOverride, gender);
 
   const { data, error } = await supabase.from("players").insert(insert).select("*").single();

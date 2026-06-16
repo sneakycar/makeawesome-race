@@ -25,8 +25,8 @@ function leader(entries: RaceEntryWithPlayer[]): RaceEntryWithPlayer {
 }
 
 function formatBurstLine(text: string): string {
-  const trimmed = text.trim().toLowerCase();
-  if (!trimmed) return "pack update!";
+  const trimmed = text.trim();
+  if (!trimmed) return "Pack update!";
   if (/[!?.]$/.test(trimmed)) return trimmed;
   return `${trimmed}!`;
 }

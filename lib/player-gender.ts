@@ -7,6 +7,8 @@ export const PLAYER_GENDER_BY_SLUG: Record<string, PlayerGender> = {
   walhof: "M",
   "jon-penn": "M",
   chrisman: "M",
+  "chris-vogel": "M",
+  ace: "M",
   bhole: "M",
   pal: "M",
   noah: "M",

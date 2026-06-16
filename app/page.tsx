@@ -191,7 +191,9 @@ function RaceMetaPanel({
   return (
     <div className="race-meta-block">
       <div className="race-meta">
-        <div className="race-meta-line">{`RACE ${state.race.race_number} ${beganWhen}`}</div>
+        <div className="race-meta-line race-meta-began-line">
+          <span className="race-meta-race-id">RACE {state.race.race_number}</span> {beganWhen}
+        </div>
         <div className="race-meta-line race-meta-progress-row">
           <div className="race-meta-progress-section">
             <RaceProgressPipBar percent={progressBarWidth} isNight={isNight} />
@@ -600,6 +602,7 @@ export default function HomePage() {
   } | null>(null);
   const [badMoneySuccess, setBadMoneySuccess] = useState(false);
   const [betting, setBetting] = useState(false);
+  const [bettingPlayerId, setBettingPlayerId] = useState<string | null>(null);
   const [betError, setBetError] = useState<string | null>(null);
   const [devBusy, setDevBusy] = useState(false);
   const [devError, setDevError] = useState<string | null>(null);
@@ -779,15 +782,19 @@ export default function HomePage() {
 
   const handleBadMoneyConfirm = async () => {
     if (!badMoneyModal || !state || betting) return;
+    const targetPlayerId = badMoneyModal.playerId;
     setBetting(true);
+    setBettingPlayerId(targetPlayerId);
     setBetError(null);
+    setBadMoneyModal(null);
+    setBadMoneySuccess(false);
     try {
       const res = await fetch("/api/bet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           raceId: state.race.id,
-          playerId: badMoneyModal.playerId,
+          playerId: targetPlayerId,
         }),
       });
       const data = await res.json();
@@ -815,21 +822,19 @@ export default function HomePage() {
           ? {
               ...prev,
               badMoney: {
-                betPlayerId: badMoneyModal.playerId,
+                betPlayerId: targetPlayerId,
                 hasBet: true,
                 canBet: false,
               },
             }
           : prev
       );
-      window.setTimeout(() => {
-        setBadMoneyModal(null);
-        setBadMoneySuccess(false);
-      }, 1400);
     } catch {
       setBetError("Could not place bad money");
     } finally {
       setBetting(false);
+      setBettingPlayerId(null);
+      setBadMoneySuccess(false);
     }
   };
 
@@ -977,8 +982,8 @@ export default function HomePage() {
       )}
       <div
         className={`race-update-shell${tickBurst ? " is-tick-bursting" : ""}${
-          tickBurst?.phase === "explode" ? " is-tick-burst-reveal" : ""
-        }`}
+          tickBurst && tickBurst.phase !== "rip" ? " is-tick-burst-board-dim" : ""
+        }${tickBurst?.phase === "explode" ? " is-tick-burst-reveal" : ""}`}
         aria-busy={Boolean(tickBurst)}
       >
       <div className="home-content">
@@ -1094,8 +1099,24 @@ export default function HomePage() {
                 cooldownReady,
               });
 
+            const isEncourageTarget =
+              Boolean(encouragement?.supportedPlayerId) &&
+              encouragement!.supportedPlayerId === entry.player_id;
+            const encourageCooldownLocked =
+              encouragePhase === "cooldown" || encouragePhase === "exhausted";
+            const isBettingThis = bettingPlayerId === entry.player_id;
+
             return (
-              <div key={entry.id} className={`row-line${isLeader ? " row-line-leader" : ""}`}>
+              <div
+                key={entry.id}
+                className={`row-line${isLeader ? " row-line-leader" : ""}${
+                  encourageCooldownLocked && (encouragement?.votesUsed ?? 0) > 0
+                    ? isEncourageTarget
+                      ? " row-line-encourage-picked"
+                      : " row-line-encourage-muted"
+                    : ""
+                }`}
+              >
                 <div
                   className="row-main"
                   onClick={() => setSelectedSlug(entry.player.slug)}
@@ -1145,8 +1166,14 @@ export default function HomePage() {
                         type="button"
                         className={`encourage-btn${
                           encouragePhase === "ready" ? " encourage-btn-ready" : ""
-                        }${encouragePhase === "cooldown" ? " encourage-btn-cooldown" : ""}${
-                          encouragePhase === "exhausted" ? " encourage-btn-exhausted" : ""
+                        }${
+                          encourageCooldownLocked
+                            ? isEncourageTarget
+                              ? " encourage-btn-supported"
+                              : encouragePhase === "exhausted"
+                                ? " encourage-btn-exhausted"
+                                : " encourage-btn-cooldown-inactive"
+                            : ""
                         }${!canEncourage ? " encourage-btn-blocked" : ""}${
                           isEncouragingThis ? " encourage-btn-loading" : ""
                         }${nopeShakeId === entry.player_id ? " encourage-btn-nope" : ""}`}
@@ -1203,26 +1230,46 @@ export default function HomePage() {
                         <button
                           type="button"
                           className={`bad-money-btn${
+                            isBettingThis ? " bad-money-btn-loading" : ""
+                          }${
                             !state.badMoney.canBet || state.badMoney.hasBet
                               ? " bad-money-btn-blocked"
                               : ""
                           }`}
                           disabled={
-                            betting ||
+                            (betting && !isBettingThis) ||
                             !state.badMoney.canBet ||
                             state.badMoney.hasBet
                           }
+                          aria-disabled={
+                            isBettingThis
+                              ? undefined
+                              : betting ||
+                                !state.badMoney.canBet ||
+                                state.badMoney.hasBet
+                          }
+                          aria-busy={isBettingThis}
                           aria-label={
-                            state.badMoney.hasBet
-                              ? "Bad money already placed this race"
-                              : `Place bad money on ${formatRacerName(entry.player.name)}`
+                            isBettingThis
+                              ? "Placing bad money"
+                              : state.badMoney.hasBet
+                                ? "Bad money already placed this race"
+                                : `Place bad money on ${formatRacerName(entry.player.name)}`
                           }
                           onClick={(e) => {
                             e.stopPropagation();
                             handleBadMoneyOpen(entry.player_id, entry.player.name);
                           }}
                         >
-                          $
+                          {isBettingThis ? (
+                            <span className="bad-money-btn-loading-dots" aria-hidden="true">
+                              <span />
+                              <span />
+                              <span />
+                            </span>
+                          ) : (
+                            "$"
+                          )}
                         </button>
                       )
                     ) : null}

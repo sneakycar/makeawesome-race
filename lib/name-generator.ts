@@ -14,52 +14,68 @@ export const SEED_ACTIVE_NAMES = [
   "jon penn",
 ] as const;
 
-/** Single-word handles — terminally online energy. */
+/** Handles — cursed twitter + normie names (normie names only fly solo; npc/lol need a glued partner). */
 const monoNicks = [
-  "moist", "chug", "jort", "goblin", "gremlin", "rat", "worm", "void", "dust", "slime",
-  "npc", "goon", "mod", "anon", "main", "alt", "burner", "sigma", "based", "cringe",
-  "mewing", "skibidi", "rizz", "gyatt", "bussin", "mid", "cooked", "ded", "oof", "yeet",
-  "bruh", "simp", "goat", "ratio", "chad", "pepe", "wojak", "doomer", "coomer", "gamer",
-  "pog", "malding", "copium", "hopium", "delulu", "slay", "bestie", "chungus", "sus",
-  "blob", "toad", "ferret", "pigeon", "raccoon", "opossum", "roach", "lizard", "cryptid",
-  "gunk", "filth", "bone", "meat", "teeth", "claw", "snack", "poster", "replyguy", "mutual",
-  "troll", "fren", "bonk", "bonkers", "unhinged", "feral", "sleepy", "wired", "doomscroll",
-  "online", "terminally", "extremely", "probably", "maybe", "idk", "idc", "smh", "fml",
-  "lol", "lmao", "xd", "uwu", "owo", "rawr", "nya", "meow", "quandale", "dingle", "bingle",
-  "shlop", "glorp", "sneed", "seethe", "mald", "janny", "wagie", "neet", "wizard", "normie",
-  "reddit", "discord", "admin", "ban", "cope", "soy", "jack", "dude", "bro", "queen", "chef",
-  "doctor", "uncle", "pal", "bhole", "lacie", "noah", "kimber", "chrisman", "walhof", "greg",
-  "kevin", "dave", "mike", "steve", "bob", "joe", "tim", "dan", "ben", "tom", "pat", "ray",
-  "guy", "dude", "buddy", "pal", "chief", "boss", "king", "lord", "sir", "maam", "a", "e",
-  "x", "z", "q", "blorbo", "son", "sonson", "sonsonson", "me", "you", "them", "us", "we",
-  "it", "thing", "stuff", "guy", "girl", "boy", "man", "woman", "person", "human", "creature",
-  "entity", "being", "presence", "vibes", "energy", "aura", "rot", "brain", "mind", "soul",
-  "ghost", "spirit", "demon", "angel", "clown", "jester", "fool", "joker", "trickster", "imp",
+  "moist", "chug", "jort", "goblin", "gremlin", "cryptid", "blob", "worm", "slime", "void",
+  "rat", "roach", "pigeon", "raccoon", "opossum", "ferret", "toad", "lizard", "possum", "creature",
+  "npc", "goon", "janny", "wagie", "neet", "normie", "lurker", "poster", "replyguy", "shitposter",
+  "doomer", "coomer", "wojak", "pepe", "chudjak", "soyjak", "gigachad", "zoomer", "boomer", "bloomer",
+  "sigma", "chad", "simp", "stan", "hater", "pickme", "girlboss", "malewife", "oomf", "moot",
+  "based", "cringe", "mid", "cooked", "ded", "oof", "yeet", "bruh", "ratio", "ratioed",
+  "mewing", "skibidi", "rizz", "rizzler", "gyatt", "bussin", "fanum", "ohio", "grimace", "chungus",
+  "mogging", "looksmax", "looksmaxxer", "mald", "malding", "seethe", "seething", "cope", "copium", "hopium",
+  "delulu", "cheugy", "slop", "brainrot", "brainworm", "rotpost", "doomscroll", "doomscrolling", "shitpost", "ragebait",
+  "subtweet", "subtweeting", "qrt", "thread", "threader", "clout", "unhinged", "feral", "unwell", "messy",
+  "unserious", "terminally", "chronically", "extremely", "online", "extremelyonline", "posting", "doomposting", "copeposting",
+  "lowkey", "highkey", "deadass", "nocap", "ongod", "frfr", "slay", "serve", "mother", "ate",
+  "quandale", "dingle", "bingle", "blorbo", "sonsonson", "shlop", "glorp", "sneed", "bonk", "bonkers",
+  "fren", "troll", "mutual", "burner", "finsta", "priv", "spam", "altacc", "mainchar", "protagonist",
+  "gaslight", "gatekeep", "girlbossing", "yassify", "beigeflag", "redflag", "ick", "icklist", "curate", "aesthetic",
+  "core", "pilled", "redpilled", "blackpilled", "woke", "unwoke", "chronicallyonline", "birdapp", "xitter", "hellsite",
+  "discord", "reddit", "mod", "admin", "anon", "gamer", "pog", "bestie", "unalive",
+  "gunk", "filth", "bone", "meat", "teeth", "claw", "snack", "wired", "sleepy",
+  "lol", "lmao",
+  "greg", "kevin", "dave", "mike", "steve", "bob", "joe", "tim", "dan", "ben", "tom", "pat", "ray",
+  "jack", "dude", "bro", "buddy", "chief", "boss", "brian", "kyle", "brad", "jeff", "mark", "paul",
+  "eric", "matt", "nick", "josh", "ryan", "adam", "luke", "sean", "alex", "sam", "max", "cole", "jake",
+  "tyler", "austin", "connor", "ethan", "doctor", "chef", "queen", "king", "lord", "son", "sonson",
 ] as const;
 
-/** Tags / suffixes glued onto handles. */
+/** Tags / suffixes — account variants and cursed modifiers. */
 const modifiers = [
-  "irl", "v2", "v3", "420", "666", "69", "2007", "2012", "fan", "official", "real", "fake",
-  "max", "mini", "hyper", "proto", "og", "core", "posting", "hours", "mode", "energy", "acc",
-  "account", "alt", "main", "throwaway", "backup", "temp", "test", "dev", "beta", "alpha",
-  "prime", "plus", "pro", "ultra", "mega", "micro", "nano", "pico", "super", "hyper", "extreme",
+  "irl", "v2", "v3", "420", "666", "69", "2007", "2012", "2016", "2020",
+  "fan", "anti", "stan", "hater", "defender", "truther", "replyguy", "poster", "acc", "account",
+  "official", "unofficial", "real", "fake", "alt", "main", "throwaway", "burner", "backup", "priv",
+  "spam", "finsta", "lurker", "watcher", "sympathizer", "apologist", "denier", "believer", "larper", "cosplayer",
+  "posting", "hours", "mode", "era", "arc", "core", "max", "maxx", "maxxing", "pilled",
+  "lol", "lmao", "npc",
+  "og", "proto", "hyper", "mega", "ultra", "super", "micro", "nano", "prime", "plus",
+  "pro", "anti", "temp", "test", "dev", "beta", "alpha", "energy", "vibes", "brain",
 ] as const;
 
-/** Second halves for compounds — not always a full name. */
+/** Second halves — user types, behaviors, account flavors. */
 const secondBits = [
-  "hours", "posting", "mode", "brain", "rot", "worm", "fan", "boy", "girl", "man", "dude",
-  "lord", "king", "queen", "enjoyer", "poster", "account", "alt", "main", "son", "dad", "mom",
-  "uncle", "aunt", "cousin", "friend", "enemy", "hater", "lover", "believer", "denier", "truther",
-  "warrior", "scholar", "artist", "poet", "writer", "reader", "lurker", "mod", "admin", "janny",
-  "gamer", "player", "racer", "driver", "pilot", "captain", "coach", "ref", "npc", "boss",
-  "minion", "goon", "simp", "stan", "hater", "fan", "cop", "agent", "spy", "rat", "snitch",
+  "posting", "hours", "mode", "brain", "rot", "worm", "enjoyer", "poster", "account", "acc",
+  "alt", "main", "stan", "hater", "defender", "truther", "replyguy", "lurker", "watcher", "sympathizer",
+  "apologist", "denier", "believer", "larper", "cosplayer", "shitposter", "doomposter", "copeposter", "threader", "subtweeter",
+  "ratioer", "blocker", "muter", "pinner", "quoter", "retweeter", "liker", "follower", "unfollower", "ghoster",
+  "mod", "admin", "janny", "wagie", "neet", "npc", "goon", "simp", "pickme", "girlboss",
+  "oomf", "moot", "mutual", "enemy", "hater", "lover", "fan", "anti", "defender", "truther",
+  "scholar", "expert", "researcher", "historian", "anthropologist", "journalist", "critic", "reviewer", "commenter", "replier",
+  "gamer", "poster", "lurker", "spy", "rat", "snitch", "troll", "fren", "minion", "goon",
 ] as const;
 
-/** Parenthetical alts — "(sigma)", "(real)", etc. */
+/** Parenthetical alts — bio / display-name energy. */
 const parenAlts = [
   "sigma", "real", "fake", "alt", "main", "not me", "actually me", "don't @", "parody",
   "fan account", "bot", "probably human", "certified", "official", "unofficial", "ironic",
   "unironic", "sarcasm", "dead serious", "help", "send help", "based", "cringe", "goated",
+  "opinions mine", "employer hates this", "ratio incoming", "blocked you", "don't follow back",
+  "priv", "spam", "burner", "parody account", "not a doctor", "chronically online",
+  "terminally online", "extremely online", "touch grass", "go outside", "seek help",
+  "this is a joke", "deadass serious", "no cap", "on god", "fr fr", "lowkey unwell",
+  "highkey feral", "unhinged", "unserious", "main character", "protagonist energy",
+  "reply guy", "quote tweet this", "subtweet", "don't qrt", "oomf", "moots only",
 ] as const;
 
 type PatternId =
@@ -75,14 +91,14 @@ type PatternId =
 type CasingStyle = "lower" | "mixed" | "title" | "camel" | "sentence" | "upper";
 
 const patterns: Array<{ id: PatternId; weight: number }> = [
-  { id: "MONO", weight: 34 },
-  { id: "COMPOUND", weight: 18 },
-  { id: "NICK_TAG", weight: 16 },
-  { id: "SPACED", weight: 12 },
-  { id: "PAREN", weight: 8 },
-  { id: "XXWRAP", weight: 6 },
-  { id: "LEET", weight: 4 },
-  { id: "NUMERIC", weight: 2 },
+  { id: "MONO", weight: 22 },
+  { id: "COMPOUND", weight: 22 },
+  { id: "NICK_TAG", weight: 22 },
+  { id: "SPACED", weight: 14 },
+  { id: "PAREN", weight: 12 },
+  { id: "XXWRAP", weight: 5 },
+  { id: "LEET", weight: 2 },
+  { id: "NUMERIC", weight: 1 },
 ];
 
 function pickPattern(seed: string): PatternId {
@@ -170,7 +186,12 @@ function applyCasing(seed: string, text: string, style: CasingStyle): string {
 }
 
 function pickJoiner(seed: string): string {
-  return seededPick(`${seed}:join`, ["_", ".", ""]);
+  return seededPick(`${seed}:join`, ["", "_", "."]);
+}
+
+/** Glued cursed compounds — no spaces (lolposting, npcpilled, kevinlol). */
+function pickGlueJoiner(seed: string): string {
+  return seededPick(`${seed}:glue`, ["", "_", "."]);
 }
 
 function applyLeet(seed: string, text: string): string {
@@ -199,6 +220,124 @@ function normalizeGeneratedName(name: string): string {
   return name.replace(/\s+/g, " ").trim();
 }
 
+/** Bare solo handles we block — npc/lol are fine glued (npcposting, lol420, kevinlol). */
+const STANDALONE_DENY_SLUGS = new Set([
+  "alt",
+  "main",
+  "a",
+  "e",
+  "x",
+  "z",
+  "q",
+  "me",
+  "you",
+  "it",
+  "us",
+  "we",
+  "npc",
+  "mod",
+  "anon",
+  "ratio",
+  "mid",
+  "sus",
+  "oof",
+  "ded",
+  "lol",
+  "lmao",
+  "xd",
+  "uwu",
+  "owo",
+  "idk",
+  "idc",
+  "smh",
+  "fml",
+  "irl",
+  "og",
+  "acc",
+  "bot",
+  "guy",
+  "man",
+  "bro",
+  "fr",
+  "god",
+  "cap",
+  "ate",
+  "core",
+  "pilled",
+  "priv",
+  "spam",
+  "oomf",
+  "moot",
+  "stan",
+  "simp",
+  "chad",
+  "pog",
+  "soy",
+  "cope",
+  "mald",
+  "frfr",
+  "ongod",
+  "nocap",
+  "girl",
+  "boy",
+  "fan",
+  "anti",
+  "pro",
+  "beta",
+  "alpha",
+  "temp",
+  "test",
+  "dev",
+  "worm",
+  "rot",
+  "brain",
+  "mode",
+  "era",
+  "arc",
+  "vibes",
+  "energy",
+  "online",
+  "extremely",
+  "chronically",
+  "terminally",
+  "probably",
+  "maybe",
+  "thing",
+  "stuff",
+  "person",
+  "human",
+  "them",
+  "entity",
+  "being",
+  "presence",
+  "aura",
+  "ghost",
+  "spirit",
+  "demon",
+  "angel",
+  "clown",
+  "jester",
+  "fool",
+  "joker",
+  "ban",
+  "mother",
+  "serve",
+  "slay",
+]);
+
+export function isAcceptableGeneratedName(name: string): boolean {
+  const normalized = normalizeGeneratedName(name);
+  if (!normalized) return false;
+  const slug = slugify(normalized);
+  if (slug.length < 3) return false;
+  const isSingleToken = !/[\s_.(]/.test(normalized);
+  if (isSingleToken && STANDALONE_DENY_SLUGS.has(slug)) return false;
+  // lol/lmao only glued — npcposting ok, "lol posting" not.
+  if (isSingleToken && /^(lol|lmao)$/i.test(normalized)) return false;
+  if (/\blol\b|\blmao\b/i.test(normalized) && /\s/.test(normalized)) return false;
+  return true;
+}
+
 function buildPatternName(seed: string, pattern: PatternId): string {
   const casing = pickCasingStyle(`${seed}:style`);
 
@@ -210,14 +349,18 @@ function buildPatternName(seed: string, pattern: PatternId): string {
     case "COMPOUND": {
       const a = pickMono(`${seed}:a`);
       const b = pickSecond(`${seed}:b`);
-      const joiner = pickJoiner(seed);
+      const glueCursed = /^(lol|lmao|npc)$/i.test(a) || /^(lol|lmao|npc)$/i.test(b);
+      const joiner = glueCursed ? pickGlueJoiner(seed) : pickJoiner(seed);
       const raw = joiner ? `${a}${joiner}${b}` : toCamelCase(a, b, seededRandom(`${seed}:cap`) < 0.4);
       return applyCasing(`${seed}:compound`, raw, joiner ? "lower" : casing);
     }
     case "NICK_TAG": {
       const base = pickMono(seed);
       const mod = pickModifier(`${seed}:mod`);
-      const joiner = seededPick(`${seed}:tagjoin`, ["_", "", "."]);
+      const glueCursed = /^(lol|lmao|npc)$/i.test(base) || /^(lol|lmao|npc)$/i.test(mod);
+      const joiner = glueCursed
+        ? pickGlueJoiner(seed)
+        : seededPick(`${seed}:tagjoin`, ["_", "", "."]);
       const raw = `${base}${joiner}${mod}`;
       return applyCasing(`${seed}:tag`, raw, seededRandom(`${seed}:tagcase`) < 0.55 ? "lower" : casing);
     }
@@ -270,6 +413,7 @@ export function generateUniqueName(
   for (let attempt = 0; attempt < 200; attempt++) {
     const attemptSeed = `${seed}:${attempt}`;
     const name = normalizeGeneratedName(generateName(attemptSeed));
+    if (!isAcceptableGeneratedName(name)) continue;
     let slug = slugify(name);
     if (existingSlugs.has(slug)) {
       slug = `${slug}-${attempt}`;

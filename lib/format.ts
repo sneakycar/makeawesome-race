@@ -22,24 +22,8 @@ function namePattern(name: string): RegExp {
   return new RegExp(`(?<![A-Za-z0-9])${escaped}(?![A-Za-z0-9])`, "gi");
 }
 
-function sentenceCaseName(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((word) =>
-      word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : word
-    )
-    .join(" ");
-}
-
 function logDisplayName(name: string): string {
-  const trimmed = formatRacerName(name);
-  if (!trimmed) return trimmed;
-  const letters = trimmed.replace(/[^a-zA-Z]/g, "");
-  if (!letters) return trimmed;
-  if (letters === letters.toUpperCase() || letters === letters.toLowerCase()) {
-    return sentenceCaseName(trimmed);
-  }
-  return trimmed;
+  return formatRacerName(name);
 }
 
 function collectDisplayNames(
@@ -201,9 +185,9 @@ export function ordinal(rank: number): string {
 }
 
 export function truncateName(name: string, maxLength = 11): string {
-  const upper = name.toUpperCase().trim();
-  if (upper.length <= maxLength) return upper;
-  return upper.slice(0, maxLength).trimEnd();
+  const trimmed = formatRacerName(name);
+  if (trimmed.length <= maxLength) return trimmed;
+  return trimmed.slice(0, maxLength).trimEnd();
 }
 
 export function formatStreak(type: string, count: number): string {

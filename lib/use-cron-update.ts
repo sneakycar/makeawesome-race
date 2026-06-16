@@ -77,6 +77,7 @@ export function useCronUpdate(
 
       burstTimersRef.current.push(
         window.setTimeout(() => {
+          applyPendingState();
           setTickBurst((current) =>
             current ? { ...current, phase: "stamp" } : null
           );
@@ -109,7 +110,7 @@ export function useCronUpdate(
           TICK_BURST_EXPLODE_MS)
       );
     },
-    [clearBurstTimers, finishBurst]
+    [clearBurstTimers, finishBurst, applyPendingState]
   );
 
   const runUpdate = useCallback(async () => {

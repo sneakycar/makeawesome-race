@@ -1,3 +1,4 @@
+import { formatRacerName } from "./format";
 import { isCompleteTickerMessage, pickGatedTickerPhrase } from "./ticker-phrases";
 import type { TickerEntrySnapshot, TickerEventDraft, TickerEventType } from "./ticker-types";
 import type { TickerEventFacts } from "./types";
@@ -28,7 +29,7 @@ function hasNote(note: string | null, token: string): boolean {
 }
 
 function onAirName(name: string): string {
-  return name.toUpperCase().trim();
+  return formatRacerName(name);
 }
 
 function baseFacts(
