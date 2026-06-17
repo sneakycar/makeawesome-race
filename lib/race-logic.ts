@@ -5,7 +5,9 @@ import {
   getFirstRaceLiveBounds,
   getExpectedRaceEndsAt,
 } from "./eastern-time";
-import { SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
+import { B3S_SEED_ACTIVE_NAMES, SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
+
+export { B3S_SEED_ACTIVE_NAMES };
 import {
   peekNextQueuedRookie,
 } from "./queued-rookies";

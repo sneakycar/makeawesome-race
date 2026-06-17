@@ -438,7 +438,7 @@ function AboutSection() {
       <summary className="about-summary">ABOUT</summary>
       <div className="about">
         <section className="about-block">
-          <h3 className="about-subhead">Holes Race</h3>
+          <h3 className="about-subhead">B3S League</h3>
           <p>
             An eternal automatic daily race between generated names. Every race runs{" "}
             <strong>9:00 AM – 9:00 AM EST</strong> (24 hours).
@@ -1005,7 +1005,7 @@ export default function HomePage() {
       )}
 
       <div className="home-header">
-        <h1 className="title">HOLES RACE</h1>
+        <h1 className="title">B3S LEAGUE</h1>
         <Link href="/stats" className="stats-nav-link">
           LEAGUE STATS ▶
         </Link>

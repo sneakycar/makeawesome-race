@@ -8,21 +8,7 @@ export interface QueuedRookie {
 }
 
 /** Named rookies enter in order before procedural name generation resumes. */
-export const QUEUED_ROOKIES: readonly QueuedRookie[] = [
-  {
-    name: "walhof",
-    slug: "walhof",
-    identity: {
-      archetype: "STAR",
-      traits: ["FAMOUS", "LOUD"],
-      signature_stat: "burst",
-    },
-  },
-  {
-    name: "Ace",
-    slug: "ace",
-  },
-];
+export const QUEUED_ROOKIES: readonly QueuedRookie[] = [];
 
 /** @deprecated use QUEUED_ROOKIES */
 export const QUEUED_ROOKIE = QUEUED_ROOKIES[0]!;

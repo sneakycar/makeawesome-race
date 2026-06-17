@@ -3,16 +3,18 @@ import { slugify } from "./format";
 import { generateGender, type PlayerGender } from "./player-gender";
 
 /** Starter roster — eight fixed racers for race 1. */
-export const SEED_ACTIVE_NAMES = [
-  "uncle",
-  "pal",
-  "bhole",
-  "lacie",
-  "noah",
-  "chrisman",
-  "kimber",
-  "jon penn",
+export const B3S_SEED_ACTIVE_NAMES = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
 ] as const;
+
+export const SEED_ACTIVE_NAMES = B3S_SEED_ACTIVE_NAMES;
 
 /** Handles — cursed twitter + normie names (normie names only fly solo; npc/lol need a glued partner). */
 const monoNicks = [

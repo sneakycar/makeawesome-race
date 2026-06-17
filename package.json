@@ -15,6 +15,7 @@
     "repair-race-scores": "tsx scripts/repair-race-scores.ts",
     "cleanup-seed-holding": "tsx scripts/cleanup-seed-holding.ts",
     "reset-race-one": "tsx scripts/reset-race-one.ts",
+    "reset-b3s-league": "tsx scripts/reset-b3s-league.ts",
     "backfill-identity": "tsx scripts/backfill-identity.ts",
     "backfill-player-palette": "tsx scripts/backfill-player-palette.ts",
     "backfill-player-gender": "tsx scripts/backfill-player-gender.ts",

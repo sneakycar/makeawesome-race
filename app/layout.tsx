@@ -2,12 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HOLES RACE",
+  title: "B3S LEAGUE",
   description: "Eternal automatic daily ASCII race between generated names.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "HOLES RACE",
+    title: "B3S LEAGUE",
   },
 };
 
