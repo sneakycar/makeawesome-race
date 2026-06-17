@@ -1947,6 +1947,7 @@ export async function getAllTimeTop3(
   const { data } = await supabase
     .from("players")
     .select("id, name, wins, races, best_finish, created_day")
+    .neq("status", "retired")
     .gt("wins", 0)
     .order("wins", { ascending: false })
     .limit(24);
@@ -1971,6 +1972,7 @@ export async function getActiveStreaks(
   const { data, error } = await supabase
     .from("players")
     .select("name, slug, current_streak_type, current_streak_count, updated_at")
+    .neq("status", "retired")
     .in("current_streak_type", ["win", "lose"])
     .gt("current_streak_count", 0)
     .order("updated_at", { ascending: false });

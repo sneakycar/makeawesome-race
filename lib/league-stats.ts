@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getLaneWinStats } from "./lane-stats";
+import { CURRENT_LEAGUE_STATUSES } from "./league-roster";
 import { calculatePlayerOvr } from "./ovr";
 import type { LaneWinStat, LeagueStatsResponse, Player } from "./types";
 import { backfillRaceWeatherEvents, getWeatherEventsForStats } from "./weather-db";
@@ -103,7 +104,7 @@ export async function getLeagueStats(
       total_injuries, total_support_received, highest_race_score, highest_career_score,
       biggest_comeback, longest_win_streak,
       grit, chaos, nerve, luck, burst, drag, rating, fatigue, pressure, volatility
-    `),
+    `).in("status", CURRENT_LEAGUE_STATUSES),
     supabase.from("races").select("*", { count: "exact", head: true }).eq("status", "finalized"),
     supabase.from("game_state").select("current_day, current_race_number").eq("id", 1).single(),
     getLaneWinStats(supabase),

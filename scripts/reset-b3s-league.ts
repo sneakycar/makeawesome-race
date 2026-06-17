@@ -95,7 +95,24 @@ async function main() {
 
   const { error: retireErr } = await supabase
     .from("players")
-    .update({ status: "retired", updated_at: now.toISOString() })
+    .update({
+      status: "retired",
+      races: 0,
+      wins: 0,
+      eliminations: 0,
+      returns: 0,
+      best_finish: null,
+      worst_finish: null,
+      current_streak_type: "none",
+      current_streak_count: 0,
+      longest_win_streak: 0,
+      total_holding_days: 0,
+      highest_race_score: 0,
+      highest_career_score: 0,
+      biggest_comeback: 0,
+      total_support_received: 0,
+      updated_at: now.toISOString(),
+    })
     .neq("status", "retired");
   if (retireErr) throw retireErr;
 
