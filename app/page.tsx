@@ -635,20 +635,15 @@ export default function HomePage() {
     }
   }, []);
 
+  const applyGameState = useCallback((data: GameStateResponse) => {
+    setState(data);
+    setLastRaceRecap(data.lastRaceRecap ?? null);
+  }, []);
+
   const loadState = useCallback(async () => {
     const data = await fetchState();
-    if (data) {
-      setState(data);
-      fetch("/api/recap")
-        .then((res) => res.json())
-        .then((recapData) => {
-          if (recapData.lastRaceRecap) {
-            setLastRaceRecap(recapData.lastRaceRecap as LastRaceRecap);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [fetchState]);
+    if (data) applyGameState(data);
+  }, [fetchState, applyGameState]);
 
   useEffect(() => {
     stateRef.current = state;
@@ -656,7 +651,7 @@ export default function HomePage() {
 
   const { nextUpdateMs, tickBurst } = useCronUpdate(fetchState, {
     getPrevState: () => stateRef.current,
-    onApplyState: setState,
+    onApplyState: applyGameState,
   });
 
   useEffect(() => {

@@ -16,6 +16,7 @@ import { getVisitorBadMoneyState } from "./bad-money-db";
 import { hashRequestIp, getRequestIp } from "./request-identity";
 import { hashVisitorDeviceId, normalizeDeviceId } from "./visitor-id";
 import { getRecentTickerEvents, getRaceTickLog } from "./ticker-db";
+import { getLastRaceRecap } from "./last-race-recap";
 import { settledValue, withFallback } from "./server-resilience";
 import type { GameStateResponse } from "./types";
 
@@ -92,6 +93,7 @@ export async function fetchHomeState(
     badMoneyResult,
     tickerResult,
     raceLogResult,
+    lastRaceRecapResult,
   ] = await Promise.allSettled([
     getAllTimeTop3(supabase),
     getActiveStreaks(supabase),
@@ -114,6 +116,7 @@ export async function fetchHomeState(
       : Promise.resolve(IDLE_BAD_MONEY),
     getRecentTickerEvents(supabase, race.id, 3),
     getRaceTickLog(supabase, race.id),
+    getLastRaceRecap(supabase),
   ]);
 
   const allTime = settledValue(allTimeResult, [], "getAllTimeTop3");
@@ -122,6 +125,7 @@ export async function fetchHomeState(
   const badMoney = settledValue(badMoneyResult, IDLE_BAD_MONEY, "badMoney");
   const ticker = settledValue(tickerResult, [], "ticker");
   const raceLog = settledValue(raceLogResult, [], "raceLog");
+  const lastRaceRecap = settledValue(lastRaceRecapResult, null, "lastRaceRecap");
 
   const gameStateResultValue =
     gameStateResult.status === "fulfilled" ? gameStateResult.value : null;
@@ -167,6 +171,7 @@ export async function fetchHomeState(
     badMoney,
     ticker,
     raceLog,
+    lastRaceRecap,
     betweenRaces,
     nextRaceNumber,
     nextRaceStartsAt,
