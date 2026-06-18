@@ -6,7 +6,6 @@ import {
   getPipFillState,
   getRollingTickAnimationState,
 } from "@/lib/hybrid-live-score";
-import { formatRankDelta } from "@/lib/use-live-rank-delta";
 import {
   formatRaceScore,
   getScorePipBackground,
@@ -69,13 +68,6 @@ export function ScorePipTrack({
   const hardenedBright = Math.floor(rolling.hardenedScore);
   const animatingBright = Math.ceil(rolling.score);
   const isSegmentAnimating = deltas.length > 0 && seg < 1;
-  const deltaBadge =
-    animatingDelta !== undefined && animatingDelta !== 0
-      ? animatingDelta
-      : rolling.animatingDelta;
-  const showDelta = Math.round(Math.abs(deltaBadge)) > 0;
-  const deltaLabel = formatRankDelta(Math.round(deltaBadge));
-  // Tick delta badge: green ▲ / red ▼ — do not replace with +/- text.
 
   const litPips =
     fill.bright + (fill.partialIndex >= 0 && fill.partial > 0.001 ? 1 : 0);
@@ -180,14 +172,6 @@ export function ScorePipTrack({
         )}
       </div>
       <span className="row-score-pip-num">{formatRaceScore(displayPoints)}</span>
-      <span
-        className={`row-score-pip-delta${
-          deltaBadge < 0 ? " row-score-pip-delta-loss" : " row-score-pip-delta-up"
-        }${!showDelta ? " row-score-pip-delta-empty" : ""}`}
-        aria-hidden={!showDelta}
-      >
-        {showDelta && deltaLabel}
-      </span>
     </div>
   );
 }

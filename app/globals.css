@@ -873,7 +873,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   flex: 1 1 auto;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 1.75rem 1.35rem;
+  grid-template-columns: minmax(0, 1fr) 1.75rem;
   align-items: center;
   gap: 5px;
   height: 15px;
@@ -1763,9 +1763,11 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   align-items: baseline;
   justify-content: flex-start;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-bottom: -5px;
   line-height: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .row-head-tags {
@@ -1811,6 +1813,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   font-weight: 700;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .row-rank-delta-up {
@@ -1826,9 +1829,13 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   line-height: 1;
   letter-spacing: 0.01em;
   color: #111;
-  word-break: break-word;
   font-weight: 600;
   text-transform: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .row-archetype {
@@ -1838,6 +1845,7 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   color: #aaa;
   text-transform: uppercase;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .row-live-badge {

@@ -242,20 +242,18 @@ export function PlayerCardOverlay({
                     <FlatIcon id={barMark} className="race-emoji" />
                   </span>
                 ) : null}
-                <span className="row-head-tags">
-                  {p.archetype && p.archetype !== "UNKNOWN" && (
-                    <span className="row-archetype">{p.archetype}</span>
-                  )}
-                  {rankDeltaLabel && (
-                    <span
-                      className={`row-rank-delta${
-                        rankDelta > 0 ? " row-rank-delta-up" : " row-rank-delta-down"
-                      }`}
-                    >
-                      {rankDeltaLabel}
-                    </span>
-                  )}
-                </span>
+                {p.archetype && p.archetype !== "UNKNOWN" && (
+                  <span className="row-archetype">{p.archetype}</span>
+                )}
+                {rankDeltaLabel && (
+                  <span
+                    className={`row-rank-delta${
+                      rankDelta > 0 ? " row-rank-delta-up" : " row-rank-delta-down"
+                    }`}
+                  >
+                    {rankDeltaLabel}
+                  </span>
+                )}
               </div>
               {profile.currentRaceNumber != null && (
                 <div className="row-track">
