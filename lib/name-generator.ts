@@ -10,7 +10,7 @@ export const B3S_SEED_ACTIVE_NAMES = [
   "danz",
   "emily",
   "tacosaurus",
-  "daven23",
+  "daven3",
   "kara",
 ] as const;
 

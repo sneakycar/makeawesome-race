@@ -33,7 +33,7 @@ const NUMERIC_OPPONENT: Record<string, string> = {
   "4": "danz",
   "5": "emily",
   "6": "tacosaurus",
-  "7": "daven23",
+  "7": "daven3",
   "8": "kara",
 };
 

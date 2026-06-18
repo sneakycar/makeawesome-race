@@ -16,11 +16,12 @@ export const PLAYER_GENDER_BY_SLUG: Record<string, PlayerGender> = {
   rob: "M",
   danz: "M",
   tacosaurus: "M",
-  daven23: "M",
+  daven3: "M",
   // Legacy names (retired)
   walhof: "M",
   "jon-penn": "M",
   chrisman: "M",
+  "a-k-pal": "M",
   "chris-vogel": "M",
   ace: "M",
   bhole: "M",

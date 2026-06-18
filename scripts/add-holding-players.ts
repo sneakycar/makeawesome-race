@@ -33,6 +33,8 @@ const HOLDING_NAMES = [
   "miguel",
   "karl",
   "nicole",
+  "chrisman",
+  "A.K. pal",
 ] as const;
 
 const HOLDING_IDENTITY_OVERRIDES: Partial<Record<(typeof HOLDING_NAMES)[number], PlayerIdentity>> = {
