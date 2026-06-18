@@ -5,7 +5,7 @@ import {
   getFirstRaceLiveBounds,
   getExpectedRaceEndsAt,
 } from "./eastern-time";
-import { B3S_SEED_ACTIVE_NAMES, SEED_ACTIVE_NAMES, generateUniqueName } from "./name-generator";
+import { B3S_SEED_ACTIVE_NAMES, SEED_ACTIVE_NAMES } from "./name-generator";
 
 export { B3S_SEED_ACTIVE_NAMES };
 import {
@@ -1787,9 +1787,7 @@ export async function chooseReplacement(
 
   const eligible = (holding || []).filter((player) => !excluded.has(player.id));
 
-  if (eligible.length && seededBool(`${nextDay}:replacement`, 0.3)) {
-    const idx = seededInt(`${nextDay}:replacement-pick`, 0, eligible.length - 1);
-    const picked = eligible[idx];
+  const returnFromHolding = async (picked: (typeof eligible)[number]) => {
     await supabase
       .from("players")
       .update({
@@ -1812,10 +1810,17 @@ export async function chooseReplacement(
       null
     );
 
-    return { ...picked, status: "active", returns: picked.returns + 1, comeback_until_day: nextDay + 3 };
+    return { ...picked, status: "active" as const, returns: picked.returns + 1, comeback_until_day: nextDay + 3 };
+  };
+
+  if (eligible.length) {
+    const idx = seededInt(`${nextDay}:replacement-pick`, 0, eligible.length - 1);
+    return returnFromHolding(eligible[idx]!);
   }
 
-  return createPlayer(supabase, "active", nextDay);
+  throw new Error(
+    "No replacement available: add an approved name to QUEUED_ROOKIES in lib/queued-rookies.ts"
+  );
 }
 
 /** @deprecated import from ./queued-rookies */
@@ -1829,27 +1834,18 @@ export async function createPlayer(
   const { data: existing } = await supabase.from("players").select("slug");
   const slugs = new Set((existing || []).map((p) => p.slug));
 
-  let name: string;
-  let slug: string;
-  let identityOverride: PlayerIdentity | undefined;
-  let gender: PlayerGender | undefined;
-  let seed: string;
-
   const queued = peekNextQueuedRookie(slugs);
-  if (queued) {
-    name = queued.name;
-    slug = queued.slug;
-    identityOverride = queued.identity;
-    seed = `queued-rookie-${slug}`;
-    gender = resolvePlayerGender(slug, seed);
-  } else {
-    const generated = generateUniqueName(`new-player-${day}-${Date.now()}`, slugs);
-    name = generated.name;
-    slug = generated.slug;
-    gender = generated.gender;
-    identityOverride = undefined;
-    seed = `player-${slug}-${day}`;
+  if (!queued) {
+    throw new Error(
+      "No approved rookie queued; add a name to QUEUED_ROOKIES in lib/queued-rookies.ts"
+    );
   }
+
+  const name = queued.name;
+  const slug = queued.slug;
+  const identityOverride = queued.identity;
+  const seed = `queued-rookie-${slug}`;
+  const gender = resolvePlayerGender(slug, seed);
 
   const insert = buildPlayerInsert(name, slug, status, day, seed, identityOverride, gender);
 

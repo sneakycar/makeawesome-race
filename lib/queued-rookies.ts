@@ -7,7 +7,7 @@ export interface QueuedRookie {
   identity?: PlayerIdentity;
 }
 
-/** Named rookies enter in order before procedural name generation resumes. */
+/** Approved rookies only — add names here before they can enter the league. No procedural generation. */
 export const QUEUED_ROOKIES: readonly QueuedRookie[] = [];
 
 /** @deprecated use QUEUED_ROOKIES */
