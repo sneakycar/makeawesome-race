@@ -7,7 +7,7 @@ export interface QueuedRookie {
   identity?: PlayerIdentity;
 }
 
-/** Approved rookies only — add names here before they can enter the league. No procedural generation. */
+/** Legacy manual queue — replacements draw from holding only. Use scripts/add-holding-players.ts. */
 export const QUEUED_ROOKIES: readonly QueuedRookie[] = [];
 
 /** @deprecated use QUEUED_ROOKIES */

@@ -8,8 +8,7 @@ import { resolve } from "path";
 config({ path: resolve(process.cwd(), ".env.local") });
 config({ path: resolve(process.cwd(), ".env") });
 
-import { B3S_SEED_ACTIVE_NAMES } from "../lib/name-generator";
-import { slugify } from "../lib/format";
+import { isApprovedLeaguePlayerSeed } from "../lib/league-roster";
 import { createAdminClient } from "../lib/supabase/admin";
 import { getActiveStreaks, getAllTimeTop3 } from "../lib/race-logic";
 
@@ -64,7 +63,7 @@ async function main() {
 
   const { data: activePlayers } = await supabase
     .from("players")
-    .select("id, name, slug, status, wins, races, current_streak_type, current_streak_count")
+    .select("id, name, slug, status, seed, wins, races, current_streak_type, current_streak_count")
     .eq("status", "active")
     .order("name", { ascending: true });
 
@@ -76,10 +75,9 @@ async function main() {
     issues.push(`expected 8 active racers, found ${activePlayers?.length ?? 0}`);
   }
 
-  const expectedSlugs = new Set(B3S_SEED_ACTIVE_NAMES.map((n) => slugify(n)));
   for (const p of activePlayers ?? []) {
-    if (!expectedSlugs.has(p.slug)) {
-      issues.push(`unexpected active racer: ${p.name} (${p.slug})`);
+    if (!isApprovedLeaguePlayerSeed(p.seed)) {
+      issues.push(`procedural/unapproved active racer: ${p.name} (seed ${p.seed})`);
     }
     if (p.wins > 0 || p.current_streak_count > 0) {
       issues.push(`active racer ${p.name} has pre-finalize career stats`);
@@ -111,7 +109,8 @@ async function main() {
     issues.push(`all-time panel shows ${allTime.map((p) => p.name).join(", ")}`);
   }
   for (const s of streaks) {
-    if (!expectedSlugs.has(s.slug)) {
+    const leagueOk = (activePlayers ?? []).some((p) => p.slug === s.slug);
+    if (!leagueOk) {
       issues.push(`streak panel shows legacy racer ${s.name}`);
     }
   }

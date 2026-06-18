@@ -935,6 +935,10 @@ export default function HomePage() {
     ? Math.max(...entryScorePoints)
     : 1;
 
+  const minScorePoints = entryScorePoints.length
+    ? Math.min(...entryScorePoints)
+    : 0;
+
   const selectedEntry = selectedSlug
     ? state?.entries.find((e) => e.player.slug === selectedSlug)
     : undefined;
@@ -984,7 +988,11 @@ export default function HomePage() {
           isNight={isNight}
         />
       )}
-      {raceWeather && raceWeather.type !== "clear" && raceActive && !raceDelayed && (
+      {raceWeather &&
+        raceWeather.type !== "clear" &&
+        raceWeather.opacity > 0.05 &&
+        raceActive &&
+        !raceDelayed && (
         <div className="race-weather-fullscreen" aria-hidden="true">
           <RaceWeatherOverlay weather={raceWeather} isNight={isNight} />
         </div>
@@ -1057,7 +1065,11 @@ export default function HomePage() {
                 raceDelay={state.raceDelay}
                 isNight={isNight}
                 weatherBadge={
-                  raceWeather && raceActive && !raceDelayed ? (
+                  raceWeather &&
+                  raceWeather.type !== "clear" &&
+                  raceWeather.opacity > 0.05 &&
+                  raceActive &&
+                  !raceDelayed ? (
                     <RaceWeatherBadge weather={raceWeather} />
                   ) : undefined
                 }
@@ -1166,6 +1178,7 @@ export default function HomePage() {
                       confirmedScore={pipConfirmedScore}
                       lastDelta={pipLastDelta}
                       segmentProgress={pipSegmentProgress}
+                      minScore={minScorePoints}
                       leaderScore={leaderScorePoints}
                       isLeader={isLeader}
                       isNight={isNight}
@@ -1485,6 +1498,7 @@ export default function HomePage() {
             liveRace?.entries.get(selectedEntry.player_id)?.animatingDelta ?? 0
           }
           leaderScore={leaderScorePoints}
+          minScore={minScorePoints}
           lastDelta={Number(selectedEntry.last_delta ?? 0)}
           rankDelta={rankDeltaById.get(selectedEntry.player_id) ?? 0}
           healthyEntryCount={healthyEntryCount}

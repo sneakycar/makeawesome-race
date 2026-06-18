@@ -8,9 +8,7 @@ import {
 import { B3S_SEED_ACTIVE_NAMES, SEED_ACTIVE_NAMES } from "./name-generator";
 
 export { B3S_SEED_ACTIVE_NAMES };
-import {
-  peekNextQueuedRookie,
-} from "./queued-rookies";
+import { isApprovedLeaguePlayerSeed } from "./league-roster";
 import { resolvePlayerGender, type PlayerGender } from "./player-gender";
 import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap, normalizePeakRaceScore, roundRaceScore } from "./score";
 import { getCombinedRaceTempo, getRaceWeekTempo } from "./race-tempo";
@@ -1733,8 +1731,7 @@ export async function updateHoldingPlayers(supabase: SupabaseClient, currentDay:
   const { data: holding } = await supabase
     .from("players")
     .select("*")
-    .eq("status", "holding")
-    .gte("races", 1);
+    .eq("status", "holding");
   if (!holding?.length) return;
 
   for (const player of holding) {
@@ -1772,86 +1769,76 @@ export async function chooseReplacement(
 ): Promise<Player> {
   const excluded = new Set(options.excludePlayerIds ?? []);
 
-  const { data: existingSlugsRows } = await supabase.from("players").select("slug");
-  const existingSlugs = new Set((existingSlugsRows ?? []).map((p) => p.slug));
-
-  if (peekNextQueuedRookie(existingSlugs)) {
-    return createPlayer(supabase, "active", nextDay);
-  }
-
   const { data: holding } = await supabase
     .from("players")
     .select("*")
-    .eq("status", "holding")
-    .gte("races", 1);
+    .eq("status", "holding");
 
   const eligible = (holding || []).filter((player) => !excluded.has(player.id));
 
-  const returnFromHolding = async (picked: (typeof eligible)[number]) => {
-    await supabase
-      .from("players")
-      .update({
-        status: "active",
-        returns: picked.returns + 1,
-        comeback_until_day: nextDay + 3,
-        holding_days: picked.holding_days,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", picked.id);
+  const activateFromHolding = async (picked: (typeof eligible)[number]) => {
+    const debut = picked.races < 1;
+    const updates: Partial<Player> = {
+      status: "active",
+      holding_days: picked.holding_days,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (debut) {
+      updates.rookie_until_day = nextDay + 7;
+      updates.comeback_until_day = null;
+    } else {
+      updates.returns = picked.returns + 1;
+      updates.comeback_until_day = nextDay + 3;
+    }
+
+    await supabase.from("players").update(updates).eq("id", picked.id);
 
     await addHistory(
       supabase,
       picked.id,
       null,
       nextDay,
-      "returned",
-      "RETURNED FROM HOLDING",
+      debut ? "entered" : "returned",
+      debut ? "ENTERED FROM HOLDING" : "RETURNED FROM HOLDING",
       null,
       null
     );
 
-    return { ...picked, status: "active" as const, returns: picked.returns + 1, comeback_until_day: nextDay + 3 };
+    return {
+      ...picked,
+      ...updates,
+      status: "active" as const,
+    } as Player;
   };
 
   if (eligible.length) {
     const idx = seededInt(`${nextDay}:replacement-pick`, 0, eligible.length - 1);
-    return returnFromHolding(eligible[idx]!);
+    const picked = eligible[idx]!;
+    if (!isApprovedLeaguePlayerSeed(picked.seed)) {
+      throw new Error(
+        `Holding pick ${picked.name} has unapproved seed "${picked.seed}" — add via scripts/add-holding-players.ts`
+      );
+    }
+    return activateFromHolding(picked);
   }
 
   throw new Error(
-    "No replacement available: add an approved name to QUEUED_ROOKIES in lib/queued-rookies.ts"
+    "No replacement available: add racers to holding (scripts/add-holding-players.ts)"
   );
 }
 
-/** @deprecated import from ./queued-rookies */
-export { QUEUED_ROOKIE } from "./queued-rookies";
-
+/**
+ * @deprecated B3S never creates racers at runtime. Use holding + scripts/add-holding-players.ts.
+ */
 export async function createPlayer(
-  supabase: SupabaseClient,
-  status: "active" | "holding",
-  day: number
+  _supabase: SupabaseClient,
+  _status: "active" | "holding",
+  _day: number
 ): Promise<Player> {
-  const { data: existing } = await supabase.from("players").select("slug");
-  const slugs = new Set((existing || []).map((p) => p.slug));
-
-  const queued = peekNextQueuedRookie(slugs);
-  if (!queued) {
-    throw new Error(
-      "No approved rookie queued; add a name to QUEUED_ROOKIES in lib/queued-rookies.ts"
-    );
-  }
-
-  const name = queued.name;
-  const slug = queued.slug;
-  const identityOverride = queued.identity;
-  const seed = `queued-rookie-${slug}`;
-  const gender = resolvePlayerGender(slug, seed);
-
-  const insert = buildPlayerInsert(name, slug, status, day, seed, identityOverride, gender);
-
-  const { data, error } = await supabase.from("players").insert(insert).select("*").single();
-  if (error) throw error;
-  return data as Player;
+  throw new Error(
+    "B3S league does not create new racers at runtime. Add names to holding via scripts/add-holding-players.ts."
+  );
 }
 
 export async function createRace(

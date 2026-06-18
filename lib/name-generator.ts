@@ -4,14 +4,14 @@ import { generateGender, type PlayerGender } from "./player-gender";
 
 /** Starter roster — eight fixed racers for race 1. */
 export const B3S_SEED_ACTIVE_NAMES = [
-  "1",
-  "2",
-  "3",
-  "4",
-  "5",
-  "6",
-  "7",
-  "8",
+  "gerald",
+  "rob",
+  "sam",
+  "danz",
+  "emily",
+  "tacosaurus",
+  "daven23",
+  "kara",
 ] as const;
 
 export const SEED_ACTIVE_NAMES = B3S_SEED_ACTIVE_NAMES;
@@ -403,6 +403,7 @@ function buildPatternName(seed: string, pattern: PatternId): string {
   }
 }
 
+/** Procedural names are not used for B3S roster slots — holding + seed list only. */
 export function generateName(seed: string): string {
   const pattern = pickPattern(seed);
   return buildPatternName(`${seed}:${pattern}`, pattern);

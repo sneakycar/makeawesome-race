@@ -11,11 +11,28 @@ async function main() {
   console.log("[cleanup-seed-holding] starting...");
   const supabase = createAdminClient();
 
+  const { data: candidates, error: listErr } = await supabase
+    .from("players")
+    .select("id, name, seed")
+    .eq("status", "holding")
+    .eq("races", 0);
+  if (listErr) throw listErr;
+
+  const toRemove = (candidates ?? []).filter(
+    (p) => !String(p.seed).startsWith("holding-reserve-")
+  );
+  if (!toRemove.length) {
+    console.log("[cleanup-seed-holding] nothing to remove");
+    return;
+  }
+
   const { data, error } = await supabase
     .from("players")
     .delete()
-    .eq("status", "holding")
-    .eq("races", 0)
+    .in(
+      "id",
+      toRemove.map((p) => p.id)
+    )
     .select("id, name");
 
   if (error) throw error;

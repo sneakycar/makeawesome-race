@@ -4,6 +4,8 @@ import { formatRacerName, ordinal } from "./format";
 import { formatRaceScore } from "./score";
 import { pickGatedRecapPhrase, finalizeRecapLine, validateRecapParagraph, cleanRecapTextSegment } from "./recap-grammar-gate";
 import {
+  RECAP_ABILITY_GAIN_LEAD_PHRASES,
+  RECAP_ABILITY_GAIN_PLAYER_PHRASES,
   RECAP_CHAOS_SURGE_PHRASES,
   RECAP_COLLAPSE_PHRASES,
   RECAP_DELAY_PHRASES,
@@ -14,7 +16,9 @@ import {
   RECAP_LAST_PHRASES,
   RECAP_MARGIN_PHRASES,
   RECAP_OPENERS,
+  RECAP_OPENING_FRAME_PHRASES,
   RECAP_QUIET_PHRASES,
+  RECAP_RANK_SURGE_PHRASES,
   RECAP_STALL_PHRASES,
   RECAP_UNDERDOG_PHRASES,
   RECAP_WEATHER_PHRASES,
@@ -62,8 +66,16 @@ function segmentsToParagraph(segments: LastRaceRecapSegment[]): string {
   return segments.map((segment) => segment.value).join("");
 }
 
-function pickOpener(raceNumber: number): string {
-  return RECAP_OPENERS[raceNumber % RECAP_OPENERS.length]!;
+function pickOpenerLine(raceId: string, raceNumber: number): string {
+  const opener =
+    pickGatedRecapPhrase(`${raceId}:opener`, RECAP_OPENERS, {}) ??
+    RECAP_OPENERS[raceNumber % RECAP_OPENERS.length]!;
+  return (
+    pickGatedRecapPhrase(`${raceId}:opener-frame`, RECAP_OPENING_FRAME_PHRASES, {
+      n: raceNumber,
+      opener,
+    }) ?? `Race ${raceNumber} ${opener}.`
+  );
 }
 
 const MAX_CHAOS_CLAUSES = 1;
@@ -135,10 +147,21 @@ function pickChaosHighlights(ctx: RecapContext, limit: number): string[] {
     });
   }
 
+  const rankSurges = ctx.eventCounts.get("rank_surge") ?? 0;
+  if (rankSurges >= 3) {
+    candidates.push({
+      priority: 5,
+      seed: `${ctx.raceId}:rank-surge`,
+      phrases: RECAP_RANK_SURGE_PHRASES,
+      vars: { count: rankSurges, plural: rankSurges === 1 ? "" : "s" },
+      fallback: `${rankSurges} rank surge${rankSurges === 1 ? "" : "s"} shook the standings`,
+    });
+  }
+
   const collapses = ctx.eventCounts.get("collapse") ?? 0;
   if (collapses > 0) {
     candidates.push({
-      priority: 5,
+      priority: 6,
       seed: `${ctx.raceId}:collapse`,
       phrases: RECAP_COLLAPSE_PHRASES,
       vars: { count: collapses, plural: collapses === 1 ? "" : "s" },
@@ -149,7 +172,7 @@ function pickChaosHighlights(ctx: RecapContext, limit: number): string[] {
   const stalls = ctx.eventCounts.get("stall") ?? 0;
   if (stalls >= 12) {
     candidates.push({
-      priority: 6,
+      priority: 7,
       seed: `${ctx.raceId}:stall`,
       phrases: RECAP_STALL_PHRASES,
       vars: { count: stalls },
@@ -159,7 +182,7 @@ function pickChaosHighlights(ctx: RecapContext, limit: number): string[] {
 
   if (ctx.weatherTotal >= 12) {
     candidates.push({
-      priority: 7,
+      priority: 8,
       seed: `${ctx.raceId}:weather`,
       phrases: RECAP_WEATHER_PHRASES,
       vars: { total: ctx.weatherTotal },
@@ -170,7 +193,7 @@ function pickChaosHighlights(ctx: RecapContext, limit: number): string[] {
   const underdogs = ctx.eventCounts.get("underdog") ?? 0;
   if (underdogs >= 3) {
     candidates.push({
-      priority: 8,
+      priority: 9,
       seed: `${ctx.raceId}:underdog`,
       phrases: RECAP_UNDERDOG_PHRASES,
       vars: { count: underdogs, plural: underdogs === 1 ? "" : "s" },
@@ -212,6 +235,42 @@ function pushNameSplit(
   segments.push(text(line));
 }
 
+function pushTwoNameSplit(
+  segments: LastRaceRecapSegment[],
+  line: string,
+  nameA: string,
+  nameB: string
+): void {
+  const a = formatRacerName(nameA);
+  const b = formatRacerName(nameB);
+  const posA = line.indexOf(a);
+  const posB = line.indexOf(b);
+
+  if (posA === -1) {
+    pushNameSplit(segments, line, nameB);
+    return;
+  }
+  if (posB === -1) {
+    pushNameSplit(segments, line, nameA);
+    return;
+  }
+
+  const first =
+    posA <= posB
+      ? { name: nameA, key: a, pos: posA }
+      : { name: nameB, key: b, pos: posB };
+  const second =
+    posA <= posB
+      ? { name: nameB, key: b, pos: posB }
+      : { name: nameA, key: a, pos: posA };
+
+  segments.push(text(line.slice(0, first.pos)));
+  segments.push(racer(first.name));
+  segments.push(text(line.slice(first.pos + first.key.length, second.pos)));
+  segments.push(racer(second.name));
+  segments.push(text(line.slice(second.pos + second.key.length)));
+}
+
 function capitalizeNamesAtSentenceStarts(
   segments: LastRaceRecapSegment[]
 ): LastRaceRecapSegment[] {
@@ -246,21 +305,11 @@ function fightBeatSegments(ctx: RecapContext): LastRaceRecapSegment[] | null {
     const b = formatRacerName(pair.b);
     const template =
       pickGatedRecapPhrase(`${ctx.raceId}:fight`, RECAP_FIGHT_PHRASES, { a, b }) ??
-      `${a} and ${b} threw down mid-race.`;
+      `${a} and ${b} threw down mid-race`;
 
-    if (template.startsWith("Fists flew when ")) {
-      return [
-        text("Fists flew when "),
-        racer(pair.a),
-        text(" and "),
-        racer(pair.b),
-        text(" got into it."),
-      ];
-    }
-    if (template.includes("scrapped")) {
-      return [racer(pair.a), text(" and "), racer(pair.b), text(" scrapped in the middle of the pack")];
-    }
-    return [racer(pair.a), text(" and "), racer(pair.b), text(" threw down mid-race")];
+    const segments: LastRaceRecapSegment[] = [];
+    pushTwoNameSplit(segments, template, pair.a, pair.b);
+    return segments;
   }
 
   const first = `${formatRacerName(ctx.fightPairs[0]!.a)} vs ${formatRacerName(ctx.fightPairs[0]!.b)}`;
@@ -271,7 +320,7 @@ function fightBeatSegments(ctx: RecapContext): LastRaceRecapSegment[] | null {
       first,
       second,
     }) ??
-    `${ctx.fightPairs.length} separate fights broke out, including ${first} and ${second}.`;
+    `${ctx.fightPairs.length} separate fights broke out, including ${first} and ${second}`;
 
   return [text(line)];
 }
@@ -279,7 +328,7 @@ function fightBeatSegments(ctx: RecapContext): LastRaceRecapSegment[] | null {
 function composeRecapParagraph(ctx: RecapContext, maxChaos = MAX_CHAOS_CLAUSES): LastRaceRecapSegment[] {
   const segments: LastRaceRecapSegment[] = [];
 
-  segments.push(text(`Race ${ctx.raceNumber} ${pickOpener(ctx.raceNumber)}. `));
+  segments.push(text(`${pickOpenerLine(ctx.raceId, ctx.raceNumber)} `));
 
   const winLead =
     pickGatedRecapPhrase(`${ctx.raceId}:win`, RECAP_WIN_PHRASES, {
@@ -321,8 +370,11 @@ function composeRecapParagraph(ctx: RecapContext, maxChaos = MAX_CHAOS_CLAUSES):
     if (chaosLines.length > 0) {
       const prefix = fightSegments ? "; " : "";
       segments.push(text(`${prefix}${chaosLines.join("; ")}.`));
-    } else {
-      segments.push(text("."));
+    } else if (fightSegments) {
+      const lastFight = fightSegments[fightSegments.length - 1];
+      const endsWithPunct =
+        lastFight?.kind === "text" && /[.!?]["']?\s*$/.test(lastFight.value);
+      if (!endsWithPunct) segments.push(text("."));
     }
   } else {
     const quiet =
@@ -341,6 +393,36 @@ function finalizeRecapSegments(segments: LastRaceRecapSegment[]): LastRaceRecapS
       : segment
   );
   return capitalizeNamesAtSentenceStarts(cleaned);
+}
+
+function buildLaneNameMap(
+  entries: Array<{ lane: number; name: string }>
+): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const entry of entries) {
+    map.set(entry.lane, formatRacerName(entry.name));
+  }
+  return map;
+}
+
+/** Legacy fight rows sometimes stored lane numbers (e.g. "daven23 vs 4") instead of names. */
+function resolveFightSide(raw: string, laneToName: Map<number, string>): string {
+  const trimmed = formatRacerName(raw);
+  const laneMatch = trimmed.match(/^L?(\d{1,2})$/i);
+  if (!laneMatch) return trimmed;
+
+  const fromLane = laneToName.get(Number(laneMatch[1]));
+  return fromLane ?? trimmed;
+}
+
+function normalizeFightPair(
+  pair: RecapFightPair,
+  laneToName: Map<number, string>
+): RecapFightPair {
+  return {
+    a: resolveFightSide(pair.a, laneToName),
+    b: resolveFightSide(pair.b, laneToName),
+  };
 }
 
 function dedupeFightPairs(pairs: RecapFightPair[]): RecapFightPair[] {
@@ -363,27 +445,58 @@ async function loadFightPairs(
 ): Promise<RecapFightPair[]> {
   const pairs: RecapFightPair[] = [];
 
-  const [{ data: tickerRows }, { data: historyRows }] = await Promise.all([
-    supabase
-      .from("race_ticker_events")
-      .select("message")
-      .eq("race_id", raceId)
-      .eq("event_type", "fight"),
-    supabase
-      .from("player_history")
-      .select("event_text")
-      .eq("race_id", raceId)
-      .eq("event_type", "fight"),
-  ]);
+  const [{ data: tickerRows }, { data: historyRows }, { data: entryRows }] =
+    await Promise.all([
+      supabase
+        .from("race_ticker_events")
+        .select("message, facts")
+        .eq("race_id", raceId)
+        .eq("event_type", "fight"),
+      supabase
+        .from("player_history")
+        .select("event_text")
+        .eq("race_id", raceId)
+        .eq("event_type", "fight"),
+      supabase
+        .from("race_entries")
+        .select("lane, player:players!race_entries_player_id_fkey(name)")
+        .eq("race_id", raceId),
+    ]);
+
+  const laneToName = buildLaneNameMap(
+    (entryRows ?? []).flatMap((entry) => {
+      const player = entry.player as { name: string } | { name: string }[] | null;
+      const name = Array.isArray(player) ? player[0]?.name : player?.name;
+      if (!name) return [];
+      return [{ lane: entry.lane as number, name }];
+    })
+  );
 
   for (const row of tickerRows ?? []) {
+    const facts = row.facts as
+      | { playerName?: string; fightPartnerName?: string }
+      | null
+      | undefined;
+    if (facts?.playerName && facts?.fightPartnerName) {
+      pairs.push(
+        normalizeFightPair(
+          { a: facts.playerName, b: facts.fightPartnerName },
+          laneToName
+        )
+      );
+      continue;
+    }
+
     const parsed = parseFightTickerMessage(row.message ?? "");
-    if (parsed) pairs.push(parsed);
+    if (parsed) pairs.push(normalizeFightPair(parsed, laneToName));
   }
 
   for (const row of historyRows ?? []) {
     const vs = (row.event_text ?? "").match(/^(.+?)\s+vs\.?\s+(.+)$/i);
-    if (vs) pairs.push({ a: vs[1]!.trim(), b: vs[2]!.trim() });
+    if (!vs) continue;
+    pairs.push(
+      normalizeFightPair({ a: vs[1]!.trim(), b: vs[2]!.trim() }, laneToName)
+    );
   }
 
   return dedupeFightPairs(pairs).slice(0, 3);
@@ -442,6 +555,7 @@ function formatGainList(gains: { stat: string; delta: number }[]): string {
 }
 
 function composeAbilityGainsParagraph(
+  raceId: string,
   gains: ParsedAbilityGain[]
 ): LastRaceRecapSegment[] | null {
   const byPlayer = new Map<string, Map<string, number>>();
@@ -466,13 +580,21 @@ function composeAbilityGainsParagraph(
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
     .slice(0, 3);
 
-  const segments: LastRaceRecapSegment[] = [text("Coming out of the race, ")];
+  const lead =
+    pickGatedRecapPhrase(`${raceId}:ability-lead`, RECAP_ABILITY_GAIN_LEAD_PHRASES, {}) ??
+    "Coming out of the race, ";
+  const segments: LastRaceRecapSegment[] = [text(lead)];
 
   ranked.forEach((entry, index) => {
     if (index > 0) {
       segments.push(text(index === ranked.length - 1 ? "; and " : "; "));
     }
-    const line = `${entry.name} picked up ${formatGainList(entry.gains)}`;
+    const gainList = formatGainList(entry.gains);
+    const line =
+      pickGatedRecapPhrase(`${raceId}:ability:${index}`, RECAP_ABILITY_GAIN_PLAYER_PHRASES, {
+        name: entry.name,
+        gains: gainList,
+      }) ?? `${entry.name} picked up ${gainList}`;
     pushNameSplit(segments, line, entry.name);
   });
 
@@ -599,7 +721,7 @@ export async function getLastRaceRecap(
     paragraph = segmentsToParagraph(segments);
   }
 
-  const abilityGainsSegments = composeAbilityGainsParagraph(abilityGains);
+  const abilityGainsSegments = composeAbilityGainsParagraph(race.id, abilityGains);
   const finalizedAbilityGainsSegments = abilityGainsSegments
     ? finalizeRecapSegments(abilityGainsSegments)
     : null;

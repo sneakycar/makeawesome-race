@@ -8,8 +8,10 @@ import {
 } from "@/lib/hybrid-live-score";
 import {
   formatRaceScore,
+  getRelativePipFill,
   getScorePipBackground,
   HARD_SCORE_CAP,
+  SCORE_PIP_SLOTS,
   SCORE_TRACK_SLOTS,
 } from "@/lib/score";
 
@@ -21,6 +23,7 @@ export function ScorePipTrack({
   segmentProgress = 1,
   animatingDelta,
   leaderScore,
+  minScore,
   isLeader,
   isNight,
   statusOverlay,
@@ -33,6 +36,8 @@ export function ScorePipTrack({
   segmentProgress?: number;
   animatingDelta?: number;
   leaderScore: number;
+  /** Field floor for relative bar scaling (race standings). */
+  minScore?: number;
   isLeader: boolean;
   isNight: boolean;
   statusOverlay?: { icon: RaceIconId; label: string };
@@ -41,13 +46,11 @@ export function ScorePipTrack({
   /** @deprecated use confirmedScore + lastDelta + segmentProgress */
   score?: number;
   recentDeltas?: number[];
-  minScore?: number;
 }) {
-  const slots = SCORE_TRACK_SLOTS;
-  const confirmed = Math.max(
-    0,
-    Math.min(HARD_SCORE_CAP, confirmedScore)
-  );
+  const useRelativeScale =
+    minScore != null && Math.round(leaderScore) > Math.round(minScore);
+  const slots = useRelativeScale ? SCORE_PIP_SLOTS : SCORE_TRACK_SLOTS;
+  const confirmed = Math.max(0, Math.min(HARD_SCORE_CAP, confirmedScore));
   const delta = Number(lastDelta ?? 0);
   const deltas = Math.abs(delta) > 0.001 ? [delta] : [];
   const seg = Math.max(0, Math.min(1, segmentProgress));
@@ -56,18 +59,57 @@ export function ScorePipTrack({
     () => getRollingTickAnimationState(confirmed, deltas, seg),
     [confirmed, delta, seg]
   );
-  const fill = useMemo(
-    () => getPipFillState(confirmed, deltas, seg),
-    [confirmed, delta, seg]
-  );
+
+  const isSegmentAnimating = deltas.length > 0 && seg < 1;
+
+  const fill = useMemo(() => {
+    if (useRelativeScale) {
+      return getRelativePipFill(
+        rolling.score,
+        minScore!,
+        leaderScore,
+        slots
+      );
+    }
+    return getPipFillState(confirmed, deltas, seg);
+  }, [
+    useRelativeScale,
+    rolling.score,
+    minScore,
+    leaderScore,
+    slots,
+    confirmed,
+    deltas,
+    seg,
+  ]);
+
+  const hardenedFill = useMemo(() => {
+    if (!useRelativeScale || !isSegmentAnimating) return null;
+    return getRelativePipFill(
+      rolling.hardenedScore,
+      minScore!,
+      leaderScore,
+      slots
+    );
+  }, [
+    useRelativeScale,
+    isSegmentAnimating,
+    rolling.hardenedScore,
+    minScore,
+    leaderScore,
+    slots,
+  ]);
 
   const displayPoints = Math.round(confirmed);
   const leader = Math.max(0, Math.round(leaderScore));
   const behind = leader - displayPoints;
   const colorSpan = slots;
-  const hardenedBright = Math.floor(rolling.hardenedScore);
-  const animatingBright = Math.ceil(rolling.score);
-  const isSegmentAnimating = deltas.length > 0 && seg < 1;
+  const hardenedBright = useRelativeScale
+    ? (hardenedFill?.bright ?? fill.bright)
+    : Math.floor(rolling.hardenedScore);
+  const animatingBright = useRelativeScale
+    ? fill.bright
+    : Math.ceil(rolling.score);
 
   const litPips =
     fill.bright + (fill.partialIndex >= 0 && fill.partial > 0.001 ? 1 : 0);

@@ -99,6 +99,7 @@ export function PlayerCardOverlay({
   liveRank,
   animatingDelta = 0,
   leaderScore = 1,
+  minScore,
   lastDelta = 0,
   rankDelta = 0,
   healthyEntryCount = 0,
@@ -120,6 +121,7 @@ export function PlayerCardOverlay({
   liveRank?: number;
   animatingDelta?: number;
   leaderScore?: number;
+  minScore?: number;
   lastDelta?: number;
   rankDelta?: number;
   healthyEntryCount?: number;
@@ -262,6 +264,7 @@ export function PlayerCardOverlay({
                     lastDelta={lastDelta}
                     segmentProgress={segmentProgress}
                     animatingDelta={animatingDelta}
+                    minScore={minScore}
                     leaderScore={leaderScore}
                     isLeader={isLeader}
                     isNight={isNight}

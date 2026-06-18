@@ -277,7 +277,7 @@ main,
   width: 100vw;
   height: 100vh;
   margin: 0;
-  z-index: 0;
+  z-index: 4;
   pointer-events: none;
   overflow: hidden;
 }
@@ -1123,10 +1123,33 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
 
 .race-weather--wind .race-weather-sky {
   background: linear-gradient(
-    90deg,
-    rgba(140, 150, 160, 0.1) 0%,
-    transparent 40%,
-    rgba(140, 150, 160, 0.08) 100%
+    100deg,
+    rgba(170, 185, 205, 0.22) 0%,
+    rgba(140, 155, 175, 0.08) 38%,
+    transparent 55%,
+    rgba(150, 165, 185, 0.14) 100%
+  );
+  animation: race-weather-wind-sky 6s ease-in-out infinite alternate;
+}
+
+@keyframes race-weather-wind-sky {
+  0% {
+    transform: translateX(-1.5%);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(1.5%);
+    opacity: 1;
+  }
+}
+
+body[data-home-theme="night"] .race-weather--wind .race-weather-sky {
+  background: linear-gradient(
+    100deg,
+    rgba(210, 225, 245, 0.16) 0%,
+    rgba(160, 175, 195, 0.05) 40%,
+    transparent 58%,
+    rgba(180, 195, 215, 0.12) 100%
   );
 }
 
@@ -1287,6 +1310,20 @@ body[data-home-theme="night"] .race-update-shell.is-flickering {
   font-size: 9px;
   line-height: 1;
   filter: grayscale(0.2);
+}
+
+.race-weather-badge--wind {
+  animation: race-weather-badge-wind 2.4s ease-in-out infinite;
+}
+
+@keyframes race-weather-badge-wind {
+  0%,
+  100% {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(120, 150, 190, 0.35), 0 0 10px rgba(140, 170, 210, 0.2);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4570,6 +4607,22 @@ body[data-home-theme="night"] .race-weather-badge--clear {
   background: rgba(20, 20, 20, 0.45);
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow: none;
+}
+
+body[data-home-theme="night"] .race-weather-badge--wind {
+  animation: race-weather-badge-wind-night 2.4s ease-in-out infinite;
+}
+
+@keyframes race-weather-badge-wind-night {
+  0%,
+  100% {
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(180, 210, 245, 0.28),
+      0 0 12px rgba(160, 190, 230, 0.18);
+  }
 }
 
 body[data-home-theme="night"] .race-weather-lightning {

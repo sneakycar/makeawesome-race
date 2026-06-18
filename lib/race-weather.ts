@@ -157,6 +157,10 @@ const CLEAR_WEATHER: RaceWeatherState = {
   opacity: 0,
 };
 
+export function isWeatherActive(weather: RaceWeatherState | null): boolean {
+  return Boolean(weather && weather.type !== "clear" && weather.opacity > 0.05);
+}
+
 /** Deterministic race weather — multi-tick episodes with smooth fade at edges. */
 export function getRaceWeather(
   raceId: string,

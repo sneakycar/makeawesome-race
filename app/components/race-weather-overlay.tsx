@@ -22,8 +22,8 @@ interface Streak {
 
 function particleCount(type: RaceWeatherType, area: number): number {
   const density =
-    type === "storm" ? 0.14 : type === "rain" ? 0.1 : type === "wind" ? 0.08 : 0;
-  return Math.min(420, Math.max(48, Math.round(area * density)));
+    type === "storm" ? 0.14 : type === "rain" ? 0.1 : type === "wind" ? 0.14 : 0;
+  return Math.min(420, Math.max(64, Math.round(area * density)));
 }
 
 function seedDrops(count: number, w: number, h: number, spreadY = true): Drop[] {
@@ -41,9 +41,9 @@ function seedStreaks(count: number, w: number, h: number): Streak[] {
   return Array.from({ length: count }, () => ({
     x: Math.random() * w - w * 0.2,
     y: Math.random() * h,
-    len: 18 + Math.random() * 36,
-    speed: 4 + Math.random() * 9,
-    opacity: 0.12 + Math.random() * 0.35,
+    len: 28 + Math.random() * 52,
+    speed: 9 + Math.random() * 14,
+    opacity: 0.22 + Math.random() * 0.45,
   }));
 }
 
@@ -87,13 +87,14 @@ function drawWind(
   ctx.clearRect(0, 0, w, h);
   ctx.lineCap = "round";
   for (const s of streaks) {
+    const alpha = isNight ? s.opacity * 0.95 : s.opacity;
     ctx.strokeStyle = isNight
-      ? `rgba(210, 220, 230, ${s.opacity * 0.7})`
-      : `rgba(120, 130, 140, ${s.opacity})`;
-    ctx.lineWidth = 1.2;
+      ? `rgba(225, 235, 248, ${alpha})`
+      : `rgba(90, 105, 125, ${alpha})`;
+    ctx.lineWidth = isNight ? 1.6 : 1.3;
     ctx.beginPath();
     ctx.moveTo(s.x, s.y);
-    ctx.lineTo(s.x + s.len, s.y + (Math.sin(s.x * 0.04) * 1.5));
+    ctx.lineTo(s.x + s.len, s.y + Math.sin(s.x * 0.04) * 2);
     ctx.stroke();
 
     s.x += s.speed;
@@ -181,13 +182,16 @@ const WEATHER_ICONS: Partial<Record<RaceWeatherType, string>> = {
 
 export function RaceWeatherBadge({ weather }: { weather: RaceWeatherState }) {
   const icon = WEATHER_ICONS[weather.type];
+  const active = weather.type !== "clear" && weather.opacity > 0.05;
   return (
     <div
-      className={`race-weather-badge${weather.type === "clear" ? " race-weather-badge--clear" : ""}`}
-      aria-label={`Weather: ${weather.label}`}
+      className={`race-weather-badge${
+        weather.type === "clear" || !active ? " race-weather-badge--clear" : ""
+      }${weather.type === "wind" && active ? " race-weather-badge--wind" : ""}`}
+      aria-label={`Weather: ${active ? weather.label : "CLEAR"}`}
     >
-      {icon ? <span className="race-weather-badge-icon">{icon}</span> : null}
-      <span>{weather.label}</span>
+      {icon && active ? <span className="race-weather-badge-icon">{icon}</span> : null}
+      <span>{active ? weather.label : "CLEAR"}</span>
     </div>
   );
 }

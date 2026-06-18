@@ -83,6 +83,43 @@ export function getScorePipBackground(index: number, count: number, night = fals
 
 export const SCORE_PIP_SLOTS = 20;
 
+export interface ScorePipFill {
+  bright: number;
+  partialIndex: number;
+  partial: number;
+}
+
+/** Race standings bars: scale score between field min and leader across fixed slots. */
+export function getRelativePipFill(
+  score: number,
+  minScore: number,
+  leaderScore: number,
+  slots = SCORE_PIP_SLOTS
+): ScorePipFill {
+  const min = Math.max(0, Math.round(minScore));
+  const leader = Math.max(min, Math.round(leaderScore));
+  const pts = roundRaceScore(score);
+  const spread = leader - min;
+
+  if (spread <= 0) {
+    return { bright: pts > 0 ? slots : 0, partialIndex: -1, partial: 0 };
+  }
+
+  const exact = ((pts - min) / spread) * slots;
+  const bright = Math.floor(exact);
+  const partial = exact - bright;
+
+  if (partial > 0.001 && bright < slots) {
+    return { bright, partialIndex: bright, partial: Math.min(1, partial) };
+  }
+
+  return {
+    bright: Math.min(slots, Math.round(exact)),
+    partialIndex: -1,
+    partial: 0,
+  };
+}
+
 /** Filled diagonal pips within the pill (0–SCORE_PIP_SLOTS). */
 export function scorePipFillCount(
   points: number,
