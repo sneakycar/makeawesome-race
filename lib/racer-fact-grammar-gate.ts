@@ -3,6 +3,8 @@
  */
 
 import { seededInt } from "./seeded-rng";
+import type { PlayerGender } from "./player-gender";
+import { adaptRacerFactForGender } from "./player-gender";
 import { RACER_FACT_TEMPLATES, getRacerFactFragmentPools } from "./racer-fact-corpus";
 
 export type RacerFactGrammarResult = { ok: true } | { ok: false; reason: string };
@@ -155,7 +157,10 @@ function pickVarsForTemplate(
   return vars;
 }
 
-export function pickGatedRacerFact(seed: string): string {
+export function pickGatedRacerFact(
+  seed: string,
+  gender: PlayerGender = "M"
+): string {
   const pools = getRacerFactFragmentPools();
   const templates = RACER_FACT_TEMPLATES.filter((template) =>
     templateVarsAreValid(template, pickVarsForTemplate(`${seed}:probe`, template, pools), pools)
@@ -168,10 +173,14 @@ export function pickGatedRacerFact(seed: string): string {
     const vars = pickVarsForTemplate(`${seed}:${i}`, template, pools);
     if (!templateVarsAreValid(template, vars, pools)) continue;
     const line = fillRacerFactTemplate(template, vars);
-    if (validateRacerFactLine(line).ok) return line;
+    const adapted = adaptRacerFactForGender(line, gender);
+    if (validateRacerFactLine(adapted).ok) return adapted;
   }
 
-  return "once forgot why he was standing there.";
+  return adaptRacerFactForGender(
+    "once forgot why he was standing there.",
+    gender
+  );
 }
 
 export function countRacerFactFragments(): number {

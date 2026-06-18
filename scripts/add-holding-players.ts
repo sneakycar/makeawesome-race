@@ -12,6 +12,7 @@ config({ path: resolve(process.cwd(), ".env") });
 import { slugify } from "../lib/format";
 import type { PlayerIdentity } from "../lib/identity";
 import { buildPlayerInsert } from "../lib/race-logic";
+import type { PlayerGender } from "../lib/player-gender";
 import { createAdminClient } from "../lib/supabase/admin";
 
 const HOLDING_NAMES = [
@@ -28,6 +29,10 @@ const HOLDING_NAMES = [
   "speedball",
   "jack",
   "reemer",
+  "skept",
+  "miguel",
+  "karl",
+  "nicole",
 ] as const;
 
 const HOLDING_IDENTITY_OVERRIDES: Partial<Record<(typeof HOLDING_NAMES)[number], PlayerIdentity>> = {
@@ -36,6 +41,10 @@ const HOLDING_IDENTITY_OVERRIDES: Partial<Record<(typeof HOLDING_NAMES)[number],
     traits: ["SAD", "UNLUCKY", "USELESS"],
     signature_stat: "drag",
   },
+};
+
+const HOLDING_GENDER_OVERRIDES: Partial<Record<(typeof HOLDING_NAMES)[number], PlayerGender>> = {
+  nicole: "F",
 };
 
 async function main() {
@@ -74,7 +83,8 @@ async function main() {
       }
 
       const identity = HOLDING_IDENTITY_OVERRIDES[name];
-    const insert = buildPlayerInsert(name, slug, "holding", createdDay, seed, identity);
+      const gender = HOLDING_GENDER_OVERRIDES[name];
+    const insert = buildPlayerInsert(name, slug, "holding", createdDay, seed, identity, gender);
       const { data: updated, error: updateErr } = await supabase
         .from("players")
         .update({
@@ -99,7 +109,8 @@ async function main() {
     }
 
     const identity = HOLDING_IDENTITY_OVERRIDES[name];
-    const insert = buildPlayerInsert(name, slug, "holding", createdDay, seed, identity);
+    const gender = HOLDING_GENDER_OVERRIDES[name];
+    const insert = buildPlayerInsert(name, slug, "holding", createdDay, seed, identity, gender);
     const { data: inserted, error: insertErr } = await supabase
       .from("players")
       .insert(insert)

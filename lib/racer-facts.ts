@@ -1,4 +1,5 @@
 import type { Player, RaceEntry } from "./types";
+import { resolvePlayerGender } from "./player-gender";
 import { pickGatedRacerFact } from "./racer-fact-grammar-gate";
 
 export interface RacerFactResult {
@@ -13,7 +14,8 @@ export function generateRacerFact(
   _raceEntry: RaceEntry,
   seed: string
 ): RacerFactResult {
-  const fact = pickGatedRacerFact(`${seed}:${player.id}:${player.slug}`);
+  const gender = player.gender ?? resolvePlayerGender(player.slug, player.seed);
+  const fact = pickGatedRacerFact(`${seed}:${player.id}:${player.slug}`, gender);
 
   return {
     title: "RACER FACT",
