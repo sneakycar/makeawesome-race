@@ -264,6 +264,18 @@ export function formatTickerAge(isoDate: string, now: Date = new Date()): string
   return `${days}d ago`;
 }
 
+/** User-facing name for a 15m log segment (the scored race update burst). */
+export const RACE_LOG_SEGMENT_LABEL = "segment";
+
+export function formatRaceLogSegmentTag(
+  tickNumber: number,
+  raceStartedAt: string | Date,
+  now: Date = new Date()
+): string {
+  const age = formatTickAge(raceStartedAt, tickNumber, now);
+  return `[${RACE_LOG_SEGMENT_LABEL} ${tickNumber + 1}] (${age})`;
+}
+
 /** Age label from a tick's scheduled wall time (15m cadence), not DB insert time. */
 export function formatTickAge(
   raceStartedAt: string | Date,

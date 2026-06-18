@@ -16,6 +16,7 @@ import {
   formatTickerForDisplay,
   formatLogMessageForDisplay,
   formatTickerAge,
+  formatRaceLogSegmentTag,
   formatTickAge,
   ordinal,
 } from "@/lib/format";
@@ -426,11 +427,19 @@ function HoldingSection({
   }
 
   const shown = players.slice(0, 20);
-  const list = shown.map((p) => `${p.name} (AGE ${p.age_days})`).join(", ");
-  const text =
-    players.length > 20 ? `${list}, ...AND ${players.length - 20} MORE` : list;
 
-  return <div className="holding-list">{text}</div>;
+  return (
+    <div className="holding-list">
+      {shown.map((p, index) => (
+        <span key={p.name}>
+          {index > 0 ? ", " : ""}
+          {p.name}
+          <span className="holding-age"> (AGE {p.age_days})</span>
+        </span>
+      ))}
+      {players.length > 20 ? `, ...AND ${players.length - 20} MORE` : null}
+    </div>
+  );
 }
 
 function AboutSection() {
@@ -536,8 +545,7 @@ function RaceTickLogRow({
   return (
     <div className="race-log-row">
       <span className="race-log-tag">
-        [tick {entry.tickNumber + 1}] (
-        {formatTickAge(raceStartedAt, entry.tickNumber, now)})
+        {formatRaceLogSegmentTag(entry.tickNumber, raceStartedAt, now)}
       </span>
       <span className="race-log-msg">
         {formatLogMessageForDisplay(entry.message, entry.facts, knownNames)}
@@ -561,7 +569,7 @@ function RaceTickLogPanel({
   const older = entries.length > 1 ? entries.slice(1) : [];
 
   if (!latest) {
-    return <p className="race-log-empty">no ticks yet</p>;
+    return <p className="race-log-empty">no segments yet</p>;
   }
 
   return (

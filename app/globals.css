@@ -3892,6 +3892,11 @@ body[data-home-theme="night"] .delay-overlay {
   line-height: 1.35;
 }
 
+.holding-age {
+  font-size: calc(1em - 3pt);
+  opacity: 0.4;
+}
+
 .streak-list {
   display: flex;
   flex-direction: column;
