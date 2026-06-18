@@ -47,6 +47,8 @@ const HOLDING_IDENTITY_OVERRIDES: Partial<Record<(typeof HOLDING_NAMES)[number],
 
 const HOLDING_GENDER_OVERRIDES: Partial<Record<(typeof HOLDING_NAMES)[number], PlayerGender>> = {
   nicole: "F",
+  chrisman: "M",
+  "A.K. pal": "M",
 };
 
 async function main() {
