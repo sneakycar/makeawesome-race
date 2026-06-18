@@ -26,7 +26,9 @@ export function useLiveRankDelta(
         if (entry.is_injured || entry.is_fighting) continue;
         const liveRank = liveRanks.get(entry.player_id);
         if (liveRank == null) continue;
-        const delta = liveRankDeltaSinceCron(entry.current_rank, liveRank);
+        const liveDelta = liveRankDeltaSinceCron(entry.current_rank, liveRank);
+        const tickDelta = Number(entry.last_rank_change ?? 0);
+        const delta = liveDelta !== 0 ? liveDelta : tickDelta;
         if (delta !== 0) deltas.set(entry.player_id, delta);
       }
       return deltas;
