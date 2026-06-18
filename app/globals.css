@@ -168,6 +168,38 @@ main,
   margin-bottom: 12px;
 }
 
+.home-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sound-mute-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  color: inherit;
+  border: 1px solid #999;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sound-mute-btn:active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.sound-mute-btn.is-muted {
+  opacity: 0.72;
+}
+
 .stats-nav-link {
   flex-shrink: 0;
   display: inline-flex;
@@ -3715,6 +3747,15 @@ body[data-home-theme="night"] .player-sheet .row-score-pip-num {
   background: rgba(0, 0, 0, 0.04);
 }
 
+body[data-home-theme="night"] .sound-mute-btn {
+  border-color: #555;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+body[data-home-theme="night"] .sound-mute-btn:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 body[data-home-theme="night"] .stats-nav-link {
   border-color: #666;
   background: rgba(255, 255, 255, 0.04);
@@ -4592,6 +4633,22 @@ body[data-home-theme="night"] .race-weather-lightning {
   .stats-nav-link {
     font-size: 11px;
     padding: 8px 12px;
+  }
+
+  .sound-mute-btn {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+  }
+
+  .sound-mute-btn:hover {
+    border-color: #111;
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  body[data-home-theme="night"] .sound-mute-btn:hover {
+    border-color: #ccc;
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .stats-nav-link:hover {

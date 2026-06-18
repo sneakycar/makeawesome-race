@@ -40,6 +40,7 @@ import { PlayerCardOverlay } from "@/app/components/player-card-overlay";
 import { BadMoneyModal } from "@/app/components/bad-money-modal";
 import { RacerFactReveal } from "@/app/components/racer-fact-reveal";
 import { ScorePipTrack } from "@/app/components/score-pip-track";
+import { SoundMuteButton } from "@/app/components/sound-mute-button";
 import { FlatIcon, type RaceIconId } from "@/app/components/flat-icons";
 import { fetchWithRetry } from "@/lib/server-resilience";
 import { useServerAnchoredNow } from "@/lib/use-server-now";
@@ -444,8 +445,8 @@ function AboutSection() {
             <strong>9:00 AM – 9:00 AM EST</strong> (24 hours).
           </p>
           <p>
-            <strong>Last place</strong> is sent to holding. A new racer or returning
-            loser enters tomorrow. Every racer keeps their history forever.
+            <strong>Last place</strong> is sent to holding. The next racer is drawn from
+            holding only — no generated names.
           </p>
         </section>
 
@@ -1006,9 +1007,12 @@ export default function HomePage() {
 
       <div className="home-header">
         <h1 className="title">B3S LEAGUE</h1>
-        <Link href="/stats" className="stats-nav-link">
-          LEAGUE STATS ▶
-        </Link>
+        <div className="home-header-actions">
+          <SoundMuteButton />
+          <Link href="/stats" className="stats-nav-link">
+            LEAGUE STATS ▶
+          </Link>
+        </div>
       </div>
 
       {error && <p className="error">{error}</p>}

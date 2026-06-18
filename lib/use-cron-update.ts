@@ -13,6 +13,7 @@ import {
 } from "./tick-burst-timing";
 import { getMsUntilNextUpdate } from "./race-clock";
 import { vibrateTickBurst } from "./nope-feedback";
+import { playTickBurstSound } from "./tick-burst-sound";
 import type { GameStateResponse } from "./types";
 
 export type TickBurstPhase = "rip" | "stamp" | "hold" | "explode";
@@ -73,6 +74,7 @@ export function useCronUpdate(
       pendingStateRef.current = next;
       burstActiveRef.current = true;
       vibrateTickBurst();
+      playTickBurstSound();
       setTickBurst({ phase: "rip", headline });
 
       burstTimersRef.current.push(
