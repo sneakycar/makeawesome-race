@@ -100,7 +100,6 @@ export async function fetchHomeState(
       .from("players")
       .select("name, age_days")
       .eq("status", "holding")
-      .gte("races", 1)
       .order("name", { ascending: true }),
     supabase
       .from("players")
