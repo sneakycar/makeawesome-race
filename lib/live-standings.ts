@@ -58,3 +58,32 @@ export function buildLiveScoreMap(
   }
   return scores;
 }
+
+/** Animated score between cron ticks (rolling tick window). */
+export function buildLiveAnimatedScoreMap(
+  entries: RaceEntryWithPlayer[],
+  liveScores?: Map<string, { score: number; hardenedScore?: number }>
+): Map<string, number> {
+  const scores = new Map<string, number>();
+  for (const entry of entries) {
+    const live = liveScores?.get(entry.player_id);
+    scores.set(entry.player_id, getEntryDisplayScore(entry, live?.score));
+  }
+  return scores;
+}
+
+/** Score at segment start (before the current tick delta animates in). */
+export function buildLiveHardenedScoreMap(
+  entries: RaceEntryWithPlayer[],
+  liveScores?: Map<string, { hardenedScore?: number; confirmedScore?: number }>
+): Map<string, number> {
+  const scores = new Map<string, number>();
+  for (const entry of entries) {
+    const live = liveScores?.get(entry.player_id);
+    scores.set(
+      entry.player_id,
+      getEntryDisplayScore(entry, live?.hardenedScore ?? live?.confirmedScore)
+    );
+  }
+  return scores;
+}

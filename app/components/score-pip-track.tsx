@@ -15,8 +15,6 @@ import {
   SCORE_TRACK_SLOTS,
 } from "@/lib/score";
 
-const SCORE_PIP_STEP_PX = 3;
-
 export function ScorePipTrack({
   confirmedScore,
   lastDelta = 0,
@@ -113,7 +111,8 @@ export function ScorePipTrack({
 
   const litPips =
     fill.bright + (fill.partialIndex >= 0 && fill.partial > 0.001 ? 1 : 0);
-  const outlineWidthPx = Math.max(litPips > 0 ? 4 : 0, litPips * SCORE_PIP_STEP_PX - 1);
+  const outlineWidthPct =
+    slots > 0 ? Math.min(100, (litPips / slots) * 100) : 0;
   const showOutline =
     litPips > 0 &&
     (isLeader ||
@@ -195,7 +194,7 @@ export function ScorePipTrack({
         {showOutline && (
           <div
             className={`score-pip-track-outline${outlineClass}`}
-            style={{ width: `${outlineWidthPx}px`, maxWidth: "100%" }}
+            style={{ width: `${outlineWidthPct}%` }}
             aria-hidden="true"
           />
         )}
@@ -203,8 +202,7 @@ export function ScorePipTrack({
           <div
             className="row-scoreboard-overlay"
             style={{
-              width: `${outlineWidthPx}px`,
-              maxWidth: "100%",
+              width: `${outlineWidthPct}%`,
             }}
             aria-hidden="true"
           >

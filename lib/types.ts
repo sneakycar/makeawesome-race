@@ -323,7 +323,7 @@ export interface GameStateResponse {
   entries: RaceEntryWithPlayer[];
   allTime: Array<Pick<Player, "id" | "name" | "wins">>;
   streaks: StreakEntry[];
-  holding: Array<Pick<Player, "name" | "age_days">>;
+  holding: Array<Pick<Player, "name" | "slug" | "age_days">>;
   injured: Array<Pick<Player, "name" | "current_injury_name" | "injury_races_remaining">>;
   serverTime: string;
   remainingMs: number;

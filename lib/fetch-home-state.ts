@@ -100,7 +100,7 @@ export async function fetchHomeState(
     supabase.from("game_state").select("*").eq("id", 1).single(),
     supabase
       .from("players")
-      .select("name, age_days")
+      .select("name, slug, age_days")
       .eq("status", "holding")
       .order("name", { ascending: true }),
     supabase

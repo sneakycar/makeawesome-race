@@ -23,8 +23,8 @@ export function isFightFrozen(
 }
 
 export function calculateFightChance(ctx: FightRollContext): number {
-  if (ctx.percentComplete <= 12 || ctx.percentComplete >= 88) return 0;
-  return 0.0075;
+  if (ctx.percentComplete <= 8 || ctx.percentComplete >= 92) return 0;
+  return 0.028;
 }
 
 export function fightTraitMultiplier(players: Player[]): number {
@@ -41,7 +41,7 @@ export function fightTraitMultiplier(players: Player[]): number {
 }
 
 export function shouldStartFight(seed: string, chance: number): boolean {
-  return seededBool(seed, Math.min(0.04, chance));
+  return seededBool(seed, Math.min(0.06, chance));
 }
 
 export function pickFightPair(

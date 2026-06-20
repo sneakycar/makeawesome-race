@@ -42,9 +42,14 @@ export function useCronUpdate(
   const pendingStateRef = useRef<GameStateResponse | null>(null);
   const burstTimersRef = useRef<number[]>([]);
   const burstActiveRef = useRef(false);
+  const seenTickAtRef = useRef<string | null>(null);
 
   fetchStateRef.current = fetchState;
   optionsRef.current = options;
+
+  const markSeenTickAt = useCallback((lastTickAt: string | null | undefined) => {
+    seenTickAtRef.current = lastTickAt ?? null;
+  }, []);
 
   const clearBurstTimers = useCallback(() => {
     for (const id of burstTimersRef.current) {
@@ -73,6 +78,7 @@ export function useCronUpdate(
       clearBurstTimers();
       pendingStateRef.current = next;
       burstActiveRef.current = true;
+      markSeenTickAt(next.gameState.last_tick_at);
       vibrateTickBurst();
       playTickBurstSound();
       setTickBurst({ phase: "rip", headline });
@@ -112,7 +118,7 @@ export function useCronUpdate(
           TICK_BURST_EXPLODE_MS)
       );
     },
-    [clearBurstTimers, finishBurst, applyPendingState]
+    [clearBurstTimers, finishBurst, applyPendingState, markSeenTickAt]
   );
 
   const runUpdate = useCallback(async () => {
@@ -120,9 +126,23 @@ export function useCronUpdate(
     const next = await fetchStateRef.current();
     if (!next) return;
 
-    if (prev && shouldPlayTickBurst(prev, next)) {
+    const nextTickAt = next.gameState.last_tick_at ?? null;
+
+    if (!prev) {
+      markSeenTickAt(nextTickAt);
+      optionsRef.current.onApplyState(next);
+      return;
+    }
+
+    const tickAdvanced =
+      shouldPlayTickBurst(prev, next) &&
+      nextTickAt != null &&
+      nextTickAt !== seenTickAtRef.current;
+
+    if (tickAdvanced) {
       startBurst(pickTickBurstHeadline(prev, next), next);
     } else if (!burstActiveRef.current) {
+      markSeenTickAt(nextTickAt);
       optionsRef.current.onApplyState(next);
     } else {
       pendingStateRef.current = next;
@@ -135,9 +155,10 @@ export function useCronUpdate(
         pendingStateRef.current = retry;
         return;
       }
+      markSeenTickAt(retry.gameState.last_tick_at);
       optionsRef.current.onApplyState(retry);
     }, CRON_RETRY_MS);
-  }, [startBurst]);
+  }, [startBurst, markSeenTickAt]);
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -174,5 +195,5 @@ export function useCronUpdate(
     };
   }, [runUpdate, clearBurstTimers]);
 
-  return { nextUpdateMs, tickBurst };
+  return { nextUpdateMs, tickBurst, markSeenTickAt };
 }

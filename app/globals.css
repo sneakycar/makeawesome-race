@@ -1836,7 +1836,7 @@ body[data-home-theme="night"] .race-weather--wind .race-weather-sky {
   margin-bottom: -5px;
   line-height: 1;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .row-head-tags {
@@ -3929,6 +3929,36 @@ body[data-home-theme="night"] .delay-overlay {
   line-height: 1.35;
 }
 
+.holding-name {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 0, 0, 0.25);
+  text-underline-offset: 2px;
+}
+
+.holding-name:hover {
+  color: #111;
+  text-decoration-color: rgba(0, 0, 0, 0.55);
+}
+
+body[data-home-theme="night"] .holding-name {
+  text-decoration-color: rgba(255, 255, 255, 0.25);
+}
+
+body[data-home-theme="night"] .holding-name:hover {
+  color: #ffd700;
+  text-decoration-color: rgba(255, 215, 0, 0.55);
+}
+
 .holding-age {
   font-size: calc(1em - 3pt);
   opacity: 0.4;
@@ -4758,6 +4788,28 @@ body[data-home-theme="night"] .race-weather-lightning {
   .row-track {
     grid-template-columns: 1.25rem minmax(0, 1fr) 32px 32px 2.25rem;
     gap: 8px;
+  }
+
+  .score-pip-track--race .score-pip-track-inner {
+    width: 100%;
+    max-width: none;
+  }
+
+  .score-pip-track--race .score-pip {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 5px;
+    max-width: none;
+    height: 14px;
+  }
+
+  .score-pip-track--race {
+    height: 16px;
+  }
+
+  .score-pip-viewport {
+    min-width: 0;
+    height: 17px;
   }
 
   .row-name {

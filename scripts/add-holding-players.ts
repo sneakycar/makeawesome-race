@@ -35,6 +35,7 @@ const HOLDING_NAMES = [
   "nicole",
   "chrisman",
   "A.K. pal",
+  "bhole",
 ] as const;
 
 const HOLDING_IDENTITY_OVERRIDES: Partial<Record<(typeof HOLDING_NAMES)[number], PlayerIdentity>> = {
@@ -49,6 +50,7 @@ const HOLDING_GENDER_OVERRIDES: Partial<Record<(typeof HOLDING_NAMES)[number], P
   nicole: "F",
   chrisman: "M",
   "A.K. pal": "M",
+  bhole: "M",
 };
 
 async function main() {

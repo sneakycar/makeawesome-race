@@ -415,13 +415,16 @@ function InjuredSection({
 
 function HoldingSection({
   players,
+  onSelectSlug,
 }: {
-  players: Array<Pick<Player, "name" | "age_days">>;
+  players: Array<Pick<Player, "name" | "slug" | "age_days">>;
+  onSelectSlug: (slug: string) => void;
 }) {
   if (players.length === 0) {
     return (
       <p className="holding-empty">
-        Racers who have lost a race appear here and remain in the pool for future races.
+        Racers who finish outside the top three appear here and remain in the pool
+        for future races.
       </p>
     );
   }
@@ -431,9 +434,15 @@ function HoldingSection({
   return (
     <div className="holding-list">
       {shown.map((p, index) => (
-        <span key={p.name}>
+        <span key={p.slug}>
           {index > 0 ? ", " : ""}
-          {p.name}
+          <button
+            type="button"
+            className="holding-name"
+            onClick={() => onSelectSlug(p.slug)}
+          >
+            {p.name}
+          </button>
           <span className="holding-age"> (AGE {p.age_days})</span>
         </span>
       ))}
@@ -454,8 +463,84 @@ function AboutSection() {
             <strong>9:00 AM – 9:00 AM EST</strong> (24 hours).
           </p>
           <p>
-            <strong>Last place</strong> is sent to holding. The next racer is drawn from
-            holding only — no generated names.
+            <strong>Top three</strong> carry into the next race. The other five slots
+            are filled at random from holding — never from the previous race&apos;s roster.
+          </p>
+        </section>
+
+        <section className="about-block">
+          <h3 className="about-subhead">+1 Voting</h3>
+          <p>
+            Up to <strong>six times per race</strong>, tap <strong>+1</strong> on a racer
+            you want to boost. There is a <strong>10-minute cooldown</strong> between taps
+            — the button shows a check until it clears, then <strong>+1</strong> lights up
+            again.
+          </p>
+          <p>
+            Each vote can grant up to <strong>+1 live race point</strong> immediately
+            (hard caps: 3 points from you per race, 5 per racer, 12 across the whole
+            field). You cannot support injured or fighting racers. The bump is tiny on
+            purpose — fans cannot buy the race.
+          </p>
+          <p>
+            After the race ends, supported racers roll for permanent{" "}
+            <strong>stat growth</strong>. Struggling and recently returned racers get
+            better odds; strong dynasties grow slower. More votes on the same racer
+            slightly improve those post-race growth rolls.
+          </p>
+        </section>
+
+        <section className="about-block">
+          <h3 className="about-subhead">Betting (Bad Money)</h3>
+          <p>
+            Once per race, you may place <strong>bad money</strong> on one racer — tap
+            the <strong>$</strong> button on their row. There is no payout and no real
+            currency. It is superstition only.
+          </p>
+          <p>
+            During the race, bad money can nudge that racer&apos;s tick gains up or down
+            by a tiny random amount. Late in the day the effect may wobble under
+            pressure. After the race, it adds a small chance of long-term{" "}
+            <strong>stat growth or regression</strong> — unreliable and capped.
+          </p>
+          <p>
+            The machine stays in charge. Bad money is flavor and mild chaos, not a
+            strategy.
+          </p>
+        </section>
+
+        <section className="about-block">
+          <h3 className="about-subhead">Fights</h3>
+          <p>
+            Mid-race, two nearby racers can <strong>throw down</strong>. When a fight
+            starts, both racers&apos; scores <strong>freeze</strong> — they stop gaining
+            progress for several ticks while the scuffle plays out. You&apos;ll see a{" "}
+            <strong>FIGHT</strong> badge on their rows and a broadcast in the log.
+          </p>
+          <p>
+            Fights cannot start in the first or last few minutes of the race. Gamblers,
+            glass cannons, and dangerous traits make fights more likely; calm
+            professionals resist them. Only one brawl runs at a time.
+          </p>
+          <p>
+            If a racer is <strong>still fighting when the race ends</strong>, they are
+            disqualified and sent to <strong>holding</strong> — even if they were in the
+            top three.
+          </p>
+        </section>
+
+        <section className="about-block">
+          <h3 className="about-subhead">Injuries</h3>
+          <p>
+            On any tick, a healthy racer can rarely roll an injury — more likely when
+            tired, chaotic, or dragging; grit and nerve help resist. Injuries do not
+            happen often, but they can interrupt dynasties.
+          </p>
+          <p>
+            An injured racer <strong>freezes in place</strong> for the rest of that race
+            and cannot be supported with +1. After the finish they leave the active
+            roster, miss <strong>one or more future races</strong>, then recover into{" "}
+            <strong>holding</strong> (not straight back onto the track).
           </p>
         </section>
 
@@ -470,52 +555,6 @@ function AboutSection() {
             Some are steady workhorses, some are unstable gamblers, some bloom late,
             some collapse under pressure, and some come back stronger after holding.
             The race is still automatic — the racers are not identical.
-          </p>
-        </section>
-
-        <section className="about-block">
-          <h3 className="about-subhead">Support</h3>
-          <p>
-            Up to <strong>six times per race</strong>, you can tap <strong>+1</strong>{" "}
-            for one racer. Each tap adds a tiny bump to today&apos;s score (capped so
-            fans can never buy the race) and rolls for permanent growth after the
-            finish.
-          </p>
-          <p>
-            Strong racers grow slowly; struggling racers get better odds. Age, decay,
-            holding, and injuries still pull everyone back — there is no finish line.
-          </p>
-          <p>
-            After each tap the button shows a check until the cooldown clears, then{" "}
-            <strong>+1</strong> lights up again.
-          </p>
-        </section>
-
-        <section className="about-block">
-          <h3 className="about-subhead">Injuries</h3>
-          <p>
-            During a race, a racer can rarely suffer an injury.{" "}
-            <strong>Injured racers freeze in place</strong>, stop gaining progress, and
-            leave the active roster after the race.
-          </p>
-          <p>
-            They miss one or more future races, then recover into{" "}
-            <strong>Holding</strong> instead of returning directly to the track.
-            Injuries do not happen often, but they can interrupt dynasties, create
-            comeback arcs, and permanently mark a racer&apos;s history.
-          </p>
-        </section>
-
-        <section className="about-block">
-          <h3 className="about-subhead">Bad Money</h3>
-          <p>
-            Once per race, a visitor may place <strong>bad money</strong> on one racer.
-            Bad money is not real currency and has no payout. It is a superstition.
-          </p>
-          <p>
-            It may slightly disturb a racer&apos;s current race and can rarely affect
-            long-term growth or regression. The effect is tiny, capped, and unreliable.
-            The machine remains in charge.
           </p>
         </section>
 
@@ -640,19 +679,22 @@ export default function HomePage() {
     setLastRaceRecap(data.lastRaceRecap ?? null);
   }, []);
 
-  const loadState = useCallback(async () => {
-    const data = await fetchState();
-    if (data) applyGameState(data);
-  }, [fetchState, applyGameState]);
-
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
-  const { nextUpdateMs, tickBurst } = useCronUpdate(fetchState, {
+  const { nextUpdateMs, tickBurst, markSeenTickAt } = useCronUpdate(fetchState, {
     getPrevState: () => stateRef.current,
     onApplyState: applyGameState,
   });
+
+  const loadState = useCallback(async () => {
+    const data = await fetchState();
+    if (data) {
+      applyGameState(data);
+      markSeenTickAt(data.gameState.last_tick_at ?? null);
+    }
+  }, [fetchState, applyGameState, markSeenTickAt]);
 
   useEffect(() => {
     loadState();
@@ -1406,7 +1448,10 @@ export default function HomePage() {
 
             <div className="home-section-block">
               <div className="section-label">HOLDING</div>
-              <HoldingSection players={state.holding} />
+              <HoldingSection
+                players={state.holding}
+                onSelectSlug={setSelectedSlug}
+              />
             </div>
 
             <div className="home-section-block">
@@ -1479,44 +1524,60 @@ export default function HomePage() {
         </p>
       )}
 
-      {selectedSlug && selectedEntry && (
+      {selectedSlug && (
         <PlayerCardOverlay
           slug={selectedSlug}
           liveScore={
-            liveScoreMap.get(selectedEntry.player_id) ??
-            roundRaceScore(Number(selectedEntry.race_score))
+            selectedEntry
+              ? liveScoreMap.get(selectedEntry.player_id) ??
+                roundRaceScore(Number(selectedEntry.race_score))
+              : undefined
           }
           liveRank={
-            liveRankMap.get(selectedEntry.player_id) ?? selectedEntry.current_rank
+            selectedEntry
+              ? liveRankMap.get(selectedEntry.player_id) ?? selectedEntry.current_rank
+              : undefined
           }
           animatingDelta={
-            liveRace?.entries.get(selectedEntry.player_id)?.animatingDelta ?? 0
+            selectedEntry
+              ? liveRace?.entries.get(selectedEntry.player_id)?.animatingDelta ?? 0
+              : 0
           }
           leaderScore={leaderScorePoints}
           minScore={minScorePoints}
-          lastDelta={Number(selectedEntry.last_delta ?? 0)}
-          rankDelta={rankDeltaById.get(selectedEntry.player_id) ?? 0}
-          healthyEntryCount={healthyEntryCount}
-          lane={selectedEntry.lane}
-          isFighting={selectedEntry.is_fighting}
-          isInjured={selectedEntry.is_injured}
-          barMark={
-            selectedEntry.is_injured || selectedEntry.is_fighting
-              ? null
-              : barMarksById.get(selectedEntry.player_id) ?? null
+          lastDelta={selectedEntry ? Number(selectedEntry.last_delta ?? 0) : 0}
+          rankDelta={
+            selectedEntry ? rankDeltaById.get(selectedEntry.player_id) ?? 0 : 0
           }
-          ovrInfo={ovrByPlayerId[selectedEntry.player_id]}
+          healthyEntryCount={healthyEntryCount}
+          lane={selectedEntry?.lane}
+          isFighting={selectedEntry?.is_fighting ?? false}
+          isInjured={selectedEntry?.is_injured ?? false}
+          barMark={
+            selectedEntry && !selectedEntry.is_injured && !selectedEntry.is_fighting
+              ? barMarksById.get(selectedEntry.player_id) ?? null
+              : null
+          }
+          ovrInfo={selectedEntry ? ovrByPlayerId[selectedEntry.player_id] : undefined}
           isNight={isNight}
           onClose={() => setSelectedSlug(null)}
-          playerId={selectedEntry.player_id}
-          raceId={state!.race.id}
+          playerId={selectedEntry?.player_id}
+          raceId={state?.race.id}
           recentDeltas={
-            selectedEntry.recent_deltas ??
-            (selectedEntry.last_delta ? [Number(selectedEntry.last_delta)] : [])
+            selectedEntry
+              ? selectedEntry.recent_deltas ??
+                (selectedEntry.last_delta ? [Number(selectedEntry.last_delta)] : [])
+              : undefined
           }
-          confirmedScore={roundRaceScore(Number(selectedEntry.race_score))}
+          confirmedScore={
+            selectedEntry
+              ? roundRaceScore(Number(selectedEntry.race_score))
+              : undefined
+          }
           segmentProgress={
-            liveRace?.entries.get(selectedEntry.player_id)?.segmentProgress ?? 1
+            selectedEntry
+              ? liveRace?.entries.get(selectedEntry.player_id)?.segmentProgress ?? 1
+              : 1
           }
         />
       )}

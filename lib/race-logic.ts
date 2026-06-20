@@ -9,6 +9,7 @@ import { B3S_SEED_ACTIVE_NAMES, SEED_ACTIVE_NAMES } from "./name-generator";
 
 export { B3S_SEED_ACTIVE_NAMES };
 import { isApprovedLeaguePlayerSeed } from "./league-roster";
+import { pickQueuedHoldingPlayer } from "./queued-rookies";
 import { resolvePlayerGender, type PlayerGender } from "./player-gender";
 import { TARGET_WINNER_SCORE, clampNaturalRaceScore, getPaceCap, normalizePeakRaceScore, roundRaceScore } from "./score";
 import { getCombinedRaceTempo, getRaceWeekTempo } from "./race-tempo";
@@ -995,7 +996,10 @@ export async function tickRace(supabase: SupabaseClient): Promise<void> {
 
   const ranked = rankEntries(updated).map((entry) => {
     const prev = beforeSnapshots.find((b) => b.player_id === entry.player_id);
-    const last_rank_change = prev ? prev.current_rank - entry.current_rank : 0;
+    const tickRankChange = prev ? prev.current_rank - entry.current_rank : 0;
+    // Keep the last non-zero move visible until the next rank change on this racer.
+    const last_rank_change =
+      tickRankChange !== 0 ? tickRankChange : Number(entry.last_rank_change ?? 0);
     return { ...entry, last_rank_change };
   });
 
@@ -1436,7 +1440,7 @@ export async function finalizeRace(
         finish,
         roundRaceScore(Number(entry.race_score))
       );
-    } else if (isLast) {
+    } else if (!entry.is_injured && !entry.is_disqualified && finish > 3) {
       updates.status = "holding";
       updates.eliminations = player.eliminations + 1;
       updates.holding_days = player.holding_days + 1;
@@ -1449,7 +1453,9 @@ export async function finalizeRace(
         race.id,
         currentDay,
         "eliminated",
-        "ELIMINATED TO HOLDING",
+        finish === healthyFinishCount
+          ? "ELIMINATED TO HOLDING"
+          : "OUT OF PODIUM — TO HOLDING",
         finish,
         roundRaceScore(Number(entry.race_score))
       );
@@ -1472,7 +1478,7 @@ export async function finalizeRace(
         finish,
         roundRaceScore(Number(entry.race_score))
       );
-    } else if (!entry.is_injured && !entry.is_disqualified && !isLast) {
+    } else if (!entry.is_injured && !entry.is_disqualified && finish <= 3) {
       await addHistory(
         supabase,
         player.id,
@@ -1555,18 +1561,16 @@ export async function finalizeRace(
     await saveTickerEvents(supabase, race.id, tickNumber, finalizeMessages);
   }
 
-  const lastPlaceEntry =
-    !hadInjuries && !hadDqs
-      ? ranked.find((e) => {
-          if (e.is_injured || e.is_disqualified) return false;
-          const finish = e.final_rank ?? e.current_rank;
-          return finish === healthyFinishCount;
-        })
-      : undefined;
-  const lastPlaceIds = lastPlaceEntry ? [lastPlaceEntry.player_id] : [];
-  const departingIds = new Set([...injuredIds, ...dqIds, ...lastPlaceIds]);
   const currentRacePlayerIds = ranked.map((e) => e.player_id);
-  const slotsNeeded = departingIds.size;
+
+  const eligibleFinishers = ranked.filter(
+    (e) => !e.is_injured && !e.is_disqualified
+  );
+  const carryOverIds = eligibleFinishers
+    .filter((e) => (e.final_rank ?? e.current_rank) <= 3)
+    .map((e) => e.player_id);
+
+  const slotsNeeded = Math.max(0, 8 - carryOverIds.length);
 
   if (!createNextRace) {
     await supabase
@@ -1585,16 +1589,13 @@ export async function finalizeRace(
     new Date(race.ends_at)
   );
 
-  const carryOverIds = ranked
-    .filter((e) => !departingIds.has(e.player_id))
-    .map((e) => e.player_id);
-
   let rosterIds = [...carryOverIds];
   const replacementExclude = new Set([...currentRacePlayerIds]);
 
   for (let i = 0; i < slotsNeeded; i++) {
     const replacement = await chooseReplacement(supabase, nextDay, {
       excludePlayerIds: [...replacementExclude],
+      nextRaceNumber,
     });
     replacementExclude.add(replacement.id);
     rosterIds.push(replacement.id);
@@ -1608,6 +1609,7 @@ export async function finalizeRace(
   while (rosterIds.length < 8) {
     const replacement = await chooseReplacement(supabase, nextDay, {
       excludePlayerIds: [...replacementExclude],
+      nextRaceNumber,
     });
     replacementExclude.add(replacement.id);
     rosterIds.push(replacement.id);
@@ -1617,9 +1619,9 @@ export async function finalizeRace(
   if (rosterSet.size !== rosterIds.length) {
     throw new Error("Next race roster contains duplicate racers");
   }
-  for (const departingId of departingIds) {
-    if (rosterSet.has(departingId)) {
-      throw new Error("Departing racer cannot join the next race");
+  for (const prevId of currentRacePlayerIds) {
+    if (rosterSet.has(prevId) && !carryOverIds.includes(prevId)) {
+      throw new Error("Non-podium racer from previous race cannot join the next race");
     }
   }
 
@@ -1765,7 +1767,7 @@ export async function updateHoldingPlayers(supabase: SupabaseClient, currentDay:
 export async function chooseReplacement(
   supabase: SupabaseClient,
   nextDay: number,
-  options: { excludePlayerIds?: string[] } = {}
+  options: { excludePlayerIds?: string[]; nextRaceNumber?: number } = {}
 ): Promise<Player> {
   const excluded = new Set(options.excludePlayerIds ?? []);
 
@@ -1813,8 +1815,12 @@ export async function chooseReplacement(
   };
 
   if (eligible.length) {
-    const idx = seededInt(`${nextDay}:replacement-pick`, 0, eligible.length - 1);
-    const picked = eligible[idx]!;
+    const queued = pickQueuedHoldingPlayer(
+      eligible,
+      excluded,
+      options.nextRaceNumber
+    );
+    const picked = queued ?? eligible[seededInt(`${nextDay}:replacement-pick`, 0, eligible.length - 1)]!;
     if (!isApprovedLeaguePlayerSeed(picked.seed)) {
       throw new Error(
         `Holding pick ${picked.name} has unapproved seed "${picked.seed}" — add via scripts/add-holding-players.ts`
