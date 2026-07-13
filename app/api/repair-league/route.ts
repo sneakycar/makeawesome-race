@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getActiveRaceWithEntries,
   repairLeagueRaceState,
+  resetEmptyLeague,
 } from "@/lib/race-logic";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     const before = await Promise.all([
       supabase.from("races").select("id", { count: "exact", head: true }),
+      supabase.from("players").select("id", { count: "exact", head: true }),
       supabase
         .from("players")
         .select("id", { count: "exact", head: true })
@@ -31,25 +33,36 @@ export async function POST(request: Request) {
         .eq("status", "holding"),
     ]);
 
-    await repairLeagueRaceState(supabase);
+    try {
+      await repairLeagueRaceState(supabase);
+    } catch (repairErr) {
+      console.error("repairLeagueRaceState:", repairErr);
+      await resetEmptyLeague(supabase);
+    }
 
     const active = await getActiveRaceWithEntries(supabase);
+    if (!active) {
+      await resetEmptyLeague(supabase);
+    }
+
+    const activeAfter = await getActiveRaceWithEntries(supabase);
     const after = await supabase
       .from("races")
       .select("id", { count: "exact", head: true });
 
     return NextResponse.json({
-      ok: Boolean(active),
+      ok: Boolean(activeAfter),
       before: {
         raceCount: before[0].count ?? 0,
-        activeCount: before[1].count ?? 0,
-        holdingCount: before[2].count ?? 0,
+        totalPlayerCount: before[1].count ?? 0,
+        activeCount: before[2].count ?? 0,
+        holdingCount: before[3].count ?? 0,
       },
       after: {
         raceCount: after.count ?? 0,
-        raceNumber: active?.race.race_number ?? null,
-        raceStatus: active?.race.status ?? null,
-        entryCount: active?.entries.length ?? 0,
+        raceNumber: activeAfter?.race.race_number ?? null,
+        raceStatus: activeAfter?.race.status ?? null,
+        entryCount: activeAfter?.entries.length ?? 0,
       },
     });
   } catch (err) {

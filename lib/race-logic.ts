@@ -567,6 +567,17 @@ export async function ensureGameStateRow(supabase: SupabaseClient): Promise<void
   );
 }
 
+/** Wipe league tables and seed a fresh race 1 (recovery only). */
+export async function resetEmptyLeague(supabase: SupabaseClient): Promise<void> {
+  await supabase.from("races").delete().gte("race_number", 0);
+  await supabase.from("players").delete().gte("created_day", 0);
+  await supabase.from("game_state").delete().eq("id", 1);
+  const inited = await initializeGameIfNeeded(supabase);
+  if (!inited) {
+    throw new Error("resetEmptyLeague: initializeGameIfNeeded did not create a league");
+  }
+}
+
 export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<boolean> {
   const { data: existing } = await supabase.from("game_state").select("id").eq("id", 1).maybeSingle();
   const { count: raceCount } = await supabase
@@ -2042,8 +2053,16 @@ async function repairLeagueRaceStateInner(supabase: SupabaseClient): Promise<voi
       .select("id", { count: "exact", head: true });
     if (playerCountErr) throw playerCountErr;
     if (!playerCount) {
-      await supabase.from("game_state").delete().eq("id", 1);
-      await initializeGameIfNeeded(supabase);
+      await resetEmptyLeague(supabase);
+      return;
+    }
+
+    const { count: activeCount } = await supabase
+      .from("players")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active");
+    if ((activeCount ?? 0) < 8) {
+      await resetEmptyLeague(supabase);
       return;
     }
 
