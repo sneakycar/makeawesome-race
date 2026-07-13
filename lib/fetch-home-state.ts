@@ -6,6 +6,7 @@ import {
   getActiveStreaks,
   getNextRaceDayBounds,
   initializeGameIfNeeded,
+  resetEmptyLeague,
   ensureGameStateRow,
   ensureRaceTickedIfStale,
   repairActiveRaceSchedule,
@@ -42,10 +43,20 @@ export async function fetchHomeState(
   request: Request
 ): Promise<GameStateResponse | null> {
   await withFallback("initializeGameIfNeeded", () => initializeGameIfNeeded(supabase), false);
-  try {
-    await repairLeagueRaceState(supabase);
-  } catch (err) {
-    console.error("[fetchHomeState] repairLeagueRaceState failed:", err);
+  const { count: bootstrapRaceCount } = await supabase
+    .from("races")
+    .select("id", { count: "exact", head: true });
+  const { count: bootstrapPlayerCount } = await supabase
+    .from("players")
+    .select("id", { count: "exact", head: true });
+  if (!bootstrapRaceCount && !bootstrapPlayerCount) {
+    await withFallback("resetEmptyLeague", () => resetEmptyLeague(supabase), undefined);
+  } else {
+    try {
+      await repairLeagueRaceState(supabase);
+    } catch (err) {
+      console.error("[fetchHomeState] repairLeagueRaceState failed:", err);
+    }
   }
   await withFallback("ensureRaceTickedIfStale", () => ensureRaceTickedIfStale(supabase), undefined);
 
