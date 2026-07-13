@@ -1219,6 +1219,12 @@ export async function finalizeRace(
         updated_at: new Date().toISOString(),
       })
       .eq("id", race.id);
+    if (createNextRace) {
+      await ensureNextRaceAfterFinalized(supabase, {
+        ...race,
+        status: "finalized",
+      } as Race);
+    }
     return;
   }
 
@@ -1561,17 +1567,6 @@ export async function finalizeRace(
     await saveTickerEvents(supabase, race.id, tickNumber, finalizeMessages);
   }
 
-  const currentRacePlayerIds = ranked.map((e) => e.player_id);
-
-  const eligibleFinishers = ranked.filter(
-    (e) => !e.is_injured && !e.is_disqualified
-  );
-  const carryOverIds = eligibleFinishers
-    .filter((e) => (e.final_rank ?? e.current_rank) <= 3)
-    .map((e) => e.player_id);
-
-  const slotsNeeded = Math.max(0, 8 - carryOverIds.length);
-
   if (!createNextRace) {
     await supabase
       .from("game_state")
@@ -1583,72 +1578,14 @@ export async function finalizeRace(
     return;
   }
 
-  const nextDay = currentDay + 1;
-  const nextRaceNumber = race.race_number + 1;
-  const { startedAt: nextStartedAt, endsAt: nextEndsAt } = getNextRaceDayBounds(
-    new Date(race.ends_at)
-  );
-
-  let rosterIds = [...carryOverIds];
-  const replacementExclude = new Set([...currentRacePlayerIds]);
-
-  for (let i = 0; i < slotsNeeded; i++) {
-    const replacement = await chooseReplacement(supabase, nextDay, {
-      excludePlayerIds: [...replacementExclude],
-      nextRaceNumber,
-    });
-    replacementExclude.add(replacement.id);
-    rosterIds.push(replacement.id);
-  }
-
-  while (rosterIds.length > 8) {
-    const idx = rosterIds.findIndex((id) => !carryOverIds.includes(id));
-    if (idx < 0) break;
-    rosterIds.splice(idx, 1);
-  }
-  while (rosterIds.length < 8) {
-    const replacement = await chooseReplacement(supabase, nextDay, {
-      excludePlayerIds: [...replacementExclude],
-      nextRaceNumber,
-    });
-    replacementExclude.add(replacement.id);
-    rosterIds.push(replacement.id);
-  }
-
-  const rosterSet = new Set(rosterIds);
-  if (rosterSet.size !== rosterIds.length) {
-    throw new Error("Next race roster contains duplicate racers");
-  }
-  for (const prevId of currentRacePlayerIds) {
-    if (rosterSet.has(prevId) && !carryOverIds.includes(prevId)) {
-      throw new Error("Non-podium racer from previous race cannot join the next race");
-    }
-  }
-
-  for (const injuredId of injuredIds) {
-    if (rosterIds.includes(injuredId)) {
-      throw new Error("Injured racer cannot join the next race");
-    }
-  }
-
-  await createRace(
+  await startNextRaceFromCompleted(
     supabase,
-    nextDay,
-    nextRaceNumber,
-    rosterIds.slice(0, 8),
-    nextStartedAt,
-    nextEndsAt
+    race,
+    ranked,
+    injuredIds,
+    currentDay,
+    now
   );
-
-  await supabase
-    .from("game_state")
-    .update({
-      current_day: nextDay,
-      current_race_number: nextRaceNumber,
-      last_tick_at: now.toISOString(),
-      updated_at: now.toISOString(),
-    })
-    .eq("id", 1);
 }
 
 export function mutatePlayerAfterRace(
@@ -1832,6 +1769,245 @@ export async function chooseReplacement(
   throw new Error(
     "No replacement available: add racers to holding (scripts/add-holding-players.ts)"
   );
+}
+
+type NextRosterEntry = {
+  player_id: string;
+  current_rank: number;
+  final_rank?: number | null;
+  is_injured?: boolean;
+  is_disqualified?: boolean;
+};
+
+/** Top 3 carry + random holding fill (excludes previous race roster). */
+export async function buildNextRaceRoster(
+  supabase: SupabaseClient,
+  ranked: NextRosterEntry[],
+  nextDay: number,
+  nextRaceNumber: number,
+  injuredIds: string[] = []
+): Promise<string[]> {
+  const currentRacePlayerIds = ranked.map((e) => e.player_id);
+  const eligibleFinishers = ranked.filter(
+    (e) => !e.is_injured && !e.is_disqualified
+  );
+  const carryOverIds = eligibleFinishers
+    .filter((e) => (e.final_rank ?? e.current_rank) <= 3)
+    .map((e) => e.player_id);
+
+  let rosterIds = [...carryOverIds];
+  const replacementExclude = new Set([...currentRacePlayerIds]);
+  const slotsNeeded = Math.max(0, 8 - carryOverIds.length);
+
+  for (let i = 0; i < slotsNeeded; i++) {
+    const replacement = await chooseReplacement(supabase, nextDay, {
+      excludePlayerIds: [...replacementExclude],
+      nextRaceNumber,
+    });
+    replacementExclude.add(replacement.id);
+    rosterIds.push(replacement.id);
+  }
+
+  while (rosterIds.length > 8) {
+    const idx = rosterIds.findIndex((id) => !carryOverIds.includes(id));
+    if (idx < 0) break;
+    rosterIds.splice(idx, 1);
+  }
+  while (rosterIds.length < 8) {
+    const replacement = await chooseReplacement(supabase, nextDay, {
+      excludePlayerIds: [...replacementExclude],
+      nextRaceNumber,
+    });
+    replacementExclude.add(replacement.id);
+    rosterIds.push(replacement.id);
+  }
+
+  const rosterSet = new Set(rosterIds);
+  if (rosterSet.size !== rosterIds.length) {
+    throw new Error("Next race roster contains duplicate racers");
+  }
+  for (const prevId of currentRacePlayerIds) {
+    if (rosterSet.has(prevId) && !carryOverIds.includes(prevId)) {
+      throw new Error("Non-podium racer from previous race cannot join the next race");
+    }
+  }
+  for (const injuredId of injuredIds) {
+    if (rosterIds.includes(injuredId)) {
+      throw new Error("Injured racer cannot join the next race");
+    }
+  }
+
+  return rosterIds.slice(0, 8);
+}
+
+async function startNextRaceFromCompleted(
+  supabase: SupabaseClient,
+  completedRace: Race,
+  ranked: NextRosterEntry[],
+  injuredIds: string[],
+  currentDay: number,
+  now: Date = new Date()
+): Promise<Race> {
+  const nextDay = currentDay + 1;
+  const nextRaceNumber = completedRace.race_number + 1;
+  const rosterIds = await buildNextRaceRoster(
+    supabase,
+    ranked,
+    nextDay,
+    nextRaceNumber,
+    injuredIds
+  );
+  const { startedAt, endsAt } = getNextRaceDayBounds(new Date(completedRace.ends_at));
+  const race = await createRace(
+    supabase,
+    nextDay,
+    nextRaceNumber,
+    rosterIds,
+    startedAt,
+    endsAt
+  );
+  await supabase
+    .from("game_state")
+    .update({
+      current_day: nextDay,
+      current_race_number: nextRaceNumber,
+      last_tick_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    })
+    .eq("id", 1);
+  return race;
+}
+
+/** Create the next race when finalize wrote results but never spawned a successor. */
+export async function ensureNextRaceAfterFinalized(
+  supabase: SupabaseClient,
+  completedRace: Race
+): Promise<Race | null> {
+  if (completedRace.status !== "finalized") return null;
+  if (await getActiveRaceOnly(supabase)) return null;
+
+  const nextRaceNumber = completedRace.race_number + 1;
+  const { data: existingNext } = await supabase
+    .from("races")
+    .select("id, status")
+    .eq("race_number", nextRaceNumber)
+    .maybeSingle();
+  if (existingNext) return null;
+
+  const { data: entries, error: entriesErr } = await supabase
+    .from("race_entries")
+    .select(
+      "player_id, current_rank, final_rank, is_injured, is_fighting, fighting_at_tick, fight_end_tick"
+    )
+    .eq("race_id", completedRace.id);
+  if (entriesErr) throw entriesErr;
+  if (!entries?.length) return null;
+
+  const raceTickCount = TICKS_PER_RACE;
+  const tickNumber = raceTickCount - 1;
+  const ranked: NextRosterEntry[] = entries.map((entry) => ({
+    player_id: entry.player_id,
+    current_rank: entry.current_rank,
+    final_rank: entry.final_rank,
+    is_injured: Boolean(entry.is_injured),
+    is_disqualified: isStillFightingAtRaceEnd(
+      {
+        is_fighting: Boolean(entry.is_fighting),
+        fighting_at_tick: entry.fighting_at_tick as number | null,
+        fight_end_tick: entry.fight_end_tick as number | null,
+      },
+      tickNumber
+    ),
+  }));
+
+  const injuredIds = ranked.filter((e) => e.is_injured).map((e) => e.player_id);
+  const { data: gameState } = await supabase
+    .from("game_state")
+    .select("current_day")
+    .eq("id", 1)
+    .single();
+  const currentDay = gameState?.current_day ?? completedRace.day_number;
+
+  return startNextRaceFromCompleted(
+    supabase,
+    completedRace,
+    ranked,
+    injuredIds,
+    currentDay
+  );
+}
+
+/** Recover when races were wiped or finalize failed before spawning the next race. */
+export async function repairLeagueRaceState(supabase: SupabaseClient): Promise<void> {
+  const { count: raceCount, error: countErr } = await supabase
+    .from("races")
+    .select("id", { count: "exact", head: true });
+  if (countErr) throw countErr;
+
+  if (!raceCount) {
+    const { data: gs, error: gsErr } = await supabase
+      .from("game_state")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+    if (gsErr) throw gsErr;
+    if (!gs) {
+      await initializeGameIfNeeded(supabase);
+      return;
+    }
+
+    const nextRaceNumber = gs.current_race_number + 1;
+    const nextDay = gs.current_day + 1;
+    let rosterIds =
+      (
+        await supabase.from("players").select("id").eq("status", "active")
+      ).data?.map((p) => p.id) ?? [];
+
+    const replacementExclude = new Set(rosterIds);
+    while (rosterIds.length < 8) {
+      const replacement = await chooseReplacement(supabase, nextDay, {
+        excludePlayerIds: [...replacementExclude],
+        nextRaceNumber,
+      });
+      replacementExclude.add(replacement.id);
+      rosterIds.push(replacement.id);
+    }
+    if (rosterIds.length > 8) rosterIds = rosterIds.slice(0, 8);
+
+    const { startedAt, endsAt } = getNextRaceDayBounds(new Date());
+    await createRace(supabase, nextDay, nextRaceNumber, rosterIds, startedAt, endsAt);
+    await supabase
+      .from("game_state")
+      .update({
+        current_day: nextDay,
+        current_race_number: nextRaceNumber,
+        last_tick_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", 1);
+    console.log(
+      `[repairLeagueRaceState] recreated race ${nextRaceNumber} (${rosterIds.length} racers)`
+    );
+    return;
+  }
+
+  const active = await getActiveRaceOnly(supabase);
+  if (active) return;
+
+  const { data: lastRace } = await supabase
+    .from("races")
+    .select("*")
+    .order("race_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!lastRace || lastRace.status !== "finalized") return;
+
+  const spawned = await ensureNextRaceAfterFinalized(supabase, lastRace as Race);
+  if (spawned) {
+    console.log(
+      `[repairLeagueRaceState] spawned race ${spawned.race_number} after finalized race ${lastRace.race_number}`
+    );
+  }
 }
 
 /**

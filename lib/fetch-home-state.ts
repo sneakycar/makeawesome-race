@@ -8,6 +8,7 @@ import {
   initializeGameIfNeeded,
   ensureRaceTickedIfStale,
   repairActiveRaceSchedule,
+  repairLeagueRaceState,
 } from "./race-logic";
 import { getRaceClock } from "./race-clock";
 import { getRaceDelayInfo, isRaceDelayed } from "./race-delay";
@@ -40,6 +41,7 @@ export async function fetchHomeState(
   request: Request
 ): Promise<GameStateResponse | null> {
   await withFallback("initializeGameIfNeeded", () => initializeGameIfNeeded(supabase), false);
+  await withFallback("repairLeagueRaceState", () => repairLeagueRaceState(supabase), undefined);
   await withFallback("ensureRaceTickedIfStale", () => ensureRaceTickedIfStale(supabase), undefined);
 
   const active = await getActiveRaceWithEntries(supabase);
