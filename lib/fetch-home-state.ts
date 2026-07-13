@@ -50,7 +50,7 @@ export async function fetchHomeState(
     .from("players")
     .select("id", { count: "exact", head: true });
   if (!bootstrapRaceCount && !bootstrapPlayerCount) {
-    await withFallback("resetEmptyLeague", () => resetEmptyLeague(supabase), undefined);
+    await resetEmptyLeague(supabase);
   } else {
     try {
       await repairLeagueRaceState(supabase);
