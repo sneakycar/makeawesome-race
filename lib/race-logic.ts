@@ -569,7 +569,43 @@ export async function ensureGameStateRow(supabase: SupabaseClient): Promise<void
 
 export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<boolean> {
   const { data: existing } = await supabase.from("game_state").select("id").eq("id", 1).maybeSingle();
-  if (existing) return false;
+  const { count: raceCount } = await supabase
+    .from("races")
+    .select("id", { count: "exact", head: true });
+  const { count: playerCount } = await supabase
+    .from("players")
+    .select("id", { count: "exact", head: true });
+
+  if (existing && raceCount && playerCount) return false;
+
+  if (existing && !raceCount && !playerCount) {
+    await supabase.from("game_state").delete().eq("id", 1);
+  } else if (existing && !raceCount && playerCount) {
+    const { data: gs } = await supabase.from("game_state").select("*").eq("id", 1).single();
+    const { data: activePlayers } = await supabase
+      .from("players")
+      .select("id")
+      .eq("status", "active");
+    const rosterIds = (activePlayers ?? []).map((p) => p.id);
+    if (rosterIds.length === 8) {
+      const nextRaceNumber = (gs?.current_race_number ?? 0) + 1;
+      const nextDay = (gs?.current_day ?? 0) + 1;
+      const { startedAt, endsAt } = getNextRaceDayBounds(new Date());
+      await createRace(supabase, nextDay, nextRaceNumber, rosterIds, startedAt, endsAt);
+      await supabase
+        .from("game_state")
+        .update({
+          current_day: nextDay,
+          current_race_number: nextRaceNumber,
+          last_tick_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", 1);
+      return true;
+    }
+  }
+
+  if (existing && (raceCount || playerCount)) return false;
 
   const { startedAt, endsAt } = getFirstRaceLiveBounds();
   const existingSlugs = new Set<string>();
@@ -2006,6 +2042,7 @@ async function repairLeagueRaceStateInner(supabase: SupabaseClient): Promise<voi
       .select("id", { count: "exact", head: true });
     if (playerCountErr) throw playerCountErr;
     if (!playerCount) {
+      await supabase.from("game_state").delete().eq("id", 1);
       await initializeGameIfNeeded(supabase);
       return;
     }
