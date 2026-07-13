@@ -1819,7 +1819,7 @@ async function fillRosterToEight(
   nextRaceNumber: number,
   strictExcludeIds: string[] = []
 ): Promise<string[]> {
-  const rosterIds = [...seedRosterIds];
+  const rosterIds = [...seedRosterIds.slice(0, 8)];
   const strictExclude = new Set(strictExcludeIds);
 
   while (rosterIds.length < 8) {
@@ -1984,7 +1984,11 @@ export async function repairLeagueRaceState(supabase: SupabaseClient): Promise<v
     await repairLeagueRaceStateInner(supabase);
   } catch (err) {
     console.error("[repairLeagueRaceState] primary repair failed:", err);
-    await repairLeagueRaceStateEmergency(supabase);
+    try {
+      await repairLeagueRaceStateEmergency(supabase);
+    } catch (emergencyErr) {
+      console.error("[repairLeagueRaceState] emergency repair failed:", emergencyErr);
+    }
   }
 }
 
@@ -2462,6 +2466,7 @@ export async function resetToFirstRace(supabase: SupabaseClient): Promise<Race> 
 
 export async function runTickPipeline(supabase: SupabaseClient): Promise<void> {
   await initializeGameIfNeeded(supabase);
+  await repairLeagueRaceState(supabase);
   await ensureRaceTickedIfStale(supabase);
 }
 

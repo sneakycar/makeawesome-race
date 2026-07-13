@@ -14,9 +14,12 @@ export async function GET(request: Request) {
     return NextResponse.json(body);
   } catch (err) {
     console.error("GET /api/state", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server error" },
-      { status: 500 }
-    );
+    const message =
+      err instanceof Error
+        ? err.message
+        : typeof err === "object" && err && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

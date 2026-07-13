@@ -6,6 +6,7 @@ import {
   getActiveStreaks,
   getNextRaceDayBounds,
   initializeGameIfNeeded,
+  ensureGameStateRow,
   ensureRaceTickedIfStale,
   repairActiveRaceSchedule,
   repairLeagueRaceState,
@@ -41,7 +42,11 @@ export async function fetchHomeState(
   request: Request
 ): Promise<GameStateResponse | null> {
   await withFallback("initializeGameIfNeeded", () => initializeGameIfNeeded(supabase), false);
-  await repairLeagueRaceState(supabase);
+  try {
+    await repairLeagueRaceState(supabase);
+  } catch (err) {
+    console.error("[fetchHomeState] repairLeagueRaceState failed:", err);
+  }
   await withFallback("ensureRaceTickedIfStale", () => ensureRaceTickedIfStale(supabase), undefined);
 
   const active = await getActiveRaceWithEntries(supabase);
@@ -146,8 +151,13 @@ export async function fetchHomeState(
     console.error("[injured]", injuredResult.reason);
   }
 
-  const gameState = gameStateResultValue?.data;
-  if (!gameState) throw new Error("game_state missing");
+  let gameState = gameStateResultValue?.data;
+  if (!gameState) {
+    await withFallback("ensureGameStateRow", () => ensureGameStateRow(supabase), undefined);
+    const retry = await supabase.from("game_state").select("*").eq("id", 1).maybeSingle();
+    if (!retry.data) throw new Error("game_state missing");
+    gameState = retry.data;
+  }
 
   const betweenRaces = race.status === "finalized";
   const nextRaceNumber = betweenRaces ? race.race_number + 1 : null;
