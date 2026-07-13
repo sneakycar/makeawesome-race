@@ -9,7 +9,27 @@ export async function GET(request: Request) {
     const supabase = createAdminClient();
     const body = await fetchHomeState(supabase, request);
     if (!body) {
-      return NextResponse.json({ error: "No race found" }, { status: 404 });
+      const [{ count: raceCount }, { count: activeCount }, { count: holdingCount }] =
+        await Promise.all([
+          supabase.from("races").select("id", { count: "exact", head: true }),
+          supabase
+            .from("players")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "active"),
+          supabase
+            .from("players")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "holding"),
+        ]);
+      return NextResponse.json(
+        {
+          error: "No race found",
+          raceCount: raceCount ?? 0,
+          activeCount: activeCount ?? 0,
+          holdingCount: holdingCount ?? 0,
+        },
+        { status: 404 }
+      );
     }
     return NextResponse.json(body);
   } catch (err) {
