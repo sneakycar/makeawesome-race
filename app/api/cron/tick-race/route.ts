@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { runTickPipeline } from "@/lib/race-logic";
+import { getActiveRaceWithEntries, runTickPipeline } from "@/lib/race-logic";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function GET(request: Request) {
   const auth = request.headers.get("authorization");
@@ -16,7 +16,13 @@ export async function GET(request: Request) {
   try {
     const supabase = createAdminClient();
     await runTickPipeline(supabase);
-    return NextResponse.json({ ok: true });
+    const active = await getActiveRaceWithEntries(supabase);
+    return NextResponse.json({
+      ok: true,
+      raceNumber: active?.race.race_number ?? null,
+      entryCount: active?.entries.length ?? 0,
+      percentComplete: active?.race.percent_complete ?? null,
+    });
   } catch (err) {
     console.error("GET /api/cron/tick-race", err);
     return NextResponse.json(

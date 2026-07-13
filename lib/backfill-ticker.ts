@@ -16,6 +16,7 @@ import { roundRaceScore } from "./score";
 import {
   generateFinalizeTickerEvents,
   generateRaceStartTickerEvents,
+  generateStatusPulseTickerEvent,
   generateTickTickerEvents,
   type TickerEntrySnapshot,
   type TickerEventDraft,
@@ -265,7 +266,18 @@ export async function backfillRaceTicker(
       raceId,
       tick
     );
-    rows.push(...draftsToRows(raceId, tick, tickTime(tick), dramatic));
+    const tickEvents =
+      dramatic.length > 0
+        ? dramatic
+        : [
+            generateStatusPulseTickerEvent(
+              afterSnapshots,
+              typedRace.race_number,
+              percentComplete,
+              tick
+            ),
+          ];
+    rows.push(...draftsToRows(raceId, tick, tickTime(tick), tickEvents));
     beforeSnapshots = afterSnapshots;
   }
 

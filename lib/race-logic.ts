@@ -2522,7 +2522,17 @@ export async function resetToFirstRace(supabase: SupabaseClient): Promise<Race> 
 
 export async function runTickPipeline(supabase: SupabaseClient): Promise<void> {
   await initializeGameIfNeeded(supabase);
-  await repairLeagueRaceState(supabase);
+  const { count: bootstrapRaceCount } = await supabase
+    .from("races")
+    .select("id", { count: "exact", head: true });
+  const { count: bootstrapPlayerCount } = await supabase
+    .from("players")
+    .select("id", { count: "exact", head: true });
+  if (!bootstrapRaceCount && !bootstrapPlayerCount) {
+    await resetEmptyLeague(supabase);
+  } else {
+    await repairLeagueRaceState(supabase);
+  }
   await ensureRaceTickedIfStale(supabase);
 }
 

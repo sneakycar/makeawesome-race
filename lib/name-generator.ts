@@ -4,14 +4,14 @@ import { generateGender, type PlayerGender } from "./player-gender";
 
 /** Starter roster — eight fixed racers for race 1. */
 export const B3S_SEED_ACTIVE_NAMES = [
-  "gerald",
-  "rob",
-  "sam",
-  "danz",
-  "emily",
-  "tacosaurus",
-  "daven3",
-  "kara",
+  "uncle",
+  "chrisman",
+  "A.K. pal",
+  "bhole",
+  "noah",
+  "chris vogel",
+  "walhof",
+  "ace",
 ] as const;
 
 export const SEED_ACTIVE_NAMES = B3S_SEED_ACTIVE_NAMES;

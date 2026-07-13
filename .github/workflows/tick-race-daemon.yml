@@ -40,7 +40,7 @@ jobs:
           TICK_LOOP_DURATION_MINUTES: "350"
 
       - name: Chain next daemon session
-        if: always()
+        if: success()
         run: gh workflow run tick-race-daemon.yml --ref master
         env:
           GH_TOKEN: ${{ github.token }}

@@ -9,6 +9,7 @@ import { createAdminClient } from "../lib/supabase/admin";
 import { calculatePercentComplete, getTickNumber } from "../lib/race-logic";
 
 async function main() {
+  const strict = process.argv.includes("--strict");
   const supabase = createAdminClient();
   const now = new Date();
 
@@ -38,6 +39,7 @@ async function main() {
 
   if (!race) {
     console.log("NO ACTIVE RACE");
+    if (strict) process.exit(1);
     return;
   }
 
@@ -92,6 +94,19 @@ async function main() {
     .select("id", { count: "exact", head: true })
     .eq("race_id", race.id);
   console.log("\ntotal ticker events this race:", tickCount);
+
+  if (strict) {
+    if (gs?.last_tick_at) {
+      const mins = (now.getTime() - new Date(gs.last_tick_at).getTime()) / 60000;
+      if (mins > 20) {
+        console.error(`STALE: last tick ${mins.toFixed(1)}m ago`);
+        process.exit(1);
+      }
+    } else {
+      console.error("STALE: no last_tick_at");
+      process.exit(1);
+    }
+  }
 }
 
 main().catch((err) => {

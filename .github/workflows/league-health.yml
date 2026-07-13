@@ -1,0 +1,75 @@
+# Keeps the league alive — pings production, repairs if broken, nudges ticks if stale.
+name: League Health
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: league-health
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check production health
+        id: health
+        run: |
+          set -euo pipefail
+          BODY=$(curl -sfS -m 30 "https://b3s.makeawesome.com/api/health" || echo '{"ok":false}')
+          echo "$BODY" | jq .
+          OK=$(echo "$BODY" | jq -r '.ok // false')
+          STALE=$(echo "$BODY" | jq -r '.tickStale // false')
+          WRONG_DB=$(echo "$BODY" | jq -r '.wrongDatabase // false')
+          echo "ok=$OK" >> "$GITHUB_OUTPUT"
+          echo "stale=$STALE" >> "$GITHUB_OUTPUT"
+          echo "wrong_db=$WRONG_DB" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger repair via state API
+        if: steps.health.outputs.ok != 'true'
+        run: |
+          echo "Unhealthy — loading /api/state (auto-repair on read path)"
+          curl -sfS -m 120 "https://b3s.makeawesome.com/api/state" | jq 'if .error then . else {race:.race.race_number,status:.race.status,entries:(.entries|length)} end' || true
+
+      - uses: actions/checkout@v4
+        if: steps.health.outputs.ok != 'true' || steps.health.outputs.stale == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.health.outputs.ok != 'true' || steps.health.outputs.stale == 'true'
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+        if: steps.health.outputs.ok != 'true' || steps.health.outputs.stale == 'true'
+
+      - name: Direct DB tick catch-up
+        if: steps.health.outputs.ok != 'true' || steps.health.outputs.stale == 'true'
+        run: npm run ensure-race-tick
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Vercel cron tick
+        if: steps.health.outputs.ok != 'true' || steps.health.outputs.stale == 'true'
+        run: |
+          if [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "CRON_SECRET not set"
+            exit 0
+          fi
+          curl -sfS -m 120 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://b3s.makeawesome.com/api/cron/tick-race" | jq .
+
+      - name: Re-check health
+        if: always()
+        run: |
+          curl -sfS -m 30 "https://b3s.makeawesome.com/api/health" | jq .
+          curl -sfS -m 30 "https://b3s.makeawesome.com/api/health" | jq -e '.ok == true'
