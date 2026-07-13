@@ -15,7 +15,7 @@ export async function GET() {
         .order("race_number", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      supabase.from("game_state").select("last_tick_at").eq("id", 1).single(),
+      supabase.from("game_state").select("last_tick_at").eq("id", 1).maybeSingle(),
     ]);
 
     if (gameStateResult.error) {
@@ -26,6 +26,7 @@ export async function GET() {
       ok: true,
       activeRace: raceResult.data?.race_number ?? null,
       lastTickAt: gameStateResult.data?.last_tick_at ?? null,
+      gameStateReady: Boolean(gameStateResult.data),
     });
   } catch (err) {
     console.error("GET /api/health", err);

@@ -527,6 +527,46 @@ export function buildPlayerInsert(
   };
 }
 
+export async function ensureGameStateRow(supabase: SupabaseClient): Promise<void> {
+  const { data: existing, error: findErr } = await supabase
+    .from("game_state")
+    .select("id")
+    .eq("id", 1)
+    .maybeSingle();
+  if (findErr) throw findErr;
+  if (existing) return;
+
+  const { data: lastRace } = await supabase
+    .from("races")
+    .select("day_number, race_number")
+    .order("race_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: maxDayRow } = await supabase
+    .from("player_history")
+    .select("day_number")
+    .order("day_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const currentDay = lastRace?.day_number ?? maxDayRow?.day_number ?? 1;
+  const currentRaceNumber = lastRace?.race_number ?? 1;
+
+  const { error: insertErr } = await supabase.from("game_state").insert({
+    id: 1,
+    current_day: currentDay,
+    current_race_number: currentRaceNumber,
+    last_tick_at: new Date().toISOString(),
+    god_score_awarded: false,
+  });
+  if (insertErr) throw insertErr;
+
+  console.log(
+    `[ensureGameStateRow] created game_state (day ${currentDay}, race ${currentRaceNumber})`
+  );
+}
+
 export async function initializeGameIfNeeded(supabase: SupabaseClient): Promise<boolean> {
   const { data: existing } = await supabase.from("game_state").select("id").eq("id", 1).maybeSingle();
   if (existing) return false;
@@ -1939,22 +1979,29 @@ export async function ensureNextRaceAfterFinalized(
 
 /** Recover when races were wiped or finalize failed before spawning the next race. */
 export async function repairLeagueRaceState(supabase: SupabaseClient): Promise<void> {
+  await ensureGameStateRow(supabase);
+
   const { count: raceCount, error: countErr } = await supabase
     .from("races")
     .select("id", { count: "exact", head: true });
   if (countErr) throw countErr;
 
   if (!raceCount) {
+    const { count: playerCount, error: playerCountErr } = await supabase
+      .from("players")
+      .select("id", { count: "exact", head: true });
+    if (playerCountErr) throw playerCountErr;
+    if (!playerCount) {
+      await initializeGameIfNeeded(supabase);
+      return;
+    }
+
     const { data: gs, error: gsErr } = await supabase
       .from("game_state")
       .select("*")
       .eq("id", 1)
-      .maybeSingle();
+      .single();
     if (gsErr) throw gsErr;
-    if (!gs) {
-      await initializeGameIfNeeded(supabase);
-      return;
-    }
 
     const nextRaceNumber = gs.current_race_number + 1;
     const nextDay = gs.current_day + 1;

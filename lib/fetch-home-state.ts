@@ -6,6 +6,7 @@ import {
   getActiveStreaks,
   getNextRaceDayBounds,
   initializeGameIfNeeded,
+  ensureGameStateRow,
   ensureRaceTickedIfStale,
   repairActiveRaceSchedule,
   repairLeagueRaceState,
@@ -41,6 +42,7 @@ export async function fetchHomeState(
   request: Request
 ): Promise<GameStateResponse | null> {
   await withFallback("initializeGameIfNeeded", () => initializeGameIfNeeded(supabase), false);
+  await withFallback("ensureGameStateRow", () => ensureGameStateRow(supabase), undefined);
   await withFallback("repairLeagueRaceState", () => repairLeagueRaceState(supabase), undefined);
   await withFallback("ensureRaceTickedIfStale", () => ensureRaceTickedIfStale(supabase), undefined);
 
