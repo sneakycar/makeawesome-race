@@ -1811,6 +1811,39 @@ export async function chooseReplacement(
   );
 }
 
+/** Fill an 8-racer roster, relaxing previous-race exclusions if the pool is exhausted. */
+async function fillRosterToEight(
+  supabase: SupabaseClient,
+  seedRosterIds: string[],
+  nextDay: number,
+  nextRaceNumber: number,
+  strictExcludeIds: string[] = []
+): Promise<string[]> {
+  const rosterIds = [...seedRosterIds];
+  const strictExclude = new Set(strictExcludeIds);
+
+  while (rosterIds.length < 8) {
+    const onRoster = new Set(rosterIds);
+    try {
+      const replacement = await chooseReplacement(supabase, nextDay, {
+        excludePlayerIds: [...new Set([...onRoster, ...strictExclude])],
+        nextRaceNumber,
+      });
+      rosterIds.push(replacement.id);
+      continue;
+    } catch (strictErr) {
+      if (strictExclude.size === 0) throw strictErr;
+      const replacement = await chooseReplacement(supabase, nextDay, {
+        excludePlayerIds: [...onRoster],
+        nextRaceNumber,
+      });
+      rosterIds.push(replacement.id);
+    }
+  }
+
+  return rosterIds.slice(0, 8);
+}
+
 type NextRosterEntry = {
   player_id: string;
   current_rank: number;
@@ -1824,8 +1857,7 @@ export async function buildNextRaceRoster(
   supabase: SupabaseClient,
   ranked: NextRosterEntry[],
   nextDay: number,
-  nextRaceNumber: number,
-  injuredIds: string[] = []
+  nextRaceNumber: number
 ): Promise<string[]> {
   const currentRacePlayerIds = ranked.map((e) => e.player_id);
   const eligibleFinishers = ranked.filter(
@@ -1835,49 +1867,13 @@ export async function buildNextRaceRoster(
     .filter((e) => (e.final_rank ?? e.current_rank) <= 3)
     .map((e) => e.player_id);
 
-  let rosterIds = [...carryOverIds];
-  const replacementExclude = new Set([...currentRacePlayerIds]);
-  const slotsNeeded = Math.max(0, 8 - carryOverIds.length);
-
-  for (let i = 0; i < slotsNeeded; i++) {
-    const replacement = await chooseReplacement(supabase, nextDay, {
-      excludePlayerIds: [...replacementExclude],
-      nextRaceNumber,
-    });
-    replacementExclude.add(replacement.id);
-    rosterIds.push(replacement.id);
-  }
-
-  while (rosterIds.length > 8) {
-    const idx = rosterIds.findIndex((id) => !carryOverIds.includes(id));
-    if (idx < 0) break;
-    rosterIds.splice(idx, 1);
-  }
-  while (rosterIds.length < 8) {
-    const replacement = await chooseReplacement(supabase, nextDay, {
-      excludePlayerIds: [...replacementExclude],
-      nextRaceNumber,
-    });
-    replacementExclude.add(replacement.id);
-    rosterIds.push(replacement.id);
-  }
-
-  const rosterSet = new Set(rosterIds);
-  if (rosterSet.size !== rosterIds.length) {
-    throw new Error("Next race roster contains duplicate racers");
-  }
-  for (const prevId of currentRacePlayerIds) {
-    if (rosterSet.has(prevId) && !carryOverIds.includes(prevId)) {
-      throw new Error("Non-podium racer from previous race cannot join the next race");
-    }
-  }
-  for (const injuredId of injuredIds) {
-    if (rosterIds.includes(injuredId)) {
-      throw new Error("Injured racer cannot join the next race");
-    }
-  }
-
-  return rosterIds.slice(0, 8);
+  return fillRosterToEight(
+    supabase,
+    carryOverIds,
+    nextDay,
+    nextRaceNumber,
+    currentRacePlayerIds
+  );
 }
 
 async function startNextRaceFromCompleted(
@@ -1894,9 +1890,14 @@ async function startNextRaceFromCompleted(
     supabase,
     ranked,
     nextDay,
-    nextRaceNumber,
-    injuredIds
+    nextRaceNumber
   );
+  const rosterSet = new Set(rosterIds);
+  for (const injuredId of injuredIds) {
+    if (rosterSet.has(injuredId)) {
+      throw new Error("Injured racer cannot join the next race");
+    }
+  }
   const { startedAt, endsAt } = getNextRaceDayBounds(new Date(completedRace.ends_at));
   const race = await createRace(
     supabase,
@@ -1979,6 +1980,15 @@ export async function ensureNextRaceAfterFinalized(
 
 /** Recover when races were wiped or finalize failed before spawning the next race. */
 export async function repairLeagueRaceState(supabase: SupabaseClient): Promise<void> {
+  try {
+    await repairLeagueRaceStateInner(supabase);
+  } catch (err) {
+    console.error("[repairLeagueRaceState] primary repair failed:", err);
+    await repairLeagueRaceStateEmergency(supabase);
+  }
+}
+
+async function repairLeagueRaceStateInner(supabase: SupabaseClient): Promise<void> {
   await ensureGameStateRow(supabase);
 
   const { count: raceCount, error: countErr } = await supabase
@@ -2005,21 +2015,17 @@ export async function repairLeagueRaceState(supabase: SupabaseClient): Promise<v
 
     const nextRaceNumber = gs.current_race_number + 1;
     const nextDay = gs.current_day + 1;
-    let rosterIds =
+    const activeIds =
       (
         await supabase.from("players").select("id").eq("status", "active")
       ).data?.map((p) => p.id) ?? [];
 
-    const replacementExclude = new Set(rosterIds);
-    while (rosterIds.length < 8) {
-      const replacement = await chooseReplacement(supabase, nextDay, {
-        excludePlayerIds: [...replacementExclude],
-        nextRaceNumber,
-      });
-      replacementExclude.add(replacement.id);
-      rosterIds.push(replacement.id);
-    }
-    if (rosterIds.length > 8) rosterIds = rosterIds.slice(0, 8);
+    const rosterIds = await fillRosterToEight(
+      supabase,
+      activeIds,
+      nextDay,
+      nextRaceNumber
+    );
 
     const { startedAt, endsAt } = getNextRaceDayBounds(new Date());
     await createRace(supabase, nextDay, nextRaceNumber, rosterIds, startedAt, endsAt);
@@ -2055,6 +2061,61 @@ export async function repairLeagueRaceState(supabase: SupabaseClient): Promise<v
       `[repairLeagueRaceState] spawned race ${spawned.race_number} after finalized race ${lastRace.race_number}`
     );
   }
+}
+
+async function repairLeagueRaceStateEmergency(supabase: SupabaseClient): Promise<void> {
+  if (await getActiveRaceOnly(supabase)) return;
+
+  const { count: raceCount } = await supabase
+    .from("races")
+    .select("id", { count: "exact", head: true });
+  if (raceCount) return;
+
+  await ensureGameStateRow(supabase);
+  const { data: gs, error: gsErr } = await supabase
+    .from("game_state")
+    .select("*")
+    .eq("id", 1)
+    .single();
+  if (gsErr) throw gsErr;
+
+  const { count: playerCount } = await supabase
+    .from("players")
+    .select("id", { count: "exact", head: true });
+  if (!playerCount) {
+    await initializeGameIfNeeded(supabase);
+    return;
+  }
+
+  const nextRaceNumber = gs.current_race_number + 1;
+  const nextDay = gs.current_day + 1;
+  const activeIds =
+    (
+      await supabase.from("players").select("id").eq("status", "active").limit(8)
+    ).data?.map((p) => p.id) ?? [];
+
+  const rosterIds = await fillRosterToEight(
+    supabase,
+    activeIds,
+    nextDay,
+    nextRaceNumber
+  );
+
+  const { startedAt, endsAt } = getNextRaceDayBounds(new Date());
+  await createRace(supabase, nextDay, nextRaceNumber, rosterIds, startedAt, endsAt);
+  await supabase
+    .from("game_state")
+    .update({
+      current_day: nextDay,
+      current_race_number: nextRaceNumber,
+      last_tick_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  console.log(
+    `[repairLeagueRaceStateEmergency] created race ${nextRaceNumber} (${rosterIds.length} racers)`
+  );
 }
 
 /**
